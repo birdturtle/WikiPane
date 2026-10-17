@@ -169,7 +169,7 @@ public final class SemanticExtractor {
                 rows.add(new Row(cells, carried));
         }
         for (int i = 0; i < raw.images.size(); i++) units.add(source.unit + ".image" + i);
-        return new Table(raw.caption, raw.variant, raw.kind, role, source, rows, raw.classes, raw.images);
+        return new Table(raw.caption, raw.variant, raw.kind, role, source, rows, raw.classes, raw.images, raw.recipeGroup, raw.recipeVariant, raw.recipeMethod);
     }
     private static List<Instruction> instructions(Element list, Source source) {
         List<Instruction> result = new ArrayList<>();

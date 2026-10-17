@@ -16,6 +16,7 @@ public final class KnowledgeArticle {
     public final List<RequirementSet> requirements;
     public final List<Relationship> relationships;
     public final List<Location> locations;
+    public final List<com.wikipane.semantic.Recipe> recipes;
 
     public KnowledgeArticle(WikiDocument document, String entityId, String destinationAnchor) {
         this.document = document;
@@ -51,6 +52,9 @@ public final class KnowledgeArticle {
         requirements = List.copyOf(rs);
         relationships = List.copyOf(links);
         locations = List.copyOf(ls);
+        recipes = semantic.recipes.stream().filter(recipe -> recipe.variant.isEmpty()
+            || !variants.contains(recipe.variant) || variantKnown && recipe.variant.equals(variant))
+            .collect(java.util.stream.Collectors.toUnmodifiableList());
     }
     public List<Node> section(String anchor) {
         List<Node> result = new ArrayList<>();

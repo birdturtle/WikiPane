@@ -155,6 +155,8 @@ public final class ContentRenderer {
         java.util.List<Requirement> requested = new ArrayList<>();
         for (Node node : pinDocument.nodes) for (RequirementSet set : node.requirements)
             for (RequirementGroup group : set.groups) requested.add(group.expression);
+        for(com.wikipane.semantic.Recipe recipe:pinDocument.recipes)
+            for(com.wikipane.semantic.Recipe.Skill skill:recipe.skills) requested.add(skill.requirement);
         contextRequests.accept(java.util.List.copyOf(requested));
         areaId = area.id;
         anchorAliases = page.navigation.anchors(area.id);
@@ -259,6 +261,18 @@ public final class ContentRenderer {
         int stop = Math.min(pending.size(), revealed + count);
         while (revealed < stop) {
             ArticleViewModel.Component component = pending.get(revealed++);
+            com.wikipane.semantic.Recipe recipe=layout.recipe(component.node.source.unit);
+            if(recipe!=null) {
+                boolean entityVariant=pinDocument.nodes.stream().anyMatch(n -> n.table!=null && !n.table.variant.isEmpty() && n.table.variant.equals(recipe.variant));
+                String recipeVariant=selectedVariant;
+                if(recipeVariant.isEmpty())recipeVariant=pinDocument.nodes.stream().filter(n->n.table!=null&&!n.table.variant.isEmpty()).map(n->n.table.variant).findFirst().orElse("");
+                if(entityVariant&&!recipe.variant.equals(recipeVariant)) continue;
+                if(!component.node.source.unit.equals(recipe.requirementsTable.source.unit)) {
+                    JComponent destination=anchors.get(recipe.requirementsTable.source.unit);
+                    if(destination!=null)anchors.put(component.id,destination);
+                    continue;
+                }
+            }
             components.pinContext(new com.wikipane.pin.PinContext(pinDocument, component.node));
             JPanel section = column();
             section.putClientProperty("wiki.source", component.node.id);
@@ -305,7 +319,8 @@ public final class ContentRenderer {
                     renderFacts(component, section);
                     break;
                 case TABLE:
-                    if (component.node.table != null)
+                    if(recipe!=null) section.add(recipe(recipe));
+                    else if (component.node.table != null)
                         section.add(table(component.node.table, component.id));
                     break;
                 case REFERENCES:
@@ -435,6 +450,57 @@ public final class ContentRenderer {
         if (table != null)
             for (int i = 1; i < table.images.size(); i++) target.add(image(table.images.get(i)));
     }
+    private JComponent recipe(com.wikipane.semantic.Recipe recipe) {
+        JPanel card=components.card("wiki.recipe");
+        com.wikipane.pin.PinContext original=components.pinContext();
+        if(original!=null&&!recipe.label().isEmpty())original=original.group(recipe.label()+" recipe");
+        components.pinContext(original);
+        if(!recipe.label().isEmpty())card.add(text("<span class='muted tiny'>"+escape(recipe.label())+"</span>"));
+        card.add(text("<b>Produces</b>"));
+        for(com.wikipane.semantic.Recipe.Ingredient output:recipe.outputs) card.add(recipeIngredient(output));
+        for(com.wikipane.semantic.Recipe.Skill skill:recipe.skills) {
+            JPanel row=column();
+            if(original!=null)components.pinContext(original.condition(skill.level.source,skill.name,skill.requirement));
+            JComponent condition=components.condition(escape(skill.name)+" "+skill.level.value.html);
+            RequirementBadge badge=new RequirementBadge(skill.requirement,condition);badges.add(badge);row.add(badge);
+            components.pinContext(original);
+            row.add(components.field(new com.wikipane.view.ReaderLayout.Field("XP",skill.experience.value,skill.experience.source)));
+            card.add(row);
+        }
+        card.add(text("<b>Ingredients</b>"));
+        for(com.wikipane.semantic.Recipe.Ingredient input:recipe.inputs) card.add(recipeIngredient(input));
+        for(String label:java.util.List.of("Tools","Facilities","Members","Ticks")) {
+            Cell value=recipe.conditions.get(label);
+            if(value!=null&&!value.value.text.isBlank())card.add(components.field(new com.wikipane.view.ReaderLayout.Field(label,value.value,value.source)));
+        }
+        JButton details=linkButton("<html>Costs &amp; source details</html>");
+        JPanel source=column();source.setVisible(false);
+        // Reuse the complete source table renderer; no unsupported values are discarded.
+        com.wikipane.pin.PinContext sourceContext=original;
+        details.addActionListener(e -> {
+            if(source.getComponentCount()==0) {
+                components.pinContext(sourceContext);
+                source.add(table(recipe.requirementsTable,recipe.id+".requirements"));
+                source.add(table(recipe.materialsTable,recipe.id+".materials"));
+                components.pinContext(null);
+                if(selection!=null&&rendered!=null)selection.refresh(rendered);
+            }
+            source.setVisible(!source.isVisible());card.revalidate();
+        });
+        card.add(details);card.add(source);components.pinContext(original);
+        return card;
+    }
+    private JComponent recipeIngredient(com.wikipane.semantic.Recipe.Ingredient ingredient) {
+        com.wikipane.pin.PinContext previous=components.pinContext();
+        if(previous!=null)components.pinContext(previous.record(ingredient.name.text));
+        com.wikipane.view.ReaderLayout.Field item=new com.wikipane.view.ReaderLayout.Field("Item",ingredient.name,ingredient.source);
+        com.wikipane.view.ReaderLayout.Field count=new com.wikipane.view.ReaderLayout.Field("Quantity",ingredient.quantity,ingredient.quantitySource);
+        String name=ingredient.name.html;
+        if(ingredient.name.links.isEmpty())name="<a href='"+escape(ingredient.target.url)+"'>"+name+"</a>";
+        JComponent row=components.recipeItem(item,count,name,ingredient.icon==null?null:image(ingredient.icon,false,true));
+        components.pinContext(previous);return row;
+    }
+
     private JComponent table(Table table, String key) {
         JPanel group = column();
         if (!layout.tableTitle(table).isBlank())
@@ -488,7 +554,17 @@ public final class ContentRenderer {
         return group;
     }
     private JButton linkButton(String title) {
-        JButton button = new JButton(title);
+        JButton button = new JButton(title) {
+            @Override public Dimension getPreferredSize() {
+                javax.swing.text.View html=(javax.swing.text.View)getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey);
+                if(html==null)return super.getPreferredSize();
+                int width=getWidth()>0?getWidth():200;Insets inset=getInsets();
+                html.setSize(Math.max(1,width-inset.left-inset.right),0);
+                return new Dimension(width,Math.max(28,(int)Math.ceil(html.getPreferredSpan(javax.swing.text.View.Y_AXIS))+inset.top+inset.bottom));
+            }
+            @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
+            @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
+        };
         button.setMargin(new Insets(5, 6, 5, 6));
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.setAlignmentX(Component.LEFT_ALIGNMENT);

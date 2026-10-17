@@ -45,6 +45,23 @@ public final class QuickInspectOverlay extends Overlay {
         QuickInspectController.View view = controller.view();
         net.runelite.api.Point mouse = client.getMouseCanvasPosition();
         if (view == null || mouse == null || !getBounds().contains(mouse.getX(), mouse.getY())) return false;
+        if(client.isKeyPressed(KeyCode.KC_SHIFT)&&view.inspection!=null
+            &&view.inspection.article.semantic.type==com.wikipane.semantic.SemanticDocument.PageType.ITEM
+            &&view.inspection.article.recipes.size()>1) {
+            net.runelite.api.Menu recipes=client.getMenu().createMenuEntry(1).setOption("Recipe methods")
+                .setTarget("WikiPane").setType(MenuAction.RUNELITE).createSubMenu();
+            for(int i=0;i<Math.min(12,view.inspection.article.recipes.size());i++) {
+                final int index=i;
+                com.wikipane.semantic.Recipe recipe=view.inspection.article.recipes.get(i);
+                String label=recipe.label().isEmpty()?"Method "+(i+1):recipe.label();
+                label=label.replace('<',' ').replace('>',' ');
+                recipes.createMenuEntry(-1).setOption(label).setType(MenuAction.RUNELITE)
+                    .onClick(e->{if(current(view))controller.recipe(index);});
+            }
+            if(view.inspection.article.recipes.size()>12)
+                recipes.createMenuEntry(-1).setOption("All recipes in article").setType(MenuAction.RUNELITE)
+                    .onClick(e->{if(current(view))controller.explore();});
+        }
         if (client.isKeyPressed(KeyCode.KC_SHIFT) && view.inspection != null
             && !view.inspection.related.isEmpty()) {
             net.runelite.api.Menu sub = client.getMenu().createMenuEntry(1).setOption("Related Wiki articles")

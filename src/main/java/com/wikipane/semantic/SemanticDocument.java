@@ -247,6 +247,7 @@ public final class SemanticDocument {
     }
     public static final class Table {
         public final String title, variant, kind;
+        public final String recipeGroup, recipeVariant, recipeMethod;
         public final Role role;
         public final Source source;
         public final List<Row> rows;
@@ -255,6 +256,11 @@ public final class SemanticDocument {
         public final List<WikiDocument.Image> images;
         public Table(String title, String variant, String kind, Role role, Source source, List<Row> rows,
             Set<String> classes, List<WikiDocument.Image> images) {
+            this(title,variant,kind,role,source,rows,classes,images,"","","");
+        }
+        public Table(String title, String variant, String kind, Role role, Source source, List<Row> rows,
+            Set<String> classes, List<WikiDocument.Image> images, String recipeGroup, String recipeVariant, String recipeMethod) {
+            this.recipeGroup=recipeGroup; this.recipeVariant=recipeVariant; this.recipeMethod=recipeMethod;
             this.title = title;
             this.variant = variant;
             this.kind = kind;
@@ -308,6 +314,7 @@ public final class SemanticDocument {
     public final List<Node> nodes;
     public final List<Relationship> relationships;
     public final List<Reference> references;
+    public final List<Recipe> recipes;
     public final Set<String> contentUnits;
     public SemanticDocument(PageType type, String title, String url, long revision, List<Section> sections,
         List<Node> nodes, List<Relationship> relationships, Set<String> units) {
@@ -326,5 +333,6 @@ public final class SemanticDocument {
         this.references = List.copyOf(definitions);
         this.relationships = List.copyOf(relationships);
         this.contentUnits = Set.copyOf(units);
+        this.recipes = RecipeExtractor.extract(this.nodes);
     }
 }

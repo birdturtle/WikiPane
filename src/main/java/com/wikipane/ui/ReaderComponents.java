@@ -29,9 +29,12 @@ public final class ReaderComponents {
     public com.wikipane.pin.PinContext pinContext() { return pinContext; }
     private com.wikipane.pin.PinContext fieldContext(ReaderLayout.Field field, com.wikipane.pin.PinContext.Part part) {
         com.wikipane.pin.PinContext base = pinContext;
+        if(base!=null&&!base.node.units.contains(field.source.unit)&&!base.node.source.unit.equals(field.source.unit))base=null;
         if (base == null && pinDocument != null) {
             for (Node node : pinDocument.nodes) if (node.units.contains(field.source.unit)) {
-                base = new com.wikipane.pin.PinContext(pinDocument, node); break;
+                base = new com.wikipane.pin.PinContext(pinDocument, node);
+                if(pinContext!=null)base=base.group(pinContext.group).record(pinContext.record);
+                break;
             }
         }
         return base == null ? null : base.field(field.source, field.label, field.value, part);
@@ -89,6 +92,38 @@ public final class ReaderComponents {
         }
         group.add(label);
         return group;
+    }
+    public JEditorPane recipeName(ReaderLayout.Field field,String html) {
+        JEditorPane label=boundText(html,fieldContext(field,com.wikipane.pin.PinContext.Part.VALUE));
+        label.putClientProperty("reader.column",Boolean.TRUE);return label;
+    }
+    public JComponent recipeItem(ReaderLayout.Field item, ReaderLayout.Field amount, String html, JComponent icon) {
+        JEditorPane name=recipeName(item,html);
+        JComponent quantity=fieldValue(amount,false);
+        quantity.putClientProperty("reader.column",Boolean.TRUE);
+        JLabel times=new JLabel("×");times.setForeground(MUTED);
+        int quantityWidth=Math.max(14,quantity.getFontMetrics(new Font(Font.SANS_SERIF,Font.BOLD,12)).stringWidth(amount.value.text)+6);
+        JPanel row=new JPanel(null) {
+            private int nameLeft(){return (icon==null?0:28)+quantityWidth+14;}
+            private int heightAt(int width) {
+                name.setSize(Math.max(1,width-nameLeft()),Short.MAX_VALUE);
+                quantity.setSize(quantityWidth,Short.MAX_VALUE);
+                return Math.max(icon==null?0:icon.getPreferredSize().height,
+                    Math.max(name.getPreferredSize().height,quantity.getPreferredSize().height));
+            }
+            @Override public Dimension getPreferredSize(){int width=getWidth()>0?getWidth():180;return new Dimension(width,heightAt(width));}
+            @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
+            @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
+            @Override public void doLayout(){
+                int left=icon==null?0:28,height=heightAt(getWidth());
+                if(icon!=null)icon.setBounds(0,0,22,icon.getPreferredSize().height);
+                quantity.setBounds(left,0,quantityWidth,height);
+                times.setBounds(left+quantityWidth,0,12,Math.min(24,height));
+                name.setBounds(nameLeft(),0,Math.max(1,getWidth()-nameLeft()),height);
+            }
+        };
+        row.setOpaque(false);row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        if(icon!=null)row.add(icon);row.add(quantity);row.add(times);row.add(name);return row;
     }
     public JComponent field(ReaderLayout.Field field) {
         if (field.label.isBlank() || field.label.equals(field.value.text))

@@ -13,7 +13,7 @@ public final class ReaderLayout {
         public final boolean inline;
         public final FieldPresentation presentation;
         public String identity() { return FieldPresentation.identity(label, value, source); }
-        Field(String label, RichText value, Source source) {
+        public Field(String label, RichText value, Source source) {
             this(label, value, source, Role.INFORMATION);
         }
         Field(String label, RichText value, Source source, Role role) {
@@ -181,12 +181,20 @@ public final class ReaderLayout {
         }
     }
     public final List<ReferenceCard> references;
+    private final Map<String,com.wikipane.semantic.Recipe> recipes;
+    public com.wikipane.semantic.Recipe recipe(String unit) { return recipes.get(unit); }
     private final CompositionAudit audit;
     private final Map<String, Section> sections;
     private final Map<String, List<Record>> records;
     private final Map<String, List<Field>> highlights;
     public ReaderLayout(ArticleViewModel view) {
         audit = view.audit;
+        Map<String,com.wikipane.semantic.Recipe> recipeMap=new HashMap<>();
+        for(com.wikipane.semantic.Recipe recipe:view.document.recipes) {
+            recipeMap.put(recipe.requirementsTable.source.unit,recipe);
+            recipeMap.put(recipe.materialsTable.source.unit,recipe);
+        }
+        recipes=Map.copyOf(recipeMap);
         Map<String, String> markers = new LinkedHashMap<>();
         for (Node node : view.document.nodes)
             for (Citation use : PresentationValidator.citations(node))
@@ -206,6 +214,9 @@ public final class ReaderLayout {
                 if (c.node.table != null)
                     adaptTable(c.node.table, recordMap);
             }
+        for(com.wikipane.semantic.Recipe recipe:view.document.recipes) {
+            adaptTable(recipe.requirementsTable,recordMap);adaptTable(recipe.materialsTable,recordMap);
+        }
         Map<String, List<Field>> highlightMap = new HashMap<>();
         Set<String> variants = new LinkedHashSet<>();
         variants.add("");
@@ -290,6 +301,8 @@ public final class ReaderLayout {
         return highlights.getOrDefault(variant, highlights.getOrDefault("", List.of()));
     }
     public String tableTitle(Table table) {
+        if(!table.recipeVariant.isEmpty()||!table.recipeMethod.isEmpty())return table.title+" / "+table.recipeMethod
+            +(table.recipeMethod.isEmpty()||table.recipeVariant.isEmpty()?"":" / ")+table.recipeVariant;
         if (table.classes.contains("item-drops") && table.title.equals("Drops"))
             return "";
         return table.title.equals(table.source.sectionTitle) ? "" : table.title;

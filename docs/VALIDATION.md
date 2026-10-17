@@ -79,3 +79,11 @@ RFD prerequisite regression: individual nested quest checks retain source text a
 ## Reader UX follow-up
 
 The final `test build` run passes 163 tests. Added coverage includes source-backed related links, record identity and membership normalization, compact records and icons at narrow widths, drop/reference destination separation, exact header anchors across page types, dropdown navigation and scroll history, and thumbnail geometry stability after decoding. Player visual feedback informed the compact layouts, icons, membership colors and single dropdown. The latest right-edge arrow adjustment was accepted in-game.
+
+## Structured recipe checkpoint
+
+`test build` passes 172 tests. Live-captured Prayer potion and Bronze bar fixtures, plus existing Bronze dagger variants, validate explicit ingredients, quantities, outputs, skills/XP, boost handling, conditions and source provenance. Mutated fixtures verify separate methods and generic fallback for missing boundaries, ambiguous alternatives and unsupported conditions. UI coverage includes links, source details, pin source ownership and 185/225px layout. Mocked Quick Inspect method changes perform no new HTTP request and ignore completion after dismissal. This checkpoint still requires player confirmation of variant selection, account skill annotations, native method menus and pin UX. See RECIPES.md.
+
+The ten-fixture semantic report passes complete source coverage with zero composition warnings, including both new fixtures. Offline reader previews were inspected for Prayer potion, Bronze dagger and Bronze bar; Quick Inspect was inspected with the resolved three-dose potion ID. These remain isolated UI checks, not gameplay acceptance.
+
+The player reviewed the recipe checkpoint in the development client and confirmed it looked good on 2026-10-17. This records general in-game acceptance; the automated checks above remain the detailed evidence for individual contracts.

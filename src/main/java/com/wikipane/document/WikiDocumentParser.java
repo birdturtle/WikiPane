@@ -23,6 +23,28 @@ public final class WikiDocumentParser {
         root.select(".GEChartBox .GEdatachart,.GEChartBox .GEdataprices,.GEChartBox .GEChartItems").remove();
         Map<String, String> entityAnchors = variantIds(root);
         materializeVariants(root);
+        int recipeIndex=0;
+        for (Element recipe : root.select(".recipe-table")) {
+            String group="recipe-"+(recipeIndex++), variant="";
+            Element item=recipe.closest(".item[data-id]"), switches=recipe.closest(".switch-infobox");
+            Element method=recipe.closest(".tabbertab[data-title]");
+            if(item!=null && switches!=null)
+                for(Element trigger:switches.select(".switch-infobox-triggers [data-id]"))
+                    if(trigger.attr("data-id").equals(item.attr("data-id"))) variant=trigger.text();
+            for(Element table:recipe.select("table")) if(table.closest(".recipe-table")==recipe && table.parent().closest("table")==null) {
+                table.attr("data-wikipane-recipe",group).attr("data-wikipane-recipe-variant",variant)
+                    .attr("data-wikipane-recipe-method",method==null?"":method.attr("data-title"));
+                for(Element boost:table.select("sup[title]"))
+                    if(boost.text().equals("(b)") && boost.attr("title").equals("This requirement is boostable"))
+                        boost.text("(boostable)");
+            }
+        }
+        for(Element switches:root.select(".switch-infobox")) {
+            List<Element> recipes=switches.select(".recipe-table");
+            if(!recipes.isEmpty()&&recipes.stream().allMatch(recipe -> recipe.selectFirst("table")!=null
+                && !recipe.selectFirst("table").attr("data-wikipane-recipe-variant").isEmpty()))
+                switches.select(".loading-button,.switch-infobox-triggers").remove();
+        }
         for (Element map : root.select(".mw-kartographer-maplink")) {
             String x = map.attr("data-lon"), y = map.attr("data-lat"), plane = map.attr("data-plane");
             map.replaceWith(new Element("span").text(x.isEmpty() || y.isEmpty() ? map.text()
@@ -327,7 +349,7 @@ public final class WikiDocumentParser {
                     : (table.hasClass("infobox") || table.hasClass("questdetails")) && cs > 1
                         && tr.children().stream().filter(child -> child.normalName().matches("td|th")).count() == 1
                     ? "" : join.toString();
-                if (header && rowHeader && !text.isBlank())
+                if (header && (rowHeader || !table.attr("data-wikipane-recipe").isEmpty()) && !text.isBlank())
                     rowLabel = text;
                 List<Block> cellImages = new ArrayList<>();
                 if (own.text().isBlank() && own.selectFirst("img") != null)
@@ -339,7 +361,8 @@ public final class WikiDocumentParser {
                         ? safeLink(own.selectFirst("a[href]").absUrl("href"))
                         : "", header && td.hasClass("infobox-subheader"),
                     cellImages.isEmpty() ? null : (Image) cellImages.get(0)));
-                if (header && !text.isBlank())
+                if (header && !text.isBlank() && (table.attr("data-wikipane-recipe").isEmpty()
+                    || tr.children().stream().filter(child -> child.normalName().matches("td|th")).allMatch(child -> child.normalName().equals("th"))))
                     for (int c = column; c < column + cs; c++) labels.put(c, text);
                 for (int c = column; c < column + cs; c++) occupied.put(c, rs);
                 if (rs > 1)
@@ -363,7 +386,8 @@ public final class WikiDocumentParser {
             for (Block image : images) pictures.add((Image) image);
         }
         return new Table(
-            name, table.id(), rows, kind, table.attr("data-wikipane-variant"), pictures, table.classNames());
+            name, table.id(), rows, kind, table.attr("data-wikipane-variant"), pictures, table.classNames(),
+            table.attr("data-wikipane-recipe"),table.attr("data-wikipane-recipe-variant"),table.attr("data-wikipane-recipe-method"));
     }
     public static String escape(String text) {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");

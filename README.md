@@ -41,6 +41,8 @@ While reading, the article title and navigation stay above the content. Open the
 
 Use the magnifying glass to open search. Back returns to your previous results or article; Forward restores where you were reading. The arrow-out icon opens the current article in your browser. All four controls have tooltips.
 
+Recognized recipes show ingredients, quantities, output, skill level, and XP. **Costs & source details** keeps the complete recipe tables available.
+
 Short facts use aligned rows; table entries have their own labeled records. **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Separate strategy and full-guide links open inside the reader. Citation markers open reference cards with a return link to the cited passage. Right-click a section heading to open its Wiki source.
 
 ## Quick Inspect

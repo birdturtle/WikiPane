@@ -85,6 +85,24 @@ public final class QuickInspectController {
             view = new View(current.lookup, current.inspection, current.layout, current.image, "",
                 Math.max(0, Math.min(current.layout.pages.size() - 1, current.page + delta)));
     }
+    public void recipe(int index) {
+        View current=view;
+        if(stopped||current==null||current.inspection==null
+            ||current.inspection.article.semantic.type!=com.wikipane.semantic.SemanticDocument.PageType.ITEM
+            ||index<0||index>=current.inspection.article.recipes.size())return;
+        cancel();long version=++generation;
+        try {
+            pending=workers.submit(()->{
+                try {
+                    Inspection inspection=Inspection.project(current.inspection.article,index);
+                    InspectionLayout layout=new InspectionLayout(inspection);
+                    dispatch.accept(()->{
+                        if(!stopped&&version==generation)view=new View(current.lookup,inspection,layout,current.image,"",0);
+                    });
+                } catch(RuntimeException error) { log.debug("WikiPane recipe projection unavailable",error); }
+            });
+        } catch(RejectedExecutionException ignored) {}
+    }
     public void retry() { View current = view; if (current != null) inspect(current.lookup); }
     public void explore() {
         View current = view;

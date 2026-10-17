@@ -87,3 +87,7 @@ The final `test build` run passes 163 tests. Added coverage includes source-back
 The ten-fixture semantic report passes complete source coverage with zero composition warnings, including both new fixtures. Offline reader previews were inspected for Prayer potion, Bronze dagger and Bronze bar; Quick Inspect was inspected with the resolved three-dose potion ID. These remain isolated UI checks, not gameplay acceptance.
 
 The player reviewed the recipe checkpoint in the development client and confirmed it looked good on 2026-10-17. This records general in-game acceptance; the automated checks above remain the detailed evidence for individual contracts.
+
+## Quest guide routing checkpoint
+
+Java 11 `test build` passes 178 tests with zero failures. Existing quest-list full-guide and quick-guide actions route through the sidebar navigation pipeline. Regression coverage includes game-label punctuation, exact row/catalog resolution, event consumption, preserved journal/map actions, opt-out and logout guards, and all combinations of replacement, guide opt-in and destination settings. Live diagnostics identified the original independent-setting gate failure; replacement with Sidebar destination now enables quest routing. The player confirmed the corrected build works in-game on 2026-10-17. Detailed lifecycle and plugin-coexistence checks remain documented in QUEST_INTERFACES.md.

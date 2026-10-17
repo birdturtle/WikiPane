@@ -53,6 +53,8 @@ The small translucent panel leaves your sidebar article in place. Hold Shift and
 
 Settings also offer ordinary right-click access and direct full-article lookups. Contextual lookup works alongside RuneLite's Wiki plugin; replacing its minimap button is separate.
 
+**Replace Wiki button** with **WikiPane sidebar** as its destination also opens the quest list’s existing **Open wiki guide** and **Open wiki quick guide** actions inside WikiPane. Enable **Quest guides in WikiPane** if you want this without replacing the minimap button. Full and quick guides open their respective pages with ordinary Back navigation; Quick Inspect and Shift settings do not affect them.
+
 Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations.
 
 ## Check your requirements

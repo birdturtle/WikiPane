@@ -237,8 +237,11 @@ public class WikiPanePlugin extends Plugin {
     }
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
-        if (active)
+        if (active) {
+            if (com.wikipane.integration.QuestInterfaceLookup.clicked(client, config, event,
+                    url -> openReference(url.toString(), lifecycle))) return;
             integration.clicked(event);
+        }
     }
     @Subscribe
     public void onMenuEntryAdded(MenuEntryAdded event) {

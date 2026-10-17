@@ -182,6 +182,27 @@ public final class ContentRenderer {
             guide.addActionListener(e -> links.accept(relationship.target.url));
             body.add(guide);
         }
+        if (area.id.equals("other") || area.id.equals("methods") || area.id.equals("sources")) {
+            for (com.wikipane.knowledge.RelatedInformation.Group group : page.relatedInformation) {
+                if (area.id.equals("methods") && !group.label.equals("Production & methods")
+                    || area.id.equals("sources") && !group.label.equals("Sources")
+                    || area.id.equals("other") && !group.label.equals("Related information")) continue;
+                JPanel related = column();
+                related.add(text("<b>" + escape(group.label) + " links</b>"));
+                for (Relationship relationship : group.links) {
+                    JButton destination = linkButton("<html>" + escape(relationship.target.label) + "</html>");
+                    destination.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+                    destination.setToolTipText("From: " + relationship.source.sectionTitle);
+                    destination.addActionListener(e -> links.accept(relationship.target.url));
+                    related.add(destination);
+                }
+                // Long link collections remain available without pushing the source content away.
+                JButton toggle = linkButton("Related links (" + group.links.size() + ")");
+                related.setVisible(false);
+                toggle.addActionListener(e -> { related.setVisible(!related.isVisible()); body.revalidate(); });
+                body.add(toggle); body.add(related);
+            }
+        }
         pending = new ArrayList<>();
         for (ArticleViewModel.Component component : area.components)
             if (variantMatches(component, area))
@@ -242,18 +263,23 @@ public final class ContentRenderer {
             JPanel section = column();
             section.putClientProperty("wiki.source", component.node.id);
             String sourceSection = component.source.section;
+            JComponent anchorDestination = section;
             if (!sourceSection.isBlank() && !anchors.containsKey(sourceSection)) {
                 if (!component.source.sectionTitle.equals(component.source.article)
                     && !(component.source.sectionTitle.equals("Details")
                         && (component.type == ArticleViewModel.ComponentType.FACTS
-                            || component.type == ArticleViewModel.ComponentType.REQUIREMENTS)))
-                    section.add(sourceHeading(layout.section(component.id), component.source));
-                anchors.put(sourceSection, section);
+                            || component.type == ArticleViewModel.ComponentType.REQUIREMENTS))) {
+                    JComponent heading = sourceHeading(layout.section(component.id), component.source);
+                    section.add(heading);
+                    anchorDestination = (JComponent) heading.getClientProperty("wiki.heading.label");
+                }
+                anchors.put(sourceSection, anchorDestination);
             }
-            anchors.put(component.id, section);
+            anchors.put(component.id, anchorDestination);
+            JComponent sourceDestination = anchors.getOrDefault(sourceSection, anchorDestination);
             anchorAliases.forEach((alias, target) -> {
                 if (target.equals(component.source.section))
-                    anchors.putIfAbsent(alias, section);
+                    anchors.putIfAbsent(alias, sourceDestination);
             });
             for (Citation use : com.wikipane.view.PresentationValidator.citations(component.node))
                 if (!use.id.isBlank())
@@ -261,7 +287,7 @@ public final class ContentRenderer {
             if (component.node.fallback instanceof WikiDocument.Table) {
                 String id = ((WikiDocument.Table) component.node.fallback).anchor;
                 if (!id.isBlank())
-                    anchors.putIfAbsent(id, section);
+                    anchors.putIfAbsent(id, anchorDestination);
             }
             switch (component.type) {
                 case TEXT:
@@ -288,11 +314,20 @@ public final class ContentRenderer {
                             JPanel card = components.card("wiki.reference");
                             card.add(text("<b>" + escape(ref.label) + "</b>"));
                             card.add(text(ref.html));
-                            for (int back = 0; back < ref.backlinks.size(); back++) {
-                                String url = ref.backlinks.get(back);
-                                JButton returnTo = linkButton("Return to citation"
-                                    + (ref.backlinks.size() > 1 ? " " + (back + 1) : ""));
-                                returnTo.addActionListener(e -> links.accept(url));
+                            if (!ref.backlinks.isEmpty()) {
+                                JButton returnTo = linkButton("Referenced from (" + ref.backlinks.size() + ")");
+                                JPopupMenu destinations = new JPopupMenu();
+                                for (int back = 0; back < ref.backlinks.size(); back++) {
+                                    String url = ref.backlinks.get(back);
+                                    JMenuItem destination = new JMenuItem("Citation " + (back + 1));
+                                    destination.addActionListener(e -> links.accept(url));
+                                    destinations.add(destination);
+                                }
+                                returnTo.setComponentPopupMenu(destinations);
+                                returnTo.addActionListener(e -> {
+                                    if (ref.backlinks.size() == 1) links.accept(ref.backlinks.get(0));
+                                    else destinations.show(returnTo, 0, returnTo.getHeight());
+                                });
                                 card.add(returnTo);
                             }
                             anchors.put(ref.id, card);
@@ -427,8 +462,8 @@ public final class ContentRenderer {
                 }
                 previous[0] = record.group;
                 if (record.identity != null || !record.fields.isEmpty()) {
-                    records.add(components.record(record));
-                    records.add(components.gap(6));
+                    records.add(components.record(record, record.icon == null ? null : image(record.icon, false, true)));
+                    records.add(components.gap(3));
                 }
                 for (int n = 0; n < record.nested.size(); n++)
                     records.add(table(record.nested.get(n), key + ".r" + i + ".n" + n));
@@ -463,16 +498,17 @@ public final class ContentRenderer {
     private JComponent image(Image image) {
         return image(image, false);
     }
-    private JComponent image(Image image, boolean identity) {
-        int maxWidth = identity ? 88 : 200, maxHeight = identity ? 88 : 220;
-        FittedThumbnail label = new FittedThumbnail(maxWidth, maxHeight, image.width, image.height, audit);
+    private JComponent image(Image image, boolean identity) { return image(image, identity, false); }
+    private JComponent image(Image image, boolean identity, boolean decoration) {
+        int maxWidth = decoration ? 22 : identity ? 88 : 200, maxHeight = decoration ? 22 : identity ? 88 : 220;
+        FittedThumbnail label = new FittedThumbnail(maxWidth, maxHeight, image.width, image.height, audit, decoration);
         label.putClientProperty("html.disable", true);
-        label.setText(image.alt.isBlank() ? "Image" : image.alt);
+        label.setText(decoration ? "" : image.alt.isBlank() ? "Image" : image.alt);
         label.setForeground(ReaderComponents.MUTED);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        label.setToolTipText(image.alt);
+        label.setToolTipText(decoration ? null : image.alt);
         label.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        if (!image.link.isBlank()) {
+        if (!decoration && !image.link.isBlank()) {
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
                 @Override
@@ -517,7 +553,7 @@ public final class ContentRenderer {
                     } catch (Exception ex) {
                         SwingUtilities.invokeLater(() -> {
                             if (version == generation)
-                                label.setText("Image unavailable");
+                                label.setText(decoration ? "" : "Image unavailable");
                         });
                     }
                 });

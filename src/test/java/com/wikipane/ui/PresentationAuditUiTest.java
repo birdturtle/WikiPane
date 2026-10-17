@@ -50,8 +50,8 @@ public class PresentationAuditUiTest {
     }
     private boolean referencesSelected(WikiPanePanel panel) {
         return all(panel).stream().anyMatch(c
-            -> c instanceof JLabel && "wiki.currentSection".equals(c.getName())
-                && ((JLabel) c).getText().equals("References"));
+            -> c instanceof JButton && "wiki.currentSection".equals(c.getName())
+                && ((JButton) c).getText().equals("References"));
     }
     @Test
     public void citationDefinitionBacklinkAndHistoryUseTheSameNativeNavigation() throws Exception {
@@ -97,10 +97,11 @@ public class PresentationAuditUiTest {
                                      .stream()
                                      .filter(c
                                          -> c instanceof JButton
-                                             && ((JButton) c).getText().startsWith("Return to citation"))
+                                             && ((JButton) c).getText().startsWith("Referenced from"))
                                      .findFirst()
                                      .orElseThrow();
-                backTo.doClick();
+                assertNotNull(backTo.getComponentPopupMenu());
+                ((JMenuItem) backTo.getComponentPopupMenu().getComponent(0)).doClick();
                 return null;
             });
             await(() -> !referencesSelected(panel));

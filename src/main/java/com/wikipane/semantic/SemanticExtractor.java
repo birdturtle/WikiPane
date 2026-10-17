@@ -151,7 +151,7 @@ public final class SemanticExtractor {
                 }
                 Cell cell = new Cell(value, original.semanticKey, original.label, original.header,
                     original.column, original.colspan, original.rowspan, origin, nested,
-                    original.requirements, original.illustrationTarget);
+                    original.requirements, original.illustrationTarget, original.illustration);
                 cells.add(cell);
                 mapped.put(original, cell);
                 if (!value.text.isBlank() || !nested.isEmpty())

@@ -117,7 +117,7 @@ public final class ArticleViewModel {
                     }
                 }
             } else
-                add(content, area(node.role, document.type), generic(node));
+                add(content, node.type == NodeType.REFERENCES ? "references" : area(node.role, document.type), generic(node));
         }
         // Unknown components stay exposed; category recognition never controls content retention.
         Set<String> retained = new HashSet<>();

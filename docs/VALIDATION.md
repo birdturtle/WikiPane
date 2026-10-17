@@ -75,3 +75,7 @@ The isolated 242 × 780 actual-sidebar preview uses synthetic Cooking, Agility, 
 Actual character-state comparisons, event timing, native menu coexistence and lifecycle behavior still require player acceptance. Partial quest stages, unfamiliar conditional prose, inventory/equipment possession and unsupported quest aliases remain unknown. Player state is local only; Wiki caches and pin contents remain account-independent. See `PLAYER_CONTEXT.md`.
 
 RFD prerequisite regression: individual nested quest checks retain source text and ordered links; all extracted quest names match the RuneLite quest catalog. Completed parent quests check independently of prerequisite availability. Positive partial-stage requirements are satisfied only by verified full completion; intermediate stages remain unknown. Isolated synthetic-state preview inspected at 242px outer panel width (`playerContextPreview`); in-game confirmation remains required.
+
+## Reader UX follow-up
+
+The final `test build` run passes 163 tests. Added coverage includes source-backed related links, record identity and membership normalization, compact records and icons at narrow widths, drop/reference destination separation, exact header anchors across page types, dropdown navigation and scroll history, and thumbnail geometry stability after decoding. Player visual feedback informed the compact layouts, icons, membership colors and single dropdown. The latest right-edge arrow adjustment was accepted in-game.

@@ -69,7 +69,7 @@ public final class ReaderLayout {
         public final Requirement textCondition;
         public final List<FactGroup> facts;
         public final List<ConditionGroup> requirements;
-        Section(ArticleViewModel.Component c) {
+        Section(ArticleViewModel.Component c, Map<String, com.wikipane.semantic.SemanticDocument.Section> sourceSections) {
             textHtml = c.node.text == null ? "" : !c.node.requirements.isEmpty()
                 ? RequirementPresentation.html(c.node.text.html) : c.node.text.html;
             List<Requirement> textConditions = new ArrayList<>();
@@ -78,9 +78,17 @@ public final class ReaderLayout {
             textCondition = textConditions.isEmpty() ? null : textConditions.size() == 1 ? textConditions.get(0)
                 : new Requirement(Requirement.Kind.ALL, "Requirements", "", null, null, Requirement.Boost.UNSPECIFIED,
                     c.node.text, textConditions);
-            String[] path = c.source.sectionTitle.split(" / ");
-            title = path[path.length - 1];
-            breadcrumb = path.length > 1 ? String.join(" / ", Arrays.copyOf(path, path.length - 1)) : "";
+            com.wikipane.semantic.SemanticDocument.Section sourceSection = sourceSections.get(c.source.section);
+            title = sourceSection == null ? c.source.sectionTitle : sourceSection.title;
+            Deque<String> ancestors = new ArrayDeque<>();
+            Set<String> visited = new HashSet<>();
+            String parent = sourceSection == null ? "" : sourceSection.parent;
+            while (!parent.isEmpty() && visited.add(parent)) {
+                com.wikipane.semantic.SemanticDocument.Section ancestor = sourceSections.get(parent);
+                if (ancestor == null) break;
+                ancestors.addFirst(ancestor.title); parent = ancestor.parent;
+            }
+            breadcrumb = String.join(" / ", ancestors);
             List<ConditionGroup> conditions = new ArrayList<>();
             Set<String> structured = new HashSet<>();
             if (c.type == ArticleViewModel.ComponentType.REQUIREMENTS)
@@ -112,6 +120,8 @@ public final class ReaderLayout {
         public final List<Field> fields;
         public final List<Table> nested;
         public final List<Field> illustrations;
+        public final boolean compact;
+        public final com.wikipane.document.WikiDocument.Image icon;
         public final Set<String> units;
         Record(TableRecords.Record source) {
             this(source, true);
@@ -146,8 +156,14 @@ public final class ReaderLayout {
                         captions.add(new Field(field.label, field.value, field.source));
                     }
                 }
+            icon = named == null ? null : source.fields.stream()
+                .filter(f -> captions.stream().anyMatch(c -> c.source.unit.equals(f.source.unit)))
+                .map(f -> f.illustration).filter(Objects::nonNull).findFirst().orElse(null);
             illustrations = List.copyOf(captions);
             fields = List.copyOf(values);
+            compact = identity != null && nested.isEmpty() && fields.size() >= 2 && fields.size() <= 8
+                && fields.stream().allMatch(f -> f.inline && f.label.length() <= 18
+                    && f.value.text.length() <= 28);
         }
     }
     public static final class ReferenceCard {
@@ -180,10 +196,13 @@ public final class ReaderLayout {
             cards.add(new ReferenceCard(reference, markers.getOrDefault(reference.id, "Reference")));
         references = List.copyOf(cards);
         Map<String, Section> sectionMap = new HashMap<>();
+        Map<String, com.wikipane.semantic.SemanticDocument.Section> sourceSections = new HashMap<>();
+        for (com.wikipane.semantic.SemanticDocument.Section section : view.document.sections)
+            sourceSections.put(section.anchor, section);
         Map<String, List<Record>> recordMap = new HashMap<>();
         for (ArticleViewModel.Area area : view.areas)
             for (ArticleViewModel.Component c : area.components) {
-                sectionMap.put(c.id, new Section(c));
+                sectionMap.put(c.id, new Section(c, sourceSections));
                 if (c.node.table != null)
                     adaptTable(c.node.table, recordMap);
             }

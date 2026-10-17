@@ -206,6 +206,7 @@ public final class SemanticDocument {
     public static final class Cell {
         public final RichText value;
         public final String key, label, illustrationTarget;
+        public final WikiDocument.Image illustration;
         public final boolean header;
         public final int column, colspan, rowspan;
         public final Source source;
@@ -218,6 +219,12 @@ public final class SemanticDocument {
         public Cell(RichText value, String key, String label, boolean header, int column, int colspan,
             int rowspan, Source source, List<Table> nested, List<RequirementGroup> requirements,
             String illustrationTarget) {
+            this(value,key,label,header,column,colspan,rowspan,source,nested,requirements,illustrationTarget,null);
+        }
+        public Cell(RichText value, String key, String label, boolean header, int column, int colspan,
+            int rowspan, Source source, List<Table> nested, List<RequirementGroup> requirements,
+            String illustrationTarget, WikiDocument.Image illustration) {
+            this.illustration = illustration;
             this.illustrationTarget = illustrationTarget;
             this.value = value;
             this.key = key;

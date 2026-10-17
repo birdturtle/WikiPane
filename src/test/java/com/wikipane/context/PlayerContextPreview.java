@@ -47,7 +47,7 @@ public final class PlayerContextPreview {
                 panel[0].skillIcons(icons);panel[0].playerContext(new PlayerContextSnapshot(true,true,
                     Map.of("Cooking",new PlayerContextSnapshot.Level(42,45),"Agility",new PlayerContextSnapshot.Level(28,28),"Mining",new PlayerContextSnapshot.Level(55,55)),
                     Map.of("Cook's Assistant",PlayerContextSnapshot.QuestState.COMPLETE,"Nature Spirit",PlayerContextSnapshot.QuestState.COMPLETE,"Priest in Peril",PlayerContextSnapshot.QuestState.COMPLETE,"Fishing Contest",PlayerContextSnapshot.QuestState.INCOMPLETE),100));
-                panel[0].setSize(242,780);panel[0].openTitle("Recipe for Disaster","Details");
+                panel[0].setSize(242,780);panel[0].openTitle("Recipe for Disaster","");
             });
             // Worker and EDT barriers flush article fetching, composition and local evaluation in order.
             for(int i=0;i<3;i++){worker.submit(()->{}).get(10,TimeUnit.SECONDS);SwingUtilities.invokeAndWait(()->{});}

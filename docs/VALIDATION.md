@@ -57,3 +57,34 @@ The final standalone Vorkath drop view measured 216 pixels, inspected 43 visible
 Added checks cover page-type mode selection, complete source-area reachability through Sections, search-result history and forward branching, persistent identity/controls, hidden reading-state search, per-mode scroll restoration, direct section history, section filtering/Enter, parent-chapter materialization, and source-backed transclusion hierarchy.
 
 Standalone previews inspected the quest overview and full-guide walkthrough at 242 × 780. Article identity is outside the scroll pane, with no repeated dedicated title in the reader. Source-unit coverage remains complete for the existing fixtures. In-client navigation acceptance remains a player test.
+
+## Native gameplay integration: first checkpoint
+
+`./gradlew test build` passes: 85 tests, zero failures or errors. This includes the existing reader tests and new knowledge-query, exact-variant filtering, seed facts, compact provenance, stale response, dismissal/shutdown, queue rejection, retry bounded overlay-layout tests, and rejection of comparison-table values as entity statistics. A Swing integration test verifies that temporary inspection leaves Recipe for Disaster at its existing scroll position, then explicit full-article navigation and Back restore it.
+
+Live Wiki checks passed for exact ranarr seed item lookup and Vorkath NPC ID 8061, resolved to its Post-quest variant with 750 Hitpoints. Existing live search, article and image checks also passed. Offline previews inspected the 280-pixel seed panel and post-quest Vorkath statistics. They did not interact with RuneScape.
+
+The seed fixture exposed a parser bug: a table heading could inherit the preceding row's requirement label. Header-only text no longer creates that false condition; actual skill markup remains eligible. Compact projection also avoids repeating the same source value as both a fact and a requirement. Source cell coverage now includes the captured ranarr seed article.
+
+Native menu access, Menu Entry Swapper coexistence, overlay menu hit testing, positioning, all supported item interfaces and game lifecycle still require player testing. See `NATIVE_INTEGRATION.md`. Pins, player-state evaluation, quest/skill entry points and map integration are not implemented at this checkpoint.
+
+
+## Replacement-button and compact overlay fixes
+
+`./gradlew test build` passes: 97 tests, zero failures or errors. Before the fix, widget fixtures reproduced three failures: no replacement when vanilla entity lookup is disabled, a detached widget reused after reconstruction, and Search not handled by the menu callback. These tests now pass. Additional fixtures check low-priority dynamic-child search, left-click Search's action index, exact ground-item identity routing, parent layout restoration, stale callbacks after shutdown, foreign-widget ownership, conflict reporting and explicit destination switching. They mock RuneLite APIs; they do not interact with the game.
+
+Quick Inspect now uses RuneLite's native small font and `BackgroundComponent` with its standard translucent background. It is 210 pixels wide with 6-pixel padding, 13-pixel line spacing and 12-line pages. Pixel checks verify translucency as well as wrapping and bounded dimensions. An isolated Evergreen tree variant 3 preview measures 210 × 151 pixels. Wiki navigation notices retain semantic metadata and remain available in the full reader, while the compact About projection selects actual article content. Numeric variant labels are explicit.
+
+Both fixes still need player confirmation in RuneLite, including minimap lookup, both Search interactions, interface resizing/reconstruction, and comfortable overlay positioning during gameplay. Mockito is test-only and is not a production plugin dependency.
+
+## Selection-based reference pins
+
+`env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build` passes: 114 tests, zero failures, errors or skipped tests. A preceding clean build and offline `pinPreview` also passed.
+
+Tests cover source-backed selection across native reader components, links and emphasis, numbered and nested lists, field labels and partial-value excerpts, variant identity, Unicode whitespace, bounded long selections and paging, duplicate pins, the five-pin limit, shutdown with pending work, queue rejection and translucent overlay dimensions. A Recipe for Disaster reader test verifies that pinning leaves the article and scroll position unchanged without additional Wiki requests.
+
+The isolated requirements pin preview measures 210 × 104 pixels and was inspected without launching or interacting with RuneScape. Actual mouse selection, native overlay menus, Alt-drag positioning, sidebar independence and login/world-hop behavior require user testing in RuneLite. Pins are session-only; manual checklists and player-aware annotations are not implemented.
+
+## Clickable pin paging
+
+`env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build` passes: 116 tests, zero failures, errors or skips. Pins now use six body lines per page and explicit previous/next footer buttons with disabled boundary states and a page counter. MouseManager input handling consumes the footer click sequence locally, dispatches page changes to the client thread, and unregisters with the overlay. Tests cover a single page action per click, press/release/click consumption, modified clicks, outside clicks and inactive listeners; existing paging tests retain all selected content and clamp page boundaries. Actual in-game button hit testing, Alt-drag and overlapping overlays still need player confirmation.

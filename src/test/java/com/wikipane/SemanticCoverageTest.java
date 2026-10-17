@@ -13,7 +13,7 @@ import org.junit.Test;
 
 public class SemanticCoverageTest {
     private static final String[] FIXTURES = {"Bronze_dagger", "Recipe_for_Disaster", "Vorkath", "Cooking",
-        "Vorkath__Strategies", "Recipe_for_Disaster__Full_guide"};
+        "Vorkath__Strategies", "Recipe_for_Disaster__Full_guide", "Ranarr_seed", "Evergreen_tree"};
     @Test
     public void everySourceBlockAndMeaningfulCellHasAnExposedSemanticDestination() throws Exception {
         for (String fixture : FIXTURES) {

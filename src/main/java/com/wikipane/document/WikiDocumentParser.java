@@ -172,7 +172,11 @@ public final class WikiDocumentParser {
                 continue;
             Element e = (Element) n;
             String tag = e.normalName();
-            if (tag.equals("ol")
+            if ((e.hasClass("hatnote") || e.hasClass("dablink") || e.hasClass("rellink"))
+                && e.select("table,h1,h2,h3,h4,h5,h6").isEmpty()) {
+                flush(loose, out);
+                out.add(new Text(inline(e), List.of(), List.of(), true));
+            } else if (tag.equals("ol")
                 && (e.hasClass("references")
                     || e.children().stream().anyMatch(li -> li.id().startsWith("cite_note")))) {
                 flush(loose, out);
@@ -314,7 +318,7 @@ public final class WikiDocumentParser {
                 if (header && rowHeader && !text.isBlank())
                     rowLabel = text;
                 cells.add(new Cell(html, label, header, column, cs, rs, nested, td.attr("data-attr-param"),
-                    com.wikipane.semantic.RequirementExtractor.extract(td, label),
+                    com.wikipane.semantic.RequirementExtractor.extract(td, header ? "" : label),
                     own.text().isBlank() && own.selectFirst("img") != null
                             && own.selectFirst("a[href]") != null
                         ? safeLink(own.selectFirst("a[href]").absUrl("href"))

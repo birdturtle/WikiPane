@@ -26,6 +26,19 @@ public final class LiveWikiCheck {
             System.out.println("Exact item lookup: " + resolved);
             if (!resolved.contains("Bronze_dagger"))
                 throw new AssertionError("Lookup");
+            com.wikipane.knowledge.KnowledgeService knowledge = new com.wikipane.knowledge.KnowledgeService(wiki);
+            com.wikipane.knowledge.Inspection seed = com.wikipane.knowledge.Inspection.project(
+                knowledge.entity(GameEntityLookup.url("item", 5295, "Ranarr seed", null)));
+            if (!seed.article.document.title.equals("Ranarr seed")
+                || seed.rows.stream().noneMatch(row -> row.label.equals("Growth time") && row.value.text.contains("80 min"))
+                || seed.rows.stream().noneMatch(row -> row.label.equals("Level required") && row.value.text.contains("32")))
+                throw new AssertionError("Live seed knowledge projection");
+            System.out.println("Exact seed inspection: " + seed.article.document.title + ", " + seed.rows.size() + " sourced rows");
+            com.wikipane.knowledge.KnowledgeArticle monster = knowledge.entity(
+                GameEntityLookup.url("npc", 8061, "Vorkath", null));
+            if (!monster.variantKnown || monster.facts.stream().noneMatch(fact -> fact.label.equals("Hitpoints") && fact.value.text.equals("750")))
+                throw new AssertionError("Live NPC variant knowledge query");
+            System.out.println("Exact NPC inspection: " + monster.document.title + " · " + monster.variant);
             WikiDocument d = wiki.article("Vorkath");
             WikiDocument.Image thumbnail = null;
             for (WikiDocument.Block b : d.blocks) {

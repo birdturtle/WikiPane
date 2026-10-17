@@ -64,7 +64,8 @@ public class ContextualNavigationUiTest {
         final AtomicInteger requests = new AtomicInteger();
         final WikiClient wiki;
         final WikiPanePanel panel;
-        Reader() throws Exception {
+        Reader() throws Exception { this(null); }
+        Reader(java.util.function.Consumer<com.wikipane.pin.PinSelection> pin) throws Exception {
             wiki = new WikiClient(
                 new OkHttpClient.Builder()
                     .addInterceptor(chain -> {
@@ -88,7 +89,7 @@ public class ContextualNavigationUiTest {
                     })
                     .build(),
                 new Gson());
-            panel = edt(() -> new WikiPanePanel(wiki, workers));
+            panel = edt(() -> new WikiPanePanel(wiki, workers, pin));
         }
         void size() {
             panel.setSize(225, 780);
@@ -290,6 +291,88 @@ public class ContextualNavigationUiTest {
                               -> c instanceof JLabel && "wiki.currentSection".equals(c.getName())
                                   && ((JLabel) c).getText().equals("Drops")));
         }
+    }
+    @Test
+    public void temporaryInspectionPreservesArticleAndExplicitExploreParticipatesInHistory() throws Exception {
+        try (Reader reader = new Reader()) {
+            reader.open("Recipe for Disaster");
+            WikiClient temporaryWiki = new WikiClient(new OkHttpClient.Builder().addInterceptor(chain -> {
+                okhttp3.HttpUrl url = chain.request().url();
+                Response.Builder response = new Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
+                    .code(200).message("fixture");
+                String body = "resolved";
+                if (url.encodedPath().equals("/w/Special:Lookup")) {
+                    response.code(302).header("Location", "/w/Bronze_dagger");
+                } else if (url.encodedPath().equals("/api.php")) {
+                    body = DocumentTest.fixture("Bronze_dagger").toString();
+                }
+                return response.body(ResponseBody.create(MediaType.get("application/json"), body)).build();
+            }).build(), new Gson());
+            com.wikipane.inspect.QuickInspectController inspector = new com.wikipane.inspect.QuickInspectController(
+                new com.wikipane.knowledge.KnowledgeService(temporaryWiki),
+                new com.wikipane.cache.ImageCache(temporaryWiki), reader.workers,
+                SwingUtilities::invokeLater, reader.panel::openLink);
+            try {
+                edt(() -> {
+                    reader.scroller().getVerticalScrollBar().setValue(211);
+                    inspector.inspect(com.wikipane.integration.GameEntityLookup.url("item", 1205, "Bronze dagger", null));
+                    return null;
+                });
+                await(() -> inspector.view() != null && inspector.view().inspection != null);
+                edt(() -> {
+                    assertTrue(reader.article("Recipe for Disaster"));
+                    assertEquals(211, reader.scroller().getVerticalScrollBar().getValue());
+                    inspector.dismiss();
+                    assertTrue(reader.article("Recipe for Disaster"));
+                    assertEquals(211, reader.scroller().getVerticalScrollBar().getValue());
+                    inspector.inspect(com.wikipane.integration.GameEntityLookup.url("item", 1205, "Bronze dagger", null));
+                    return null;
+                });
+                await(() -> inspector.view() != null && inspector.view().inspection != null);
+                edt(() -> { inspector.explore(); return null; });
+                await(() -> reader.article("Bronze dagger"));
+                edt(() -> { reader.action("Back").doClick(); return null; });
+                await(() -> reader.article("Recipe for Disaster") && reader.scroller().getVerticalScrollBar().getValue() == 211);
+            } finally {
+                edt(() -> { inspector.stop(); return null; });
+                temporaryWiki.close();
+            }
+        }
+    }
+    @Test
+    public void highlightRightClickPinUsesSemanticSourceAndLeavesTheReaderInPlace() throws Exception {
+        List<com.wikipane.pin.PinSelection> pinned = new ArrayList<>();
+        try (Reader reader = new Reader(pinned::add)) {
+            reader.open("Recipe for Disaster");
+            edt(() -> {
+                reader.scroller().getVerticalScrollBar().setValue(211);
+                JEditorPane passage = (JEditorPane)all(reader.panel).stream().filter(component -> {
+                    if (!(component instanceof JEditorPane)) return false;
+                    JEditorPane pane = (JEditorPane)component;
+                    Object context = pane.getClientProperty("wiki.pin.context");
+                    return context instanceof com.wikipane.pin.PinContext
+                        && ((com.wikipane.pin.PinContext)context).condition != null
+                        && org.jsoup.Jsoup.parseBodyFragment(pane.getText()).text().contains("Cooking");
+                }).findFirst().orElseThrow();
+                passage.select(0, passage.getDocument().getLength());
+                JPopupMenu menu = passage.getComponentPopupMenu();
+                for (javax.swing.event.PopupMenuListener listener : menu.getPopupMenuListeners())
+                    listener.popupMenuWillBecomeVisible(new javax.swing.event.PopupMenuEvent(menu));
+                JMenuItem pin = (JMenuItem)menu.getComponent(0);
+                assertEquals("Pin selection", pin.getText()); assertTrue(pin.isEnabled());
+                int requests = reader.requests.get(); pin.doClick();
+                assertEquals(1, pinned.size());
+                assertTrue(reader.article("Recipe for Disaster"));
+                assertEquals(211, reader.scroller().getVerticalScrollBar().getValue());
+                assertEquals(requests, reader.requests.get());
+                com.wikipane.pin.PinSelection selected = pinned.get(0);
+                assertEquals("Recipe for Disaster", selected.sources.get(0).article);
+                assertTrue(selected.fragments.get(0).text().contains("Cooking"));
+                assertNotNull(selected.fragments.get(0).context.condition);
+                return null;
+            });
+        }
+        assertFalse(pinned.get(0).fragments.get(0).paragraphs.isEmpty());
     }
     @Test
     public void parentChapterAnchorsMaterializeTheirActualChildContent() throws Exception {

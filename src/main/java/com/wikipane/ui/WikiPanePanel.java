@@ -61,10 +61,14 @@ public final class WikiPanePanel extends PluginPanel {
     private String fallbackUrl = WikiUrls.BASE.toString();
     private JPanel results = ContentRenderer.column();
     public WikiPanePanel(WikiClient wiki, ExecutorService workers) {
+        this(wiki, workers, null);
+    }
+    public WikiPanePanel(WikiClient wiki, ExecutorService workers,
+                         java.util.function.Consumer<com.wikipane.pin.PinSelection> pin) {
         super(false);
         this.wiki = wiki;
         this.workers = workers;
-        renderer = new ContentRenderer(this::openLink, workers, new ImageCache(wiki));
+        renderer = new ContentRenderer(this::openLink, workers, new ImageCache(wiki), pin, this::guidance);
         setLayout(new BorderLayout(0, 6));
         setBackground(ReaderComponents.BACKGROUND);
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -255,6 +259,8 @@ public final class WikiPanePanel extends PluginPanel {
     }
     public void guidance(String value) {
         status(value);
+        message.setText("<html><body style='width:170px'>"
+            + com.wikipane.document.WikiDocumentParser.escape(value) + "</body></html>");
     }
     private void status(String value) {
         message.setVisible(true);
@@ -428,16 +434,9 @@ public final class WikiPanePanel extends PluginPanel {
         submit(
             ()
                 -> {
-                HttpUrl resolved = WikiUrls.resolve(wiki.entity(lookup));
-                String title = WikiUrls.title(resolved);
-                if (title == null)
-                    throw new java.io.IOException("The lookup did not resolve to an article.");
-                com.wikipane.view.WikiPage page = wiki.page(title);
-                WikiDocument document = page.document;
-                String anchor = document.entityAnchors.get(lookup.queryParameter("id"));
-                if (anchor == null)
-                    anchor = resolved.fragment() == null ? document.redirectAnchor : resolved.fragment();
-                return new NavigationHistory.Entry(page, anchor, 0);
+                com.wikipane.knowledge.KnowledgeArticle article =
+                    new com.wikipane.knowledge.KnowledgeService(wiki).entity(lookup);
+                return new NavigationHistory.Entry(wiki.page(article.document.title), article.anchor, 0);
             },
             entry
             -> {

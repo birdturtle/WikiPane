@@ -22,6 +22,23 @@ public final class ReaderComponents {
     public static final Color ACCENT = new Color(255, 183, 77);
     private final Consumer<String> links;
     private CompositionAudit audit;
+    private com.wikipane.pin.PinContext pinContext;
+    private com.wikipane.semantic.SemanticDocument pinDocument;
+    public void pinDocument(com.wikipane.semantic.SemanticDocument document) { pinDocument = document; }
+    public void pinContext(com.wikipane.pin.PinContext context) { pinContext = context; }
+    public com.wikipane.pin.PinContext pinContext() { return pinContext; }
+    private com.wikipane.pin.PinContext fieldContext(ReaderLayout.Field field, com.wikipane.pin.PinContext.Part part) {
+        com.wikipane.pin.PinContext base = pinContext;
+        if (base == null && pinDocument != null) {
+            for (Node node : pinDocument.nodes) if (node.units.contains(field.source.unit)) {
+                base = new com.wikipane.pin.PinContext(pinDocument, node); break;
+            }
+        }
+        return base == null ? null : base.field(field.source, field.label, field.value, part);
+    }
+    private JEditorPane boundText(String html, com.wikipane.pin.PinContext context) {
+        JEditorPane pane = text(html); pane.putClientProperty("wiki.pin.context", context); return pane;
+    }
     public void audit(CompositionAudit audit) {
         this.audit = audit;
     }
@@ -57,7 +74,8 @@ public final class ReaderComponents {
         group.setBorder(BorderFactory.createEmptyBorder(12, 0, 5, 0));
         if (!breadcrumb.isBlank())
             group.add(text("<span class='muted tiny'>" + escape(breadcrumb) + "</span>"));
-        JEditorPane label = text("<span class='heading'>" + escape(title) + "</span>");
+        JEditorPane label = boundText("<span class='heading'>" + escape(title) + "</span>",
+            pinContext == null ? null : pinContext.heading());
         if (source != null) {
             label.setToolTipText("Source: " + source.sectionTitle + " · Right-click to open on the Wiki");
             JPopupMenu menu = new JPopupMenu();
@@ -71,9 +89,10 @@ public final class ReaderComponents {
     }
     public JComponent field(ReaderLayout.Field field) {
         if (field.label.isBlank() || field.label.equals(field.value.text))
-            return text(field.value.html);
-        JEditorPane label = text("<span class='muted'>" + escape(field.label) + "</span>");
-        JEditorPane value = text(field.value.html);
+            return boundText(field.value.html, fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE));
+        JEditorPane label = boundText("<span class='muted'>" + escape(field.label) + "</span>",
+            fieldContext(field, com.wikipane.pin.PinContext.Part.LABEL));
+        JEditorPane value = boundText(field.value.html, fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE));
         if (field.inline) {
             CompositionAudit diagnostics = audit;
             JPanel row = new JPanel(null) {
@@ -167,22 +186,27 @@ public final class ReaderComponents {
         });
         for (ReaderLayout.Field field : fields) {
             JPanel stat = column();
-            stat.add(text("<b>" + field.value.html + "</b>"));
-            stat.add(text("<span class='muted tiny'>" + escape(field.label) + "</span>"));
+            stat.add(boundText("<b>" + field.value.html + "</b>", fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE)));
+            stat.add(boundText("<span class='muted tiny'>" + escape(field.label) + "</span>",
+                fieldContext(field, com.wikipane.pin.PinContext.Part.LABEL)));
             strip.add(stat);
         }
         return strip;
     }
     public JComponent record(ReaderLayout.Record record) {
+        com.wikipane.pin.PinContext previous = pinContext;
+        if (pinContext != null && record.identity != null) pinContext = pinContext.record(record.identity.value.text);
         JPanel card = card("wiki.record");
         if (record.identity != null) {
-            JEditorPane name = text("<b>" + record.identity.value.html + "</b>");
+            JEditorPane name = boundText("<b>" + record.identity.value.html + "</b>",
+                fieldContext(record.identity, com.wikipane.pin.PinContext.Part.VALUE));
             if (!record.illustrations.isEmpty())
                 name.setToolTipText(record.illustrations.get(0).value.text);
             card.add(name);
             card.add(gap(3));
         }
         for (ReaderLayout.Field field : record.fields) card.add(field(field));
+        pinContext = previous;
         return card;
     }
     public JEditorPane text(String fragment) {
@@ -259,8 +283,10 @@ public final class ReaderComponents {
         pane.setAlignmentX(Component.LEFT_ALIGNMENT);
         pane.setText("<html><body>" + fragment + "</body></html>");
         pane.setCaretPosition(0);
+        pane.putClientProperty("wiki.pin.context", pinContext);
         pane.addHyperlinkListener(e -> {
-            if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED)
+            if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED
+                && !Boolean.TRUE.equals(pane.getClientProperty("wiki.selectionDragging")))
                 links.accept(e.getDescription());
         });
         return pane;

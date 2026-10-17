@@ -48,6 +48,8 @@ Fixture revisions, captured 2026-10-16:
 - Vorkath, revision 15364808, https://oldschool.runescape.wiki/w/Vorkath
 - Cook's Assistant, revision 15369640, https://oldschool.runescape.wiki/w/Cook's_Assistant
 
+- Evergreen tree, revision 15285567, https://oldschool.runescape.wiki/w/Evergreen_tree
+- Ranarr seed, revision 15333230, https://oldschool.runescape.wiki/w/Ranarr_seed
 - Cooking, revision 15359642, https://oldschool.runescape.wiki/w/Cooking
 - Vorkath/Strategies, revision 15368595, https://oldschool.runescape.wiki/w/Vorkath/Strategies
 - Recipe for Disaster/Full guide, revision 14460980, https://oldschool.runescape.wiki/w/Recipe_for_Disaster/Full_guide

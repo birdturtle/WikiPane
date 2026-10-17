@@ -49,7 +49,13 @@ public final class WikiButtonIntegration {
     private final Runnable search;
     private final Consumer<String> guidance;
     private Widget icon, parent, vanilla;
-    private boolean previousHidden, selected, enabled = true;
+    private boolean previousHidden, selected, positioned, enabled = true;
+    private int previousX, previousY, previousXMode, previousYMode;
+    private String lastGuidance = "";
+    private void advise(String message) {
+        if (!message.equals(lastGuidance)) guidance.accept(message);
+        lastGuidance = message;
+    }
     public WikiButtonIntegration(Client client, ItemManager items, PluginManager plugins,
         WikiPaneConfig config, Consumer<HttpUrl> lookup, Runnable search, Consumer<String> guidance) {
         this.client = client;
@@ -68,8 +74,9 @@ public final class WikiButtonIntegration {
         boolean conflict = coreEnabled();
         if (!enabled || !config.replacement() || conflict) {
             remove();
+            if (!enabled || !config.replacement()) lastGuidance = "";
             if (enabled && config.replacement() && conflict)
-                guidance.accept("Replacement paused: disable RuneLite's Wiki plugin.");
+                advise("Disable RuneLite's Wiki plugin to use WikiPane's replacement button.");
             return;
         }
         Widget candidate = client.getWidget(InterfaceID.Orbs.WIKI);
@@ -78,24 +85,27 @@ public final class WikiButtonIntegration {
             candidate = client.getWidget(InterfaceID.OrbsNomap.WIKI);
             vanillaId = InterfaceID.OrbsNomap.WIKI_ICON;
         }
-        if (candidate == null || candidate.isHidden()
-            || client.getVarbitValue(VarbitID.WIKI_ICON_DISABLED) != 0) {
+        if (candidate == null || candidate.isHidden()) {
             remove();
             return;
         }
-        if (parent == candidate && icon != null) {
-            if (vanilla != null)
-                vanilla.setHidden(true);
+        Widget[] currentChildren = candidate.getChildren();
+        if (parent == candidate && icon != null && currentChildren != null
+            && currentChildren.length > 0 && currentChildren[0] == icon) {
+            position();
+            if (vanilla != null) vanilla.setHidden(true);
             return;
         }
         remove();
         // Never overwrite another widget installed by a plugin.
         Widget[] children = candidate.getChildren();
         if (children != null && children.length > 0 && children[0] != null) {
-            guidance.accept("Another plugin owns the Wiki button.");
+            advise("Another plugin owns the Wiki button. Disable it to use WikiPane's replacement.");
             return;
         }
+        lastGuidance = "";
         parent = candidate;
+        position();
         vanilla = client.getWidget(vanillaId);
         if (vanilla != null) {
             previousHidden = vanilla.isSelfHidden();
@@ -114,21 +124,52 @@ public final class WikiButtonIntegration {
         icon.setClickMask(WidgetConfig.USE_GROUND_ITEM | WidgetConfig.USE_NPC | WidgetConfig.USE_OBJECT
             | WidgetConfig.USE_WIDGET);
         icon.setNoClickThrough(true);
+        Widget installedIcon = icon;
         icon.setOnTargetEnterListener((JavaScriptCallback) event -> {
+            if (!enabled || icon != installedIcon || !ownsIcon()) return;
             selected = true;
             icon.setSpriteId(SpriteID.WikiIcon.SELECTED);
             client.setAllWidgetsAreOpTargetable(true);
         });
-        icon.setOnTargetLeaveListener((JavaScriptCallback) event -> deselect());
+        icon.setOnTargetLeaveListener((JavaScriptCallback) event -> {
+            if (icon == installedIcon) deselect();
+        });
         int searchIndex = config.leftSearch() ? 4 : 5;
         icon.setAction(searchIndex, "Search");
         icon.setOnOpListener((JavaScriptCallback) event -> {
-            if (event.getOp() - 1 == searchIndex) {
+            if (enabled && icon == installedIcon && ownsIcon() && event.getOp() - 1 == searchIndex) {
                 deselect();
                 search.run();
             }
         });
         icon.revalidate();
+    }
+    /** Same positioning as RuneLite's Wiki plugin when the vanilla entity-lookup icon is disabled. */
+    private void position() {
+        if (parent == null || client.getVarbitValue(VarbitID.WIKI_ICON_DISABLED) == 0) return;
+        if (!positioned) {
+            previousX = parent.getOriginalX(); previousY = parent.getOriginalY();
+            previousXMode = parent.getXPositionMode(); previousYMode = parent.getYPositionMode();
+            positioned = true;
+        }
+        parent.setOriginalX(client.isResized() ? 0 : 8);
+        parent.setOriginalY(135);
+        parent.setXPositionMode(WidgetPositionMode.ABSOLUTE_RIGHT);
+        parent.setYPositionMode(WidgetPositionMode.ABSOLUTE_TOP);
+        parent.revalidate();
+    }
+    private boolean ownsIcon() {
+        Widget[] children = parent == null ? null : parent.getChildren();
+        return icon != null && children != null && children.length > 0 && children[0] == icon;
+    }
+    private boolean searchClick(MenuOptionClicked event) {
+        if (!ownsIcon() || (event.getMenuAction() != MenuAction.CC_OP
+            && event.getMenuAction() != MenuAction.CC_OP_LOW_PRIORITY)) return false;
+        MenuEntry entry = event.getMenuEntry();
+        if (entry == null) return false;
+        if (entry.getWidget() != icon && (event.getParam1() != icon.getId()
+            || event.getParam0() != icon.getIndex())) return false;
+        return event.getId() == (config.leftSearch() ? 5 : 6);
     }
     private void deselect() {
         if (!selected)
@@ -140,6 +181,12 @@ public final class WikiButtonIntegration {
             icon.setSpriteId(SpriteID.WikiIcon.DESELECTED);
     }
     public void clicked(MenuOptionClicked event) {
+        if (searchClick(event)) {
+            event.consume();
+            deselect();
+            search.run();
+            return;
+        }
         if (!selected)
             return;
         deselect();
@@ -170,13 +217,22 @@ public final class WikiButtonIntegration {
     }
     public void remove() {
         deselect();
-        if (parent != null) {
-            Widget[] children = parent.getChildren();
-            if (children != null && children.length > 0 && children[0] == icon)
-                children[0] = null;
+        Widget[] children = parent == null ? null : parent.getChildren();
+        boolean owns = ownsIcon();
+        boolean vacant = children == null || children.length == 0 || children[0] == null;
+        if (owns) children[0] = null;
+        if (parent != null && (owns || vacant) && positioned
+            && parent.getOriginalY() == 135
+            && parent.getXPositionMode() == WidgetPositionMode.ABSOLUTE_RIGHT
+            && parent.getYPositionMode() == WidgetPositionMode.ABSOLUTE_TOP) {
+            parent.setOriginalX(previousX); parent.setOriginalY(previousY);
+            parent.setXPositionMode(previousXMode); parent.setYPositionMode(previousYMode);
+            parent.revalidate();
         }
-        if (vanilla != null && !coreEnabled() && client.getVarbitValue(VarbitID.WIKI_ICON_DISABLED) == 0)
+        if (vanilla != null && (owns || vacant) && !coreEnabled()
+            && client.getVarbitValue(VarbitID.WIKI_ICON_DISABLED) == 0)
             vanilla.setHidden(previousHidden);
+        positioned = false;
         icon = null;
         parent = null;
         vanilla = null;

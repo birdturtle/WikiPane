@@ -4,6 +4,13 @@ import com.google.gson.Gson;
 import com.google.inject.Provides;
 import com.wikipane.api.WikiClient;
 import com.wikipane.integration.WikiButtonIntegration;
+import com.wikipane.integration.ContextMenuIntegration;
+import com.wikipane.integration.WikiLookupRouter;
+import com.wikipane.knowledge.KnowledgeService;
+import com.wikipane.cache.ImageCache;
+import com.wikipane.inspect.*;
+import com.wikipane.pin.*;
+import net.runelite.client.ui.overlay.OverlayManager;
 import com.wikipane.ui.WikiPanePanel;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -34,11 +41,19 @@ public class WikiPanePlugin extends Plugin {
     @Inject private WikiPaneConfig config;
     @Inject private OkHttpClient http;
     @Inject private Gson gson;
+    @Inject private OverlayManager overlays;
+    @Inject private net.runelite.client.input.MouseManager mouseManager;
+    private final java.util.Map<PinnedOverlay, PinMouseListener> pinMouse = new java.util.HashMap<>();
     private WikiClient wiki;
-    private ExecutorService workers;
+    private ExecutorService workers, pinWorkers;
     private WikiPanePanel panel;
     private NavigationButton navigation;
     private WikiButtonIntegration integration;
+    private ContextMenuIntegration contextMenus;
+    private QuickInspectController inspections;
+    private QuickInspectOverlay inspectOverlay;
+    private PinnedReferences pinned;
+    private java.util.Map<Integer, PinnedOverlay> pinOverlays = java.util.Map.of();
     private volatile boolean active;
     private volatile long lifecycle;
     @Provides
@@ -57,38 +72,72 @@ public class WikiPanePlugin extends Plugin {
         wiki = new WikiClient(http, gson);
         WikiClient currentWiki = wiki;
         ExecutorService currentWorkers = workers;
+        java.util.Map<Integer, PinnedOverlay> currentPinOverlays = new java.util.HashMap<>();
+        pinOverlays = currentPinOverlays;
+        pinWorkers = new ThreadPoolExecutor(0, 1, 30, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(PinnedReferences.LIMIT), task -> {
+                Thread thread = new Thread(task, "WikiPane-pin-layout");
+                thread.setDaemon(true); return thread;
+            }, new ThreadPoolExecutor.AbortPolicy());
+        PinnedReferences[] pinOwner = new PinnedReferences[1];
+        pinned = new PinnedReferences(pinWorkers, task -> clientThread.invokeLater(() -> {
+            if (active && version == lifecycle) task.run();
+        }), pin -> {
+            PinnedOverlay overlay = new PinnedOverlay(this, client, pinOwner[0], pin);
+            PinMouseListener listener = new PinMouseListener(
+                () -> active && version == lifecycle && client.getGameState() == net.runelite.api.GameState.LOGGED_IN
+                    && !client.isMenuOpen(),
+                delta -> clientThread.invokeLater(() -> {
+                    if (active && version == lifecycle) pinOwner[0].page(pin, delta);
+                }));
+            overlay.mouse(listener); pinMouse.put(overlay, listener); mouseManager.registerMouseListener(listener);
+            currentPinOverlays.put(pin.slot, overlay); overlays.add(overlay);
+        }, pin -> {
+            PinnedOverlay overlay = currentPinOverlays.remove(pin.slot);
+            if (overlay != null) {
+                PinMouseListener listener = pinMouse.remove(overlay);
+                if (listener != null) mouseManager.unregisterMouseListener(listener);
+                overlays.remove(overlay);
+            }
+        }, url -> openReference(url, version), message -> SwingUtilities.invokeLater(() -> {
+            if (active && version == lifecycle && panel != null) panel.guidance(message);
+        }));
+        pinOwner[0] = pinned;
+        PinnedReferences currentPins = pinned;
         SwingUtilities.invokeLater(() -> {
             if (!active || version != lifecycle)
                 return;
-            panel = new WikiPanePanel(currentWiki, currentWorkers);
+            panel = new WikiPanePanel(currentWiki, currentWorkers, selection -> clientThread.invokeLater(() -> {
+                if (active && version == lifecycle) currentPins.pin(selection);
+            }));
             navigation =
                 NavigationButton.builder().tooltip("WikiPane").priority(7).icon(icon()).panel(panel).build();
             toolbar.addNavigation(navigation);
         });
-        integration = new WikiButtonIntegration(client, items, plugins, config,
-            url
-            -> {
-                if (config.destination() == WikiPaneConfig.Destination.BROWSER) {
-                    LinkBrowser.browse(url.toString());
-                    return;
-                }
-                SwingUtilities.invokeLater(() -> {
-                    if (active && version == lifecycle && panel != null) {
-                        toolbar.openPanel(navigation);
-                        panel.openEntity(url);
-                    }
-                });
-            },
-            ()
-                -> SwingUtilities.invokeLater(() -> {
+        inspections = new QuickInspectController(new KnowledgeService(currentWiki), new ImageCache(currentWiki),
+            currentWorkers, task -> clientThread.invokeLater(task), url -> openReference(url, version));
+        inspectOverlay = new QuickInspectOverlay(this, client, inspections);
+        overlays.add(inspectOverlay);
+        contextMenus = new ContextMenuIntegration(client, items, config, url -> {
+            if (!active || version != lifecycle) return;
+            if (config.contextDestination() == WikiPaneConfig.ContextDestination.FULL_ARTICLE)
+                openEntity(url, version);
+            else inspections.inspect(url);
+        });
+        WikiLookupRouter wikiRouter = new WikiLookupRouter(config, url -> openEntity(url, version),
+            LinkBrowser::browse, () -> SwingUtilities.invokeLater(() -> {
                 if (active && version == lifecycle && panel != null) {
                     toolbar.openPanel(navigation);
                     panel.focusSearch();
                 }
-            }),
+            }));
+        integration = new WikiButtonIntegration(client, items, plugins, config,
+            wikiRouter::lookup, wikiRouter::search,
             message -> SwingUtilities.invokeLater(() -> {
-                if (active && version == lifecycle && panel != null)
+                if (active && version == lifecycle && panel != null) {
+                    toolbar.openPanel(navigation);
                     panel.guidance(message);
+                }
             }));
         clientThread.invokeLater(() -> {
             if (active && version == lifecycle)
@@ -104,10 +153,16 @@ public class WikiPanePlugin extends Plugin {
         WikiButtonIntegration old = integration;
         if (old != null)
             clientThread.invokeLater(old::stop);
+        QuickInspectController oldInspections = inspections;
+        if (oldInspections != null) clientThread.invokeLater(oldInspections::stop);
+        if (inspectOverlay != null) overlays.remove(inspectOverlay);
+        PinnedReferences oldPins = pinned;
+        if (oldPins != null) clientThread.invokeLater(oldPins::stop);
         if (wiki != null)
             wiki.close();
         if (workers != null)
             workers.shutdownNow();
+        if (pinWorkers != null) pinWorkers.shutdownNow();
         SwingUtilities.invokeLater(() -> {
             if (oldPanel != null)
                 oldPanel.stop();
@@ -118,6 +173,29 @@ public class WikiPanePlugin extends Plugin {
             if (navigation == oldNavigation)
                 navigation = null;
         });
+    }
+    private void openReference(String url, long version) {
+        SwingUtilities.invokeLater(() -> {
+            if (active && version == lifecycle && panel != null) {
+                toolbar.openPanel(navigation);
+                panel.openLink(url);
+            }
+        });
+    }
+    private void openEntity(okhttp3.HttpUrl url, long version) {
+        SwingUtilities.invokeLater(() -> {
+            if (active && version == lifecycle && panel != null) {
+                toolbar.openPanel(navigation);
+                panel.openEntity(url);
+            }
+        });
+    }
+    @Subscribe(priority = -1)
+    public void onMenuOpened(MenuOpened event) {
+        if (!active) return;
+        for (PinnedOverlay overlay : pinOverlays.values()) if (overlay.hovered()) return;
+        if (inspectOverlay != null && inspectOverlay.opened()) return;
+        if (contextMenus != null) contextMenus.opened(event);
     }
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event) {
@@ -141,18 +219,25 @@ public class WikiPanePlugin extends Plugin {
     }
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
-        if (active)
+        if (active) {
             integration.reconcile();
+            if (inspections != null && (event.getGameState() == net.runelite.api.GameState.LOGIN_SCREEN
+                || event.getGameState() == net.runelite.api.GameState.HOPPING
+                || event.getGameState() == net.runelite.api.GameState.CONNECTION_LOST)) inspections.dismiss();
+        }
     }
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        if (active
-            && (event.getGroup().equals(WikiPaneConfig.GROUP) || event.getGroup().equals("runelite")
-                || event.getGroup().equals("wiki")))
-            clientThread.invokeLater(() -> {
-                if (active)
-                    integration.refresh();
-            });
+        if (!active || !(event.getGroup().equals(WikiPaneConfig.GROUP)
+            || event.getGroup().equals("runelite") || event.getGroup().equals("wiki"))) return;
+        long version = lifecycle;
+        boolean contextOnly = event.getGroup().equals(WikiPaneConfig.GROUP)
+            && event.getKey().startsWith("context");
+        clientThread.invokeLater(() -> {
+            if (!active || version != lifecycle) return;
+            if (!contextOnly) integration.refresh();
+            if (!config.contextLookups() && inspections != null) inspections.dismiss();
+        });
     }
     @Subscribe public void onPluginChanged(PluginChanged event){
         if(active&&event.getPlugin() instanceof net.runelite.client.plugins.wiki.WikiPlugin){long version=lifecycle;clientThread.invokeLater(()->{if(active&&version==lifecycle)integration.refresh();});}

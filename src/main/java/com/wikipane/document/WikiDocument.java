@@ -35,6 +35,7 @@ public final class WikiDocument {
     public interface Block {}
     public static final class Text implements Block {
         public final String html;
+        public final boolean navigation;
         public final List<ReferenceDefinition> references;
         public final List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements;
         public Text(String html) {
@@ -45,7 +46,12 @@ public final class WikiDocument {
         }
         public Text(String html, List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements,
             List<ReferenceDefinition> references) {
+            this(html, requirements, references, false);
+        }
+        public Text(String html, List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements,
+                    List<ReferenceDefinition> references, boolean navigation) {
             this.html = html;
+            this.navigation = navigation;
             this.references = List.copyOf(references);
             this.requirements = List.copyOf(requirements);
         }

@@ -86,3 +86,11 @@ xvfb-run -a env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Partic
 - Test Escape from search, popup keyboard focus, switching variants, and disabling WikiPane while Sections is open.
 
 Native automated tests cover these navigation transitions using captured Wiki responses and isolated Swing panels. Actual RuneLite interaction and desktop scaling still need player review.
+
+## Contextual lookup checkpoint
+
+The first gameplay integration has its setup, manual scenarios and remaining scope in [NATIVE_INTEGRATION.md](NATIVE_INTEGRATION.md). Contextual lookup is opt-in. Start with Shift-right-click on an inventory seed, then test bank, equipment, ground item, NPC and object entries with Menu Entry Swapper enabled. Inspecting and dismissing must preserve the open article; explicit full-article navigation must support Back. Overlay actions use Shift-right-click and positioning uses Alt-drag.
+
+## Selection pins
+
+Highlight article text, right-click and choose Pin selection. No editor or confirmation should appear. Test selection across linked paragraphs, requirements and table fields; verify list numbering, emphasis, field labels and source variants. Close the sidebar and confirm the pin remains. Test Alt-drag, Shift-right-click source/paging/unpin actions and repeated plugin enable/disable. The complete checklist is in [PINNING.md](PINNING.md).

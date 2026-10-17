@@ -100,3 +100,15 @@ Mode buttons restore per-mode positions without adding history entries. Sections
 Parent headings with no immediate blocks are aliased to their first descendant content in the chosen mode. Full-guide transclusions sometimes flatten child heading levels; normalization recovers an identity container only when the Wiki's edit-source title identifies the imported article and matches its root heading. Unestablished relationships retain source hierarchy. This is not a title-specific chapter map.
 
 Quest prose is no longer labeled walkthrough simply because it links to a quest subpage. Section semantics and actual instruction markup determine that classification. The Sections popup is a virtualized list with filtering and keyboard selection, not nested menus.
+
+## Knowledge access and temporary inspection
+
+`knowledge/KnowledgeService` provides worker-only exact entity and title queries through the same WikiClient source caches. `KnowledgeArticle` filters the existing semantic document by its entity-ID/redirect variant without constructing an article view. The sidebar and minimap entity path use this service too. `Inspection` is a deliberately selected, source-preserving projection, not another parser.
+
+`integration/ContextMenuIntegration` reads local menu entity metadata on the client thread and adds callbacks after a menu opens. `inspect/QuickInspectController` owns independent temporary state with generation guards and cancellation; it calls the existing sidebar only on explicit exploration. `InspectionLayout` prepares bounded text pages on the worker. `QuickInspectOverlay` paints them and uses RuneLite overlay actions and a native related-article submenu. Palette and label/value conventions are shared with the reader. No hover HTTP requests, player snapshots or account-dependent Wiki caches are introduced.
+
+See [NATIVE_INTEGRATION.md](NATIVE_INTEGRATION.md) for implementation boundaries, policy decisions and the next milestone's testing gate.
+
+## Selection pins
+
+The reader attaches semantic provenance to selectable text. `ui/ReaderSelection` and `ui/SelectionCapture` create a structured `pin/PinSelection` from actual highlighted ranges, including selections across native components. A separate `PinLayout` applies compact native-overlay rules. `PinnedReferences` manages bounded session pins independently of sidebar navigation; `PinnedOverlay` supplies RuneLite movement and source/paging/removal actions. Layout has a small independent worker, and pinning performs no Wiki requests. See [PINNING.md](PINNING.md).

@@ -256,6 +256,7 @@ public final class SemanticDocument {
     public static final class Node {
         public final String id;
         public final NodeType type;
+        public final boolean navigation;
         public final Role role;
         public final Source source;
         public final WikiDocument.Block fallback;
@@ -273,6 +274,7 @@ public final class SemanticDocument {
             Set<String> units) {
             this.id = id;
             this.type = type;
+            this.navigation = fallback instanceof WikiDocument.Text && ((WikiDocument.Text) fallback).navigation;
             this.role = role;
             this.source = source;
             this.fallback = fallback;

@@ -45,11 +45,27 @@ Use the magnifying glass to open search. Back returns to your previous results o
 
 Short facts use aligned rows; table entries have their own labeled records. **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Separate strategy and full-guide links open inside the reader. Citation markers open reference cards with a return link to the cited passage. Right-click a section heading to open its Wiki source.
 
+## Quick Inspect
+
+Enable **Contextual WikiPane lookup** in WikiPane settings. Hold Shift and right-click an item, NPC, or object, then choose **WikiPane**. Bank and equipment item menus are supported where RuneLite exposes the item ID.
+
+The small translucent panel leaves your sidebar article in place. Hold Shift and right-click the panel for **Open full article**, related articles, page navigation, retry, or **Dismiss**. Hold Alt to drag it. Choosing the full article adds it to ordinary sidebar history, so Back returns to your previous reading position.
+
+Settings also offer ordinary right-click access and direct full-article lookups. Contextual lookup works alongside RuneLite's Wiki plugin; replacing its minimap button is separate.
+
+Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations. Player-aware requirements are planned next.
+
+## Pin a reference
+
+Highlight text in an article, right-click, and choose **Pin selection**. The selection becomes a compact, translucent overlay immediately. Lists, numbering, emphasis, and field labels are kept.
+
+Click the footer arrows to turn pages. Hold Alt to move a pin. Shift-right-click it for **Open source** or **Unpin**. Pins stay visible when the sidebar closes. Up to five pins can be kept for the session; disabling WikiPane or restarting RuneLite clears them.
+
 ## Replace the Wiki button
 
 1. Disable RuneLite's core **Wiki** plugin.
 2. Open WikiPane settings and enable **Replace Wiki button**.
-3. Leave **Lookup destination** set to **SIDEBAR**.
+3. Leave **Wiki button destination** set to **WikiPane sidebar**.
 4. Click the in-game Wiki button, then an item, NPC, or object.
 
 WikiPane refuses to install its button while the core Wiki plugin is enabled. It does not disable other plugins for you. If the game has its Wiki icon disabled, enable its Wiki entity lookup setting first.

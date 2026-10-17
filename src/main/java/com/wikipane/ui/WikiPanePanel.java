@@ -4,6 +4,7 @@ import com.wikipane.api.*;
 import com.wikipane.cache.ImageCache;
 import com.wikipane.document.WikiDocument;
 import com.wikipane.navigation.NavigationHistory;
+import com.wikipane.view.ArticleNavigation;
 import com.wikipane.view.ArticleViewModel;
 import java.awt.*;
 import java.awt.event.*;
@@ -27,14 +28,32 @@ public final class WikiPanePanel extends PluginPanel {
     private final NavigationHistory history = new NavigationHistory();
     private final JTextField search = new JTextField();
     private final JLabel message = new JLabel("Search the OSRS Wiki");
-    private final JButton back = button("‹", "Back"), forward = button("›", "Forward"),
-                          home = button("Results", "Return to search"),
-                          browser = button("Wiki ↗", "Open in browser");
+    private final JButton back = button("", "Back"), forward = button("", "Forward"),
+                          searchToggle = button("", "Search"), browser = button("", "Open in browser"),
+                          sectionsButton = button("Sections", "Jump to section");
+    private final JToggleButton overview = new JToggleButton("Overview"), secondary = new JToggleButton();
     private final JPanel content = new ReaderViewport();
     private final JScrollPane scroll = new JScrollPane(content);
-    private final JPanel topics = new JPanel(new GridLayout(0, 2, 3, 3));
     private final JComboBox<String> variants = new JComboBox<>();
     private final JPanel readingTools = new JPanel(new BorderLayout(0, 5));
+    private final JPanel searchTools = new JPanel(new BorderLayout(0, 5));
+    private final JPanel statePanel = new JPanel(new CardLayout()) {
+        @Override
+        public Dimension getPreferredSize() {
+            for (Component component : getComponents())
+                if (component.isVisible())
+                    return component.getPreferredSize();
+            return super.getPreferredSize();
+        }
+    };
+    private final JPanel identity = ContentRenderer.column();
+    private final JEditorPane articleTitle = new ReaderComponents(this::openLink).text("");
+    private final JEditorPane metadata = new ReaderComponents(this::openLink).text("");
+    private final JLabel currentSection = new JLabel();
+    private final JPopupMenu sectionPopup = new JPopupMenu();
+    private String lastQuery = "";
+    private List<String> lastTitles = List.of();
+    private boolean restoringSearch;
     private final javax.swing.Timer debounce;
     private long request, searchRequest;
     private boolean active = true, settingSections, viewingArticle;
@@ -42,39 +61,52 @@ public final class WikiPanePanel extends PluginPanel {
     private String fallbackUrl = WikiUrls.BASE.toString();
     private JPanel results = ContentRenderer.column();
     public WikiPanePanel(WikiClient wiki, ExecutorService workers) {
+        this(wiki, workers, null);
+    }
+    public WikiPanePanel(WikiClient wiki, ExecutorService workers,
+                         java.util.function.Consumer<com.wikipane.pin.PinSelection> pin) {
         super(false);
         this.wiki = wiki;
         this.workers = workers;
-        renderer = new ContentRenderer(this::openLink, workers, new ImageCache(wiki));
+        renderer = new ContentRenderer(this::openLink, workers, new ImageCache(wiki), pin, this::guidance);
         setLayout(new BorderLayout(0, 6));
         setBackground(ReaderComponents.BACKGROUND);
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         JPanel top = new JPanel(new BorderLayout(0, 5));
         top.setOpaque(false);
-        JLabel title = new JLabel("WikiPane");
-        title.setForeground(ColorScheme.BRAND_ORANGE);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 12f));
-        top.add(title, BorderLayout.NORTH);
-        JPanel controls = new JPanel(new BorderLayout(0, 5));
-        controls.setOpaque(false);
+        JPanel toolbar = new JPanel(new GridLayout(1, 4, 4, 0));
+        toolbar.setOpaque(false);
+        toolbar.setName("wiki.globalNavigation");
+        back.setIcon(new NavigationIcons(NavigationIcons.Action.BACK));
+        forward.setIcon(new NavigationIcons(NavigationIcons.Action.FORWARD));
+        searchToggle.setIcon(new NavigationIcons(NavigationIcons.Action.SEARCH));
+        browser.setIcon(new NavigationIcons(NavigationIcons.Action.BROWSER));
+        for (JButton control : new JButton[] {back, forward, searchToggle, browser}) {
+            control.setPreferredSize(new Dimension(32, 26));
+            toolbar.add(control);
+        }
+        top.add(toolbar, BorderLayout.NORTH);
+        JLabel brand = new JLabel("WikiPane");
+        brand.setForeground(ColorScheme.BRAND_ORANGE);
+        brand.setFont(brand.getFont().deriveFont(Font.BOLD, 12f));
+        searchTools.setOpaque(false);
+        searchTools.add(brand, BorderLayout.NORTH);
+        search.setName("wiki.search");
         search.setToolTipText("Searches and lookups are sent to the OSRS Wiki");
         JPanel searchRow = new JPanel(new BorderLayout(4, 0));
         searchRow.setOpaque(false);
         searchRow.add(search, BorderLayout.CENTER);
-        JButton searchButton = new JButton("Search");
-        searchButton.setMargin(new Insets(3, 5, 3, 5));
+        JButton searchButton = button("Search", "Search the OSRS Wiki");
         searchButton.addActionListener(e -> search.postActionEvent());
         searchRow.add(searchButton, BorderLayout.EAST);
-        controls.add(searchRow, BorderLayout.NORTH);
-        JPanel toolbar = new JPanel(new GridLayout(1, 4, 3, 0));
-        toolbar.setOpaque(false);
-        for (JButton b : new JButton[] {back, forward, home, browser}) toolbar.add(b);
-        controls.add(toolbar, BorderLayout.CENTER);
-        topics.setOpaque(false);
+        searchTools.add(searchRow, BorderLayout.CENTER);
+        articleTitle.setName("wiki.articleTitle");
+        metadata.setName("wiki.articleMetadata");
+        identity.add(articleTitle);
+        identity.add(metadata);
         readingTools.setOpaque(false);
-        readingTools.add(topics, BorderLayout.CENTER);
-        readingTools.add(variants, BorderLayout.NORTH);
-        readingTools.setVisible(false);
+        readingTools.add(identity, BorderLayout.NORTH);
+        JPanel contextual = ContentRenderer.column();
         variants.setToolTipText("Choose item or monster variant");
         variants.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -86,12 +118,45 @@ public final class WikiPanePanel extends PluginPanel {
                 return label;
             }
         });
-        controls.add(readingTools, BorderLayout.SOUTH);
-        top.add(controls, BorderLayout.CENTER);
+        contextual.add(variants);
+        JPanel modeRow = new JPanel(new BorderLayout(4, 0));
+        modeRow.setOpaque(false);
+        JPanel modes = new JPanel(new GridLayout(1, 2, 3, 0));
+        modes.setOpaque(false);
+        modes.add(overview);
+        modes.add(secondary);
+        modeRow.add(modes, BorderLayout.CENTER);
+        modeRow.add(sectionsButton, BorderLayout.EAST);
+        modeRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        contextual.add(modeRow);
+        currentSection.setName("wiki.currentSection");
+        currentSection.setForeground(ReaderComponents.MUTED);
+        currentSection.setFont(currentSection.getFont().deriveFont(10f));
+        currentSection.putClientProperty("html.disable", true);
+        currentSection.setBorder(BorderFactory.createEmptyBorder(3, 0, 0, 0));
+        contextual.add(currentSection);
+        readingTools.add(contextual, BorderLayout.CENTER);
+        statePanel.setOpaque(false);
+        statePanel.add(searchTools, "search");
+        statePanel.add(readingTools, "article");
+        top.add(statePanel, BorderLayout.CENTER);
+        JPopupMenu diagnostics = new JPopupMenu();
+        JMenuItem auditItem = new JMenuItem("Composition audit");
+        auditItem.addActionListener(e -> {
+            JTextArea report = new JTextArea(compositionAudit(), 18, 46);
+            report.setEditable(false);
+            report.setLineWrap(true);
+            report.setWrapStyleWord(true);
+            report.setCaretPosition(0);
+            JOptionPane.showMessageDialog(
+                this, new JScrollPane(report), "WikiPane composition audit", JOptionPane.INFORMATION_MESSAGE);
+        });
+        diagnostics.add(auditItem);
+        brand.setComponentPopupMenu(diagnostics);
+        articleTitle.setComponentPopupMenu(diagnostics);
         message.putClientProperty("html.disable", true);
-        message.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+        message.setForeground(ReaderComponents.MUTED);
         message.setFont(message.getFont().deriveFont(11f));
-        message.setToolTipText(message.getText());
         JPanel feedback = new JPanel(new BorderLayout(0, 3));
         feedback.setOpaque(false);
         feedback.add(message, BorderLayout.CENTER);
@@ -112,6 +177,8 @@ public final class WikiPanePanel extends PluginPanel {
         debounce.setRepeats(false);
         search.getDocument().addDocumentListener(new DocumentListener() {
             private void changed() {
+                if (restoringSearch)
+                    return;
                 searchRequest++;
                 debounce.restart();
             }
@@ -129,15 +196,29 @@ public final class WikiPanePanel extends PluginPanel {
             debounce.stop();
             performSearch(false);
         });
+        search.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "leaveSearch");
+        search.getActionMap().put("leaveSearch", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                if (history.canBack())
+                    travel(false);
+            }
+        });
         back.addActionListener(e -> travel(false));
         forward.addActionListener(e -> travel(true));
-        home.addActionListener(e -> showSearch());
+        searchToggle.addActionListener(e -> focusSearch());
+        overview.addActionListener(e -> switchMode("overview"));
+        secondary.addActionListener(e -> {
+            NavigationHistory.Entry entry = history.current();
+            if (entry != null && !entry.isSearch() && entry.page.navigation.secondary != null)
+                switchMode(entry.page.navigation.secondary.area);
+        });
+        sectionsButton.addActionListener(e -> openSections());
         browser.addActionListener(e -> LinkBrowser.browse(fallbackUrl));
         variants.addActionListener(e -> {
             if (!settingSections && viewingArticle && history.current() != null) {
                 saveScroll();
                 history.current().variant = Objects.toString(variants.getSelectedItem(), "");
-                show(history.current(), false);
+                show(history.current(), true);
             }
         });
         showSearch();
@@ -171,8 +252,15 @@ public final class WikiPanePanel extends PluginPanel {
         b.getAccessibleContext().setAccessibleName(tooltip);
         return b;
     }
+    public String compositionAudit() {
+        return history.current() == null || history.current().isSearch()
+            ? "No article loaded."
+            : history.current().page.view.audit.summary();
+    }
     public void guidance(String value) {
         status(value);
+        message.setText("<html><body style='width:170px'>"
+            + com.wikipane.document.WikiDocumentParser.escape(value) + "</body></html>");
     }
     private void status(String value) {
         message.setVisible(true);
@@ -187,42 +275,79 @@ public final class WikiPanePanel extends PluginPanel {
         content.repaint();
     }
     private void saveScroll() {
-        if (viewingArticle) {
-            history.saveScroll(scroll.getVerticalScrollBar().getValue());
-            if (history.current() != null)
-                history.current().areaScroll.put(history.current().area, history.current().scroll);
-            NavigationHistory.Entry entry = history.current();
-            if (entry != null) {
-                entry.tables.clear();
-                entry.tables.putAll(renderer.tableState());
-            }
+        NavigationHistory.Entry entry = history.current();
+        if (entry == null)
+            return;
+        history.saveScroll(scroll.getVerticalScrollBar().getValue());
+        if (viewingArticle && !entry.isSearch()) {
+            entry.areaScroll.put(entry.area, entry.scroll);
+            entry.tables.clear();
+            entry.tables.putAll(renderer.tableState());
         }
     }
     private void controls() {
-        back.setEnabled(history.canBack() || (!viewingArticle && history.current() != null));
+        back.setEnabled(history.canBack());
         forward.setEnabled(history.canForward());
+        browser.setEnabled(viewingArticle);
     }
     public void focusSearch() {
+        if (!viewingArticle && history.current() != null && history.current().isSearch()) {
+            search.requestFocusInWindow();
+            return;
+        }
         showSearch();
         search.requestFocusInWindow();
     }
     private void showSearch() {
         request++;
+        searchRequest++;
+        debounce.stop();
         saveScroll();
+        history.pushSearch(lastQuery, lastTitles);
+        showSearchEntry(history.current(), true);
+    }
+    private void showSearchEntry(NavigationHistory.Entry entry, boolean restore) {
         renderer.clear();
         viewingArticle = false;
-        readingTools.setVisible(false);
+        sectionPopup.setVisible(false);
+        ((CardLayout) statePanel.getLayout()).show(statePanel, "search");
+        restoringSearch = true;
+        search.setText(entry.query);
+        restoringSearch = false;
+        debounce.stop();
+        lastQuery = entry.query;
+        lastTitles = entry.results;
+        results = ContentRenderer.column();
+        if (entry.results.isEmpty())
+            results.add(renderer.text(
+                entry.query.isEmpty() ? "Search the OSRS Wiki" : "No results. Try another search."));
+        for (String title : entry.results) {
+            JButton result =
+                new JButton("<html>" + com.wikipane.document.WikiDocumentParser.escape(title) + "</html>");
+            result.setHorizontalAlignment(SwingConstants.LEFT);
+            result.setAlignmentX(Component.LEFT_ALIGNMENT);
+            result.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+            result.addActionListener(e -> openTitle(title, ""));
+            results.add(result);
+        }
+        installResultKeys();
         display(results);
         controls();
-        status("Search the OSRS Wiki");
-        search.requestFocusInWindow();
+        status(entry.query.isEmpty() ? "Search the OSRS Wiki" : "Search results");
+        SwingUtilities.invokeLater(() -> {
+            if (active && history.current() == entry && !viewingArticle)
+                scroll.getVerticalScrollBar().setValue(restore ? entry.scroll : 0);
+        });
     }
     private void performSearch(boolean suggestion) {
+        if (viewingArticle)
+            return;
         String query = search.getText().trim();
         long version = ++searchRequest;
         request++;
         if (query.isEmpty()) {
-            status("Enter a search term.");
+            history.updateSearch("", List.of());
+            showSearchEntry(history.current(), false);
             return;
         }
         status(suggestion ? "Finding suggestions…" : "Searching…");
@@ -230,28 +355,11 @@ public final class WikiPanePanel extends PluginPanel {
                    -> wiki.search(query, suggestion),
             titles
             -> {
-                if (version != searchRequest)
+                if (version != searchRequest || viewingArticle)
                     return;
-                results = ContentRenderer.column();
-                if (titles.isEmpty())
-                    results.add(renderer.text("No results. Try another search."));
-                for (String title : titles) {
-                    JButton result = new JButton(
-                        "<html>" + com.wikipane.document.WikiDocumentParser.escape(title) + "</html>");
-                    result.setHorizontalAlignment(SwingConstants.LEFT);
-                    result.setAlignmentX(Component.LEFT_ALIGNMENT);
-                    result.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
-                    result.addActionListener(e -> openTitle(title, ""));
-                    results.add(result);
-                }
-                installResultKeys();
-                saveScroll();
-                renderer.clear();
-                viewingArticle = false;
-                readingTools.setVisible(false);
-                display(results);
+                history.updateSearch(query, titles);
+                showSearchEntry(history.current(), false);
                 status(titles.isEmpty() ? "No results" : suggestion ? "Suggestions" : "Search results");
-                controls();
             },
             error -> {
                 if (version == searchRequest)
@@ -326,16 +434,9 @@ public final class WikiPanePanel extends PluginPanel {
         submit(
             ()
                 -> {
-                HttpUrl resolved = WikiUrls.resolve(wiki.entity(lookup));
-                String title = WikiUrls.title(resolved);
-                if (title == null)
-                    throw new java.io.IOException("The lookup did not resolve to an article.");
-                com.wikipane.view.WikiPage page = wiki.page(title);
-                WikiDocument document = page.document;
-                String anchor = document.entityAnchors.get(lookup.queryParameter("id"));
-                if (anchor == null)
-                    anchor = resolved.fragment() == null ? document.redirectAnchor : resolved.fragment();
-                return new NavigationHistory.Entry(page, anchor, 0);
+                com.wikipane.knowledge.KnowledgeArticle article =
+                    new com.wikipane.knowledge.KnowledgeService(wiki).entity(lookup);
+                return new NavigationHistory.Entry(wiki.page(article.document.title), article.anchor, 0);
             },
             entry
             -> {
@@ -362,7 +463,7 @@ public final class WikiPanePanel extends PluginPanel {
             && !title.startsWith("Media:")) {
             NavigationHistory.Entry current = history.current();
             String anchor = url.fragment() == null ? "" : url.fragment();
-            if (current != null && current.document.url.equals(WikiUrls.article(title))
+            if (current != null && !current.isSearch() && current.document.url.equals(WikiUrls.article(title))
                 && content.getComponentCount() > 0 && viewingArticle) {
                 anchor(anchor, true);
                 return;
@@ -376,20 +477,35 @@ public final class WikiPanePanel extends PluginPanel {
         searchRequest++;
         debounce.stop();
         saveScroll();
-        NavigationHistory.Entry entry = !viewingArticle ? history.current()
-            : next                                      ? history.forward()
-                                                        : history.back();
+        NavigationHistory.Entry entry = next ? history.forward() : history.back();
         if (entry != null)
             show(entry, true);
     }
+    private void modeStyle(JToggleButton button, boolean selected) {
+        button.setSelected(selected);
+        button.setFont(button.getFont().deriveFont(11f));
+        button.setMargin(new Insets(3, 3, 3, 3));
+        button.setForeground(selected ? ReaderComponents.ACCENT : ReaderComponents.MUTED);
+        button.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(
+                0, 0, 2, 0, selected ? ReaderComponents.ACCENT : ReaderComponents.BORDER),
+            BorderFactory.createEmptyBorder(4, 3, 4, 3)));
+    }
     private void show(NavigationHistory.Entry entry, boolean restore) {
+        if (entry.isSearch()) {
+            showSearchEntry(entry, restore);
+            return;
+        }
         viewingArticle = true;
         ArticleViewModel view = entry.page.view;
+        ArticleNavigation nav = entry.page.navigation;
         if (entry.area.isEmpty())
-            entry.area = entry.anchor.isEmpty() ? view.areas.get(0).id : view.sourceArea(entry.anchor).id;
-        ArticleViewModel.Area area = view.area(entry.area);
+            entry.area = nav.areaForAnchor(entry.anchor);
+        ArticleViewModel.Area area = nav.area(entry.area);
         entry.area = area.id;
-        fallbackUrl = entry.document.url + (entry.anchor.isEmpty() ? "" : "#" + entry.anchor);
+        String browserAnchor = entry.section;
+        fallbackUrl = entry.document.url + (browserAnchor.isEmpty() ? "" : "#" + browserAnchor);
+        sectionPopup.setVisible(false);
         settingSections = true;
         variants.removeAllItems();
         LinkedHashSet<String> versions = new LinkedHashSet<>();
@@ -407,32 +523,32 @@ public final class WikiPanePanel extends PluginPanel {
         }
         variants.setSelectedItem(entry.variant);
         variants.setVisible(versions.size() > 1);
-        topics.removeAll();
-        for (ArticleViewModel.Area option : view.areas) {
-            String label = compactArea(option.label);
-            JToggleButton button = new JToggleButton(label);
-            button.setFont(button.getFont().deriveFont(11f));
-            button.setMargin(new Insets(3, 4, 3, 4));
-            button.setPreferredSize(new Dimension(96, 25));
-            button.setSelected(option.id.equals(area.id));
-            button.setForeground(button.isSelected() ? ReaderComponents.ACCENT : ReaderComponents.MUTED);
-            button.setBackground(button.isSelected() ? new Color(58, 52, 41) : new Color(44, 44, 44));
-            button.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(
-                    0, 0, 2, 0, button.isSelected() ? ReaderComponents.ACCENT : ReaderComponents.BORDER),
-                BorderFactory.createEmptyBorder(3, 4, 3, 4)));
-            button.setToolTipText(option.label);
-            button.getAccessibleContext().setAccessibleName(option.label);
-            button.addActionListener(e -> {
-                saveScroll();
-                entry.area = option.id;
-                entry.scroll = entry.areaScroll.getOrDefault(option.id, 0);
-                show(entry, true);
-            });
-            topics.add(button);
-        }
         settingSections = false;
-        readingTools.setVisible(true);
+        articleTitle.setText("<html><body><span class='article-title'>"
+            + com.wikipane.document.WikiDocumentParser.escape(entry.document.title)
+            + "</span></body></html>");
+        metadata.setText("<html><body><span class='muted tiny'>"
+            + com.wikipane.document.WikiDocumentParser.escape(nav.subtitle) + "</span></body></html>");
+        overview.setToolTipText("Overview");
+        overview.getAccessibleContext().setAccessibleName("Overview");
+        modeStyle(overview, area.id.equals("overview"));
+        secondary.setVisible(nav.secondary != null);
+        if (nav.secondary != null) {
+            secondary.setText(nav.secondary.label);
+            secondary.setToolTipText(view.area(nav.secondary.area).label);
+            secondary.getAccessibleContext().setAccessibleName(nav.secondary.label);
+            modeStyle(secondary, area.id.equals(nav.secondary.area));
+        }
+        sectionsButton.setForeground(
+            !area.id.equals("overview") && (nav.secondary == null || !area.id.equals(nav.secondary.area))
+                ? ReaderComponents.ACCENT
+                : ReaderComponents.MUTED);
+        String location = entry.section.isEmpty() ? area.label : nav.section(entry.section).label;
+        currentSection.setText(location);
+        currentSection.setToolTipText(location);
+        currentSection.setVisible(!entry.section.isEmpty()
+            || !area.id.equals("overview") && (nav.secondary == null || !area.id.equals(nav.secondary.area)));
+        ((CardLayout) statePanel.getLayout()).show(statePanel, "article");
         display(renderer.renderArea(entry.page, area, entry.tables, entry.variant));
         controls();
         status(entry.document.title);
@@ -442,44 +558,89 @@ public final class WikiPanePanel extends PluginPanel {
                 return;
             if (restore)
                 scroll.getVerticalScrollBar().setValue(entry.scroll);
-            else if (!entry.anchor.isEmpty() && view.sourceArea(entry.anchor).id.equals(entry.area)) {
-                renderer.revealAnchor(entry.anchor);
+            else if (!entry.section.isEmpty()) {
+                String anchor = entry.section;
+                renderer.revealAnchor(anchor);
                 SwingUtilities.invokeLater(() -> {
                     if (!active || history.current() != entry)
                         return;
-                    JComponent target = renderer.anchor(entry.anchor);
+                    JComponent target = renderer.anchor(anchor);
                     if (target != null)
-                        target.scrollRectToVisible(new Rectangle(0, 0, 1, Math.max(1, target.getHeight())));
+                        target.scrollRectToVisible(
+                            new Rectangle(0, 0, 1, Math.min(24, Math.max(1, target.getHeight()))));
                 });
             } else
                 scroll.getVerticalScrollBar().setValue(0);
             renderer.loadVisibleImages();
         });
     }
-    private static String compactArea(String label) {
-        switch (label) {
-            case "Information":
-                return "Info";
-            case "Combat & strategy":
-                return "Combat";
-            case "Access & locations":
-                return "Access";
-            case "Other sections":
-                return "More";
-            case "Making & uses":
-                return "Uses";
-            case "Training & methods":
-                return "Training";
-            default:
-                return label;
+    private void switchMode(String id) {
+        NavigationHistory.Entry entry = history.current();
+        if (entry == null || entry.isSearch())
+            return;
+        request++;
+        searchRequest++;
+        debounce.stop();
+        saveScroll();
+        entry.area = id;
+        entry.section = "";
+        entry.scroll = entry.areaScroll.getOrDefault(id, 0);
+        show(entry, true);
+    }
+    private void openSections() {
+        NavigationHistory.Entry entry = history.current();
+        if (entry == null || entry.isSearch())
+            return;
+        sectionPopup.removeAll();
+        SectionNavigator navigator =
+            new SectionNavigator(entry.page.navigation.sections, entry.area, entry.section, destination -> {
+                sectionPopup.setVisible(false);
+                navigateSection(destination);
+            });
+        sectionPopup.add(navigator);
+        if (sectionsButton.isShowing()) {
+            sectionPopup.show(sectionsButton, 0, sectionsButton.getHeight());
+            SwingUtilities.invokeLater(() -> {
+                if (sectionPopup.isVisible() && history.current() == entry)
+                    navigator.focusFilter();
+            });
         }
     }
+    public void navigateSection(ArticleNavigation.Destination destination) {
+        NavigationHistory.Entry entry = history.current();
+        if (entry == null || entry.isSearch())
+            return;
+        if (destination.anchor.isEmpty()) {
+            request++;
+            searchRequest++;
+            debounce.stop();
+            saveScroll();
+            history.pushDestination(entry.page, destination.area, "");
+            NavigationHistory.Entry target = history.current();
+            target.variant = entry.variant;
+            target.tables.putAll(entry.tables);
+            target.areaScroll.putAll(entry.areaScroll);
+            target.scroll = 0;
+            show(target, false);
+            return;
+        }
+        anchor(destination.anchor, true, destination.area);
+    }
     private void anchor(String id, boolean push) {
+        NavigationHistory.Entry entry = history.current();
+        if (entry == null || entry.isSearch())
+            return;
+        anchor(id, push, entry.page.navigation.areaForAnchor(id, entry.area));
+    }
+    private void anchor(String id, boolean push, String destinationArea) {
         NavigationHistory.Entry old = history.current();
-        if (old == null)
+        if (old == null || old.isSearch())
             return;
         boolean exists = id.isEmpty()
             || old.document.semantic.sections.stream().anyMatch(s -> s.anchor.equals(id))
+            || old.page.view.areas.stream().flatMap(a -> a.components.stream()).anyMatch(c -> c.id.equals(id))
+            || old.document.semantic.nodes.stream().anyMatch(
+                n -> com.wikipane.view.PresentationValidator.hasAnchor(n, id))
             || old.document.blocks.stream().anyMatch(
                 b -> b instanceof WikiDocument.Table && ((WikiDocument.Table) b).anchor.equals(id));
         if (!exists) {
@@ -487,12 +648,17 @@ public final class WikiPanePanel extends PluginPanel {
             fallbackUrl = old.document.url + "#" + id;
             return;
         }
+        request++;
+        searchRequest++;
+        debounce.stop();
         saveScroll();
         if (push)
-            history.push(old.page, id);
+            history.pushDestination(old.page, destinationArea, id);
         NavigationHistory.Entry entry = history.current();
         entry.tables.putAll(old.tables);
-        entry.area = old.page.view.sourceArea(id).id;
+        entry.area = destinationArea;
+        entry.section = id;
+        entry.areaScroll.putAll(old.areaScroll);
         entry.variant = old.variant;
         show(entry, false);
     }
@@ -520,6 +686,8 @@ public final class WikiPanePanel extends PluginPanel {
         }
     }
     public void stop() {
+        sectionPopup.setVisible(false);
+        sectionPopup.removeAll();
         active = false;
         request++;
         searchRequest++;

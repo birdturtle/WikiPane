@@ -86,6 +86,7 @@ public class WikiPanePreview {
                         frame.paint(g);
                         g.dispose();
                         ImageIO.write(image, "png", new File(args[1]));
+                        System.out.println(panel.compositionAudit());
                     } catch (IOException ex) {
                         throw new UncheckedIOException(ex);
                     } finally {

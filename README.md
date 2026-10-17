@@ -37,17 +37,35 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew run -PdevHome="$PWD/.dev/ho
 
 Type a title or search term. Suggestions appear after a short pause. Press Enter for broader results; click a result to open it. Down Arrow moves from the search field to the results; Up/Down and Enter navigate the result buttons.
 
-The search field and navigation buttons stay above the reader. Articles are organized by their content: monsters have Combat & strategy and Drops; items have Stats and Sources; quests have Requirements, Walkthrough, and Rewards. Remaining material stays under Other sections. Choose an area, then scroll through its content.
+While reading, the article title and navigation stay above the content. Use **Overview** and the primary mode for that article: Walkthrough for quests, Combat for monsters, Stats for items, or Training for skills. Each mode remembers its reading position.
 
-Requirements keep starting and full-completion conditions separate. Short facts use aligned rows; drops and other table entries have their own labeled records. Tables become labeled records with all columns retained; **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Links to separate strategy and full-guide articles open those articles in the same reader.
+**Sections** opens the article's contents, including requirements, chapters, drops, rewards, and references. Filter the list or select a heading to jump directly to it. Section jumps participate in Back and Forward history.
 
-Back and Forward restore your area, variant, expanded tables, and reading position. The **Browser ↗** button opens the current article in your browser. Right-click a section heading to open its source on the Wiki. Images load as they enter view.
+Use the magnifying glass to open search. Back returns to your previous results or article; Forward restores where you were reading. The arrow-out icon opens the current article in your browser. All four controls have tooltips.
+
+Short facts use aligned rows; table entries have their own labeled records. **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Separate strategy and full-guide links open inside the reader. Citation markers open reference cards with a return link to the cited passage. Right-click a section heading to open its Wiki source.
+
+## Quick Inspect
+
+Enable **Contextual WikiPane lookup** in WikiPane settings. Hold Shift and right-click an item, NPC, or object, then choose **WikiPane**. Bank and equipment item menus are supported where RuneLite exposes the item ID.
+
+The small translucent panel leaves your sidebar article in place. Hold Shift and right-click the panel for **Open full article**, related articles, page navigation, retry, or **Dismiss**. Hold Alt to drag it. Choosing the full article adds it to ordinary sidebar history, so Back returns to your previous reading position.
+
+Settings also offer ordinary right-click access and direct full-article lookups. Contextual lookup works alongside RuneLite's Wiki plugin; replacing its minimap button is separate.
+
+Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations. Player-aware requirements are planned next.
+
+## Pin a reference
+
+Highlight text in an article, right-click, and choose **Pin selection**. The selection becomes a compact, translucent overlay immediately. Lists, numbering, emphasis, and field labels are kept.
+
+Click the footer arrows to turn pages. Hold Alt to move a pin. Shift-right-click it for **Open source** or **Unpin**. Pins stay visible when the sidebar closes. Up to five pins can be kept for the session; disabling WikiPane or restarting RuneLite clears them.
 
 ## Replace the Wiki button
 
 1. Disable RuneLite's core **Wiki** plugin.
 2. Open WikiPane settings and enable **Replace Wiki button**.
-3. Leave **Lookup destination** set to **SIDEBAR**.
+3. Leave **Wiki button destination** set to **WikiPane sidebar**.
 4. Click the in-game Wiki button, then an item, NPC, or object.
 
 WikiPane refuses to install its button while the core Wiki plugin is enabled. It does not disable other plugins for you. If the game has its Wiki icon disabled, enable its Wiki entity lookup setting first.
@@ -79,5 +97,7 @@ An isolated reader preview requires no game client or login and makes no network
 ```sh
 env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Particle="Recipe for Disaster"
 ```
+
+Right-click the article title, or the WikiPane heading in search, and choose **Composition audit** for local diagnostics. See [presentation validation](docs/PRESENTATION_VALIDATION.md) for the checks and their limits.
 
 See [testing](docs/TESTING.md) for the player test checklist and [implementation notes](docs/IMPLEMENTATION.md) for limits and Plugin Hub preparation.

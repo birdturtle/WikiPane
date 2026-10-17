@@ -1,11 +1,22 @@
 package com.wikipane;
+
 import com.wikipane.document.WikiDocument;
-import com.wikipane.semantic.SemanticDocument.*;
+import com.wikipane.view.*;
+
+/** Deterministic, fixture-only composition audit. No network or game client. */
 public final class SemanticReport {
- public static void main(String[] args)throws Exception{for(String fixture:new String[]{"Bronze_dagger","Recipe_for_Disaster","Vorkath","Cooking","Vorkath__Strategies","Recipe_for_Disaster__Full_guide"}){
- WikiDocument d=DocumentTest.document(fixture);System.out.println("\n"+d.title+" ["+d.semantic.type+"] "+d.semantic.nodes.size()+" nodes, "+d.semantic.contentUnits.size()+" source units, "+com.wikipane.view.ArticleViewModel.create(d.semantic).coveredUnits.size()+" exposed, missing "+com.wikipane.view.ArticleViewModel.create(d.semantic).missingUnits);
- for(com.wikipane.view.ArticleViewModel.Area area:com.wikipane.view.ArticleViewModel.create(d.semantic).areas)System.out.println("  "+area.id+" "+area.components.size()+" components, "+area.components.stream().mapToInt(c->c.text().length()).sum()+" characters, "+area.related.size()+" related guides");
- for(Fact fact:com.wikipane.view.ArticleViewModel.create(d.semantic).highlights)System.out.println("  Highlight "+fact.key+" "+fact.label+"="+fact.value.text);
- long count=d.semantic.nodes.stream().flatMap(n->n.requirements.stream()).mapToLong(s->s.groups.size()).sum();System.out.println("  "+count+" requirement groups");
- }}
+    public static void main(String[] args) throws Exception {
+        for (String fixture : new String[] {"Bronze_dagger", "Recipe_for_Disaster", "Vorkath", "Cooking",
+                 "Vorkath__Strategies", "Recipe_for_Disaster__Full_guide"}) {
+            WikiPage page = new WikiPage(DocumentTest.document(fixture));
+            WikiDocument doc = page.document;
+            System.out.println("\n" + doc.title + " [" + doc.semantic.type + "]");
+            for (ArticleViewModel.Area area : page.view.areas)
+                System.out.println("  " + area.label + ": " + area.components.size() + " components, "
+                    + area.components.stream().mapToInt(c -> c.text().length()).sum() + " characters");
+            System.out.println(page.view.audit.summary());
+            if (!page.view.audit.valid())
+                throw new AssertionError("Composition audit failed: " + doc.title);
+        }
+    }
 }

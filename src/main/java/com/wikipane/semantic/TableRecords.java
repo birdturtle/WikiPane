@@ -73,7 +73,7 @@ public final class TableRecords {
                 if (cell.header || cell.value.text.isBlank())
                     continue;
                 String label = cell.label.isBlank() ? "" : cell.label;
-                String key = label + "\0" + cell.value.text;
+                String key = label + "\0" + cell.value.html;
                 if (values.add(key))
                     fields.add(new Field(label, cell.value, cell.source, cell.illustrationTarget));
             }
@@ -81,5 +81,27 @@ public final class TableRecords {
                 result.add(new Record(group, fields, nested, units));
         }
         return List.copyOf(result);
+    }
+    /** Conservative row records for a failed specialized-table contract. Header text is retained too. */
+    public static List<Record> safeOf(Table table) {
+        List<Record> records = new ArrayList<>();
+        for (Row row : table.rows) {
+            List<Field> fields = new ArrayList<>();
+            List<Table> nested = new ArrayList<>();
+            Set<String> units = new LinkedHashSet<>();
+            List<Cell> cells = new ArrayList<>(row.carried);
+            cells.addAll(row.cells);
+            for (Cell cell : cells) {
+                if (!cell.value.text.isBlank())
+                    fields.add(new Field(
+                        cell.header ? "" : cell.label, cell.value, cell.source, cell.illustrationTarget));
+                nested.addAll(cell.nested);
+                if (!cell.value.text.isBlank() || !cell.nested.isEmpty())
+                    units.add(cell.source.unit);
+            }
+            if (!fields.isEmpty() || !nested.isEmpty())
+                records.add(new Record("", fields, nested, units));
+        }
+        return List.copyOf(records);
     }
 }

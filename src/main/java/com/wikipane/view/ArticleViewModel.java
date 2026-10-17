@@ -6,7 +6,7 @@ import java.util.*;
 
 /** Page-type presentation decisions over complete semantic data. No Swing, fetching, or summarization. */
 public final class ArticleViewModel {
-    public enum ComponentType { TEXT, FACTS, REQUIREMENTS, TABLE, IMAGE, FALLBACK }
+    public enum ComponentType { TEXT, FACTS, REQUIREMENTS, TABLE, IMAGE, REFERENCES, FALLBACK }
     public static final class Component {
         public final String id, title;
         public final ComponentType type;
@@ -59,7 +59,10 @@ public final class ArticleViewModel {
     public final List<Area> areas;
     public final List<Fact> highlights;
     public final Set<String> coveredUnits, missingUnits;
-    private ArticleViewModel(SemanticDocument document, List<Area> areas, List<Fact> highlights) {
+    public final CompositionAudit audit;
+    ArticleViewModel(
+        SemanticDocument document, List<Area> areas, List<Fact> highlights, CompositionAudit audit) {
+        this.audit = audit;
         this.document = document;
         this.areas = List.copyOf(areas);
         this.highlights = List.copyOf(highlights);
@@ -148,7 +151,7 @@ public final class ArticleViewModel {
             for (Fact fact : node.facts)
                 if (highlight(fact) && fact.variant.equals(firstVariant(node, document)))
                     highlights.add(fact);
-        return new ArticleViewModel(document, areas, highlights);
+        return PresentationValidator.validate(document, areas, highlights).view;
     }
     public List<Fact> highlights(String selectedVariant) {
         List<Fact> result = new ArrayList<>();
@@ -189,9 +192,10 @@ public final class ArticleViewModel {
         return Set.of("combat", "hitpoints", "slayxp").contains(key)
             || Set.of("combat level", "hitpoints", "slayer xp").contains(label);
     }
-    private static Component generic(Node node) {
+    static Component generic(Node node) {
         return new Component(node.id, node.source.sectionTitle,
-            node.table != null                   ? ComponentType.TABLE
+            node.type == NodeType.REFERENCES     ? ComponentType.REFERENCES
+                : node.table != null             ? ComponentType.TABLE
                 : node.type == NodeType.IMAGE    ? ComponentType.IMAGE
                 : node.type == NodeType.FALLBACK ? ComponentType.FALLBACK
                                                  : ComponentType.TEXT,
@@ -237,6 +241,8 @@ public final class ArticleViewModel {
         if (type == PageType.GENERAL && (role == Role.OTHER || role == Role.RELATIONSHIPS))
             return "info";
         switch (role) {
+            case REFERENCES:
+                return "references";
             case COMBAT:
             case STRATEGY:
                 return type == PageType.ITEM ? "stats" : "combat";
@@ -298,6 +304,14 @@ public final class ArticleViewModel {
                 names.put("info", "Article");
                 break;
         }
+        names.putIfAbsent("locations", "Locations");
+        names.putIfAbsent("requirements", "Requirements");
+        names.putIfAbsent("rewards", "Rewards");
+        names.putIfAbsent("combat", "Combat & strategy");
+        names.putIfAbsent("sources", "Sources");
+        names.putIfAbsent("methods", "Methods");
+        names.putIfAbsent("walkthrough", "Instructions");
+        names.put("references", "References");
         names.put("other", "Other sections");
         return names;
     }
@@ -309,7 +323,8 @@ public final class ArticleViewModel {
             return area("info");
         for (Area area : areas)
             for (Component component : area.components)
-                if (component.source.section.equals(anchor)
+                if (PresentationValidator.hasAnchor(component.node, anchor)
+                    || component.source.section.equals(anchor)
                     || (component.node.fallback instanceof com.wikipane.document.WikiDocument.Table
                         && ((com.wikipane.document.WikiDocument.Table) component.node.fallback)
                             .anchor.equals(anchor)))

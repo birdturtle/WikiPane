@@ -19,9 +19,10 @@ public final class SemanticDocument {
         METHODS,
         SOURCES,
         RELATIONSHIPS,
+        REFERENCES,
         OTHER
     }
-    public enum NodeType { TEXT, LIST, INSTRUCTIONS, TABLE, INFOBOX, IMAGE, FALLBACK }
+    public enum NodeType { TEXT, LIST, INSTRUCTIONS, REFERENCES, TABLE, INFOBOX, IMAGE, FALLBACK }
     public static final class Source {
         public final String article, url, section, sectionTitle, unit;
         public final long revision;
@@ -41,10 +42,44 @@ public final class SemanticDocument {
     public static final class RichText {
         public final String html, text;
         public final List<Link> links;
+        public final List<Citation> citations;
         public RichText(String html, String text, List<Link> links) {
             this.html = html;
             this.text = text;
             this.links = List.copyOf(links);
+            List<Citation> uses = new ArrayList<>();
+            org.jsoup.nodes.Element root = org.jsoup.Jsoup.parseBodyFragment(html).body();
+            for (org.jsoup.nodes.Element a : root.select("a[href]")) {
+                okhttp3.HttpUrl target = com.wikipane.api.WikiUrls.resolve(a.attr("href"));
+                if (target != null && com.wikipane.api.WikiUrls.wiki(target) && target.fragment() != null
+                    && target.fragment().startsWith("cite_note")) {
+                    org.jsoup.nodes.Element marker = a.closest("sup[id]");
+                    uses.add(new Citation(
+                        marker == null ? "" : marker.id(), target.fragment(), a.text(), target.toString()));
+                }
+            }
+            citations = List.copyOf(uses);
+        }
+    }
+    public static final class Citation {
+        public final String id, target, label, url;
+        Citation(String id, String target, String label, String url) {
+            this.id = id;
+            this.target = target;
+            this.label = label;
+            this.url = url;
+        }
+    }
+    public static final class Reference {
+        public final String id;
+        public final RichText content;
+        public final List<String> backlinks;
+        public final Source source;
+        Reference(String id, RichText content, List<String> backlinks, Source source) {
+            this.id = id;
+            this.content = content;
+            this.backlinks = List.copyOf(backlinks);
+            this.source = source;
         }
     }
     public static final class Link {
@@ -221,6 +256,7 @@ public final class SemanticDocument {
     public static final class Node {
         public final String id;
         public final NodeType type;
+        public final boolean navigation;
         public final Role role;
         public final Source source;
         public final WikiDocument.Block fallback;
@@ -238,6 +274,7 @@ public final class SemanticDocument {
             Set<String> units) {
             this.id = id;
             this.type = type;
+            this.navigation = fallback instanceof WikiDocument.Text && ((WikiDocument.Text) fallback).navigation;
             this.role = role;
             this.source = source;
             this.fallback = fallback;
@@ -257,6 +294,7 @@ public final class SemanticDocument {
     public final List<Section> sections;
     public final List<Node> nodes;
     public final List<Relationship> relationships;
+    public final List<Reference> references;
     public final Set<String> contentUnits;
     public SemanticDocument(PageType type, String title, String url, long revision, List<Section> sections,
         List<Node> nodes, List<Relationship> relationships, Set<String> units) {
@@ -266,6 +304,13 @@ public final class SemanticDocument {
         this.revision = revision;
         this.sections = List.copyOf(sections);
         this.nodes = List.copyOf(nodes);
+        List<Reference> definitions = new ArrayList<>();
+        for (Node node : nodes)
+            if (node.fallback instanceof WikiDocument.Text)
+                for (WikiDocument.ReferenceDefinition ref : ((WikiDocument.Text) node.fallback).references)
+                    definitions.add(new Reference(ref.id, SemanticExtractor.rich(ref.html), ref.backlinks,
+                        new Source(title, url, revision, ref.id, "References", node.source.unit)));
+        this.references = List.copyOf(definitions);
         this.relationships = List.copyOf(relationships);
         this.contentUnits = Set.copyOf(units);
     }

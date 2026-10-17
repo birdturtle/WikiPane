@@ -25,6 +25,7 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
 
 	testImplementation 'junit:junit:4.12'
+	testImplementation 'org.mockito:mockito-core:4.11.0'
 	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
@@ -98,4 +99,18 @@ tasks.register('liveCheck', JavaExec) {
 tasks.register('semanticReport', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.wikipane.SemanticReport'
+}
+
+tasks.register('inspectPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.inspect.InspectionPreview'
+    args providers.gradleProperty('article').getOrElse('Ranarr_seed')
+    args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-inspect.png')
+    args providers.gradleProperty('entityId').getOrElse('')
+}
+
+tasks.register('pinPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.pin.PinPreview'
+    args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-pin.png')
 }

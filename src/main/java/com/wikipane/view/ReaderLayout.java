@@ -93,6 +93,9 @@ public final class ReaderLayout {
         public final List<Field> illustrations;
         public final Set<String> units;
         Record(TableRecords.Record source) {
+            this(source, true);
+        }
+        Record(TableRecords.Record source, boolean specialize) {
             group = source.heading;
             columnHeader = source.columnHeader;
             units = source.units;
@@ -102,7 +105,7 @@ public final class ReaderLayout {
             for (TableRecords.Field f : source.fields) {
                 Field field = new Field(f.label, f.value, f.source);
                 // Only promote explicit identity columns; never guess that a number is a record name.
-                if (named == null && f.illustrationTarget.isBlank()
+                if (specialize && named == null && f.illustrationTarget.isBlank()
                     && Set
                         .of("item", "name", "monster", "npc", "object", "location", "method", "equipment",
                             "skill", "quest")
@@ -126,10 +129,35 @@ public final class ReaderLayout {
             fields = List.copyOf(values);
         }
     }
+    public static final class ReferenceCard {
+        public final String id, label, html;
+        public final List<String> backlinks;
+        public final Source source;
+        ReferenceCard(Reference reference, String label) {
+            id = reference.id;
+            this.label = label;
+            backlinks = reference.backlinks;
+            source = reference.source;
+            html = reference.content.html.trim()
+                       .replaceFirst("(?is)^<li(?: [^>]*)?>", "")
+                       .replaceFirst("(?is)</li>$", "");
+        }
+    }
+    public final List<ReferenceCard> references;
+    private final CompositionAudit audit;
     private final Map<String, Section> sections;
     private final Map<String, List<Record>> records;
     private final Map<String, List<Field>> highlights;
     public ReaderLayout(ArticleViewModel view) {
+        audit = view.audit;
+        Map<String, String> markers = new LinkedHashMap<>();
+        for (Node node : view.document.nodes)
+            for (Citation use : PresentationValidator.citations(node))
+                markers.putIfAbsent(use.target, use.label);
+        List<ReferenceCard> cards = new ArrayList<>();
+        for (Reference reference : view.document.references)
+            cards.add(new ReferenceCard(reference, markers.getOrDefault(reference.id, "Reference")));
+        references = List.copyOf(cards);
         Map<String, Section> sectionMap = new HashMap<>();
         Map<String, List<Record>> recordMap = new HashMap<>();
         for (ArticleViewModel.Area area : view.areas)
@@ -160,11 +188,60 @@ public final class ReaderLayout {
         if (target.containsKey(table.source.unit))
             return;
         List<Record> rows = new ArrayList<>();
-        for (TableRecords.Record record : table.records) {
-            rows.add(new Record(record));
+        for (TableRecords.Record record : validatedRecords(table, audit)) {
+            Record adapted = new Record(record);
+            if (!recordContract(record, adapted)) {
+                audit.add("RECORD_CONTRACT", table.source.unit, CompositionAudit.Outcome.REPAIRED,
+                    "Named record did not preserve its fields; using labeled source fields.");
+                adapted = new Record(record, false);
+            }
+            rows.add(adapted);
             for (Table nested : record.nested) adaptTable(nested, target);
         }
         target.put(table.source.unit, List.copyOf(rows));
+    }
+    static List<TableRecords.Record> validatedRecords(Table table, CompositionAudit audit) {
+        Map<String, Cell> cells = new HashMap<>();
+        collectCells(table, cells);
+        boolean valid = true;
+        for (TableRecords.Record row : table.records)
+            for (TableRecords.Field field : row.fields) {
+                Cell source = cells.get(field.source.unit);
+                if (source == null || !row.units.contains(field.source.unit)
+                    || !source.label.equals(field.label) || !source.value.html.equals(field.value.html))
+                    valid = false;
+            }
+        for (Cell cell : cells.values())
+            if (!cell.header && !cell.value.text.isBlank() && cell.nested.isEmpty()) {
+                boolean present =
+                    table.records.stream()
+                        .filter(row -> row.units.contains(cell.source.unit))
+                        .flatMap(row -> row.fields.stream())
+                        .anyMatch(f -> f.label.equals(cell.label) && f.value.html.equals(cell.value.html));
+                if (!present)
+                    valid = false;
+            }
+        if (valid)
+            return table.records;
+        audit.add("TABLE_RECORD_SOURCE", table.source.unit, CompositionAudit.Outcome.REPAIRED,
+            "Table records did not match source cells; using conservative labeled source rows.");
+        return TableRecords.safeOf(table);
+    }
+    private static void collectCells(Table table, Map<String, Cell> cells) {
+        for (Row row : table.rows)
+            for (Cell cell : row.cells) cells.put(cell.source.unit, cell);
+    }
+    static boolean recordContract(TableRecords.Record source, Record target) {
+        List<Field> fields = new ArrayList<>(target.fields);
+        fields.addAll(target.illustrations);
+        if (target.identity != null)
+            fields.add(target.identity);
+        return fields.size() == source.fields.size() && target.units.equals(source.units)
+            && source.fields.stream().allMatch(f
+                -> fields.stream().anyMatch(v
+                    -> v.source.unit.equals(f.source.unit) && v.label.equals(f.label)
+                        && v.value.html.equals(f.value.html)))
+            && target.nested.equals(source.nested);
     }
     public Section section(String id) {
         return sections.get(id);

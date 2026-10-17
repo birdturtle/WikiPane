@@ -20,6 +20,8 @@ import javax.swing.*;
 public final class ContentRenderer {
     private final Consumer<String> links;
     private final ReaderComponents components;
+    private final ReaderSelection selection;
+    private com.wikipane.semantic.SemanticDocument pinDocument;
     private com.wikipane.view.ReaderLayout layout;
     private final ExecutorService workers;
     private final ImageCache images;
@@ -28,22 +30,38 @@ public final class ContentRenderer {
     private Map<String, Integer> tableState = new HashMap<>();
     private volatile long generation;
     private JPanel flow;
+    private Map<String, String> anchorAliases = Map.of();
+    private JPanel rendered;
+    private com.wikipane.view.CompositionAudit audit;
+    private int auditedWidth = -1, auditedState, auditedBand = -1;
+    private boolean auditScheduled;
     private List<ArticleViewModel.Component> pending = List.of();
     private int revealed;
     private String areaId = "";
     private String selectedVariant = "";
     public ContentRenderer(Consumer<String> links, ExecutorService workers, ImageCache images) {
+        this(links, workers, images, null, message -> {});
+    }
+    public ContentRenderer(Consumer<String> links, ExecutorService workers, ImageCache images,
+                          Consumer<com.wikipane.pin.PinSelection> pin, Consumer<String> error) {
         this.links = links;
         components = new ReaderComponents(links);
+        selection = pin == null ? null : new ReaderSelection(pin, error);
         this.workers = workers;
         this.images = images;
     }
     public void clear() {
         generation++;
+        if (selection != null) selection.clear();
+        components.pinContext(null);
+        components.pinDocument(null); pinDocument = null;
         imageChecks.clear();
         anchors.clear();
         pending = List.of();
         flow = null;
+        rendered = null;
+        auditedWidth = -1;
+        auditScheduled = false;
     }
     public Map<String, Integer> tableState() {
         return new HashMap<>(tableState);
@@ -54,6 +72,7 @@ public final class ContentRenderer {
     public void loadVisibleImages() {
         new ArrayList<>(imageChecks).forEach(Runnable::run);
         revealNearBottom();
+        scheduleAudit();
     }
     public JPanel render(WikiDocument article, Map<String, Integer> saved) {
         return render(article, saved, "");
@@ -82,12 +101,18 @@ public final class ContentRenderer {
         WikiDocument article = page.document;
         layout = page.layout;
         clear();
+        audit = page.view.audit;
+        components.audit(audit);
+        pinDocument = article.semantic;
+        components.pinDocument(pinDocument);
         areaId = area.id;
+        anchorAliases = page.navigation.anchors(area.id);
         tableState = new HashMap<>(saved);
         selectedVariant = variant;
         JPanel body = column();
-        body.add(text("<div class='article-title'>" + escape(article.title) + "</div>"));
-        if (area.id.equals("info") && !layout.highlights(variant).isEmpty()) {
+        rendered = body;
+
+        if ((area.id.equals("info") || area.id.equals("overview")) && !layout.highlights(variant).isEmpty()) {
             body.add(components.highlights(layout.highlights(variant)));
             body.add(components.gap(8));
         }
@@ -118,7 +143,27 @@ public final class ContentRenderer {
         body.add(text("<p class='source'>Content: <a href='" + escape(article.url)
             + ("'>OSRS Wiki</a> · <a href='https://oldschool.runescape.wiki/w/RuneScape:Copyrights'>CC "
                 + "BY-NC-SA</a></p>")));
+        if (selection != null) selection.refresh(body);
         return body;
+    }
+    private void scheduleAudit() {
+        if (rendered == null || auditScheduled)
+            return;
+        int width = rendered.getWidth(), state = tableState.hashCode(),
+            band = rendered.getVisibleRect().y / 180;
+        if (width <= 0 || width == auditedWidth && state == auditedState && band == auditedBand)
+            return;
+        long version = generation;
+        auditScheduled = true;
+        SwingUtilities.invokeLater(() -> {
+            auditScheduled = false;
+            if (version != generation || rendered == null)
+                return;
+            auditedWidth = rendered.getWidth();
+            auditedState = tableState.hashCode();
+            auditedBand = rendered.getVisibleRect().y / 180;
+            SidebarLayoutValidator.inspect(rendered, audit);
+        });
     }
     private boolean variantMatches(ArticleViewModel.Component component, ArticleViewModel.Area area) {
         if (component.node.table == null || component.node.table.variant.isEmpty())
@@ -141,7 +186,9 @@ public final class ContentRenderer {
         int stop = Math.min(pending.size(), revealed + count);
         while (revealed < stop) {
             ArticleViewModel.Component component = pending.get(revealed++);
+            components.pinContext(new com.wikipane.pin.PinContext(pinDocument, component.node));
             JPanel section = column();
+            section.putClientProperty("wiki.source", component.node.id);
             String sourceSection = component.source.section;
             if (!sourceSection.isBlank() && !anchors.containsKey(sourceSection)) {
                 if (!component.source.sectionTitle.equals(component.source.article)
@@ -152,6 +199,13 @@ public final class ContentRenderer {
                 anchors.put(sourceSection, section);
             }
             anchors.put(component.id, section);
+            anchorAliases.forEach((alias, target) -> {
+                if (target.equals(component.source.section))
+                    anchors.putIfAbsent(alias, section);
+            });
+            for (Citation use : com.wikipane.view.PresentationValidator.citations(component.node))
+                if (!use.id.isBlank())
+                    anchors.putIfAbsent(use.id, section);
             if (component.node.fallback instanceof WikiDocument.Table) {
                 String id = ((WikiDocument.Table) component.node.fallback).anchor;
                 if (!id.isBlank())
@@ -170,6 +224,24 @@ public final class ContentRenderer {
                     if (component.node.table != null)
                         section.add(table(component.node.table, component.id));
                     break;
+                case REFERENCES:
+                    for (com.wikipane.view.ReaderLayout.ReferenceCard ref : layout.references)
+                        if (ref.source.unit.equals(component.node.source.unit)) {
+                            JPanel card = components.card("wiki.reference");
+                            card.add(text("<b>" + escape(ref.label) + "</b>"));
+                            card.add(text(ref.html));
+                            for (int back = 0; back < ref.backlinks.size(); back++) {
+                                String url = ref.backlinks.get(back);
+                                JButton returnTo = linkButton("Return to citation"
+                                    + (ref.backlinks.size() > 1 ? " " + (back + 1) : ""));
+                                returnTo.addActionListener(e -> links.accept(url));
+                                card.add(returnTo);
+                            }
+                            anchors.put(ref.id, card);
+                            section.add(card);
+                            section.add(components.gap(6));
+                        }
+                    break;
                 case IMAGE:
                     if (component.node.fallback instanceof Image)
                         section.add(image((Image) component.node.fallback));
@@ -177,15 +249,22 @@ public final class ContentRenderer {
                 default:
                     if (component.node.text != null)
                         section.add(text(component.node.text.html));
+                    else if (component.node.table != null)
+                        section.add(table(component.node.table, component.id));
+                    else if (component.node.fallback instanceof Image)
+                        section.add(image((Image) component.node.fallback));
                     else
                         section.add(text("This content is available through Open in browser."));
                     break;
             }
             flow.add(section);
+            components.pinContext(null);
         }
+        if (selection != null && rendered != null) selection.refresh(rendered);
         tableState.put("@shown:" + areaId, revealed);
         flow.revalidate();
         flow.repaint();
+        scheduleAudit();
     }
     public void revealAnchor(String anchor) {
         while (!anchors.containsKey(anchor) && revealed < pending.size()) appendNext(6);
@@ -215,7 +294,9 @@ public final class ContentRenderer {
             target.add(image(table.images.get(0), true));
             target.add(components.gap(6));
         }
+        com.wikipane.pin.PinContext basePin = components.pinContext();
         for (com.wikipane.view.ReaderLayout.ConditionGroup condition : section.requirements) {
+            if (basePin != null) components.pinContext(basePin.condition(condition.source, condition.title, condition.condition));
             JPanel card = components.card("wiki.requirements");
             card.add(text("<b>" + escape(condition.title) + "</b>"));
             card.add(components.gap(4));
@@ -224,6 +305,7 @@ public final class ContentRenderer {
             target.add(components.gap(8));
         }
         for (com.wikipane.view.ReaderLayout.FactGroup group : section.facts) {
+            if (basePin != null) components.pinContext(basePin.group(group.title));
             if (!group.title.isBlank())
                 target.add(components.heading(group.title, "", null));
             JPanel card = components.card("wiki.facts");
@@ -231,6 +313,7 @@ public final class ContentRenderer {
             target.add(card);
             target.add(components.gap(8));
         }
+        components.pinContext(basePin);
         if (table != null)
             for (int i = 1; i < table.images.size(); i++) target.add(image(table.images.get(i)));
     }
@@ -244,7 +327,10 @@ public final class ContentRenderer {
         JButton more = linkButton("Show more entries");
         int[] shown = {0};
         String[] previous = {""};
+        com.wikipane.pin.PinContext tableContext = components.pinContext();
         Runnable next = () -> {
+            com.wikipane.pin.PinContext previousContext = components.pinContext();
+            components.pinContext(tableContext);
             records.remove(more);
             int end = Math.min(rows.size(), shown[0] + 20);
             for (int i = shown[0]; i < end; i++) {
@@ -270,8 +356,11 @@ public final class ContentRenderer {
                 more.setText("Show more (" + (rows.size() - end) + " remaining)");
                 records.add(more);
             }
+            components.pinContext(previousContext);
+            if (selection != null && rendered != null) selection.refresh(rendered);
             group.revalidate();
             group.repaint();
+            scheduleAudit();
         };
         int wanted = Math.max(20, tableState.getOrDefault(key, 20));
         do {
@@ -293,20 +382,13 @@ public final class ContentRenderer {
     }
     private JComponent image(Image image, boolean identity) {
         int maxWidth = identity ? 88 : 200, maxHeight = identity ? 88 : 220;
-        JLabel label = new JLabel();
+        FittedThumbnail label = new FittedThumbnail(maxWidth, maxHeight, image.width, image.height, audit);
         label.putClientProperty("html.disable", true);
         label.setText(image.alt.isBlank() ? "Image" : image.alt);
         label.setForeground(ReaderComponents.MUTED);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setToolTipText(image.alt);
         label.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        double ratio = Math.min(1,
-            Math.min((double) maxWidth / Math.max(1, image.width),
-                (double) maxHeight / Math.max(1, image.height)));
-        int reserved = image.height > 0 ? (int) (image.height * ratio) + 8 : maxHeight;
-        label.setPreferredSize(new Dimension(maxWidth, reserved));
-        label.setMinimumSize(new Dimension(0, reserved));
-        label.setMaximumSize(new Dimension(maxWidth, reserved));
         if (!image.link.isBlank()) {
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
@@ -346,7 +428,7 @@ public final class ContentRenderer {
                             if (version != generation)
                                 return;
                             label.setText("");
-                            label.setIcon(new ImageIcon(loaded));
+                            label.image(loaded);
                             label.revalidate();
                         });
                     } catch (Exception ex) {

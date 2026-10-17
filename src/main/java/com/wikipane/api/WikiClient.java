@@ -158,6 +158,11 @@ public final class WikiClient implements AutoCloseable {
                     .header("User-Agent", "WikiPane/0.1 (RuneLite; https://github.com/birdturtle)")
                     .build());
             calls.add(call);
+            if (closed) {
+                call.cancel();
+                calls.remove(call);
+                throw new IOException("WikiPane is closed.");
+            }
             try (Response response = call.execute()) {
                 if (response.isRedirect()) {
                     HttpUrl next = current.resolve(Objects.toString(response.header("Location"), ""));

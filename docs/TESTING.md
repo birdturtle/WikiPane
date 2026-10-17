@@ -1,114 +1,65 @@
-# Testing WikiPane
+# Native gameplay integration
 
-Automated Swing tests exercise isolated reader panels. They do not launch RuneScape or inject game input. Only a player can verify in-game behavior.
+Original checkpoint: milestones A and B on `work/next-features`. Current extensions are on `gameplay-event-integration`.
 
-## Automated
+## Implemented
 
-Run `env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew clean test build`.
+- `knowledge/KnowledgeService` resolves exact Wiki lookups and reads the existing cached `WikiDocument`. It does not construct Swing components or the full article view.
+- `KnowledgeArticle` exposes the existing semantic nodes, facts, structured requirements, relationships, source sections and locations. Selection respects the Wiki's entity-ID mapping and redirect anchor. Unknown variants omit variant-specific nodes.
+- `Inspection` selects a compact projection with unchanged rich values, source units and revision references. It does not summarize or infer missing values. Relevant section links and the full article retain access to unselected information.
+- `ContextMenuIntegration` snapshots canonical item IDs, transformed NPC/object IDs and object locations on the client thread. Local callbacks are added only when a right-click menu opens. No gameplay actions are replaced, reordered, consumed or sent to the server. The existing target-selection mode is left alone.
+- `QuickInspectController` runs resolution, parsing, layout and image decoding on the bounded worker pool. Client-thread completions check a generation token. Superseded queued work is canceled and removed; dismiss, logout, hopping and shutdown invalidate pending completions.
+- `QuickInspectOverlay` uses real RuneLite overlay menu callbacks and a native related-article submenu. RuneLite currently exposes these overlay actions on Shift-right-click. Alt-drag positioning belongs to RuneLite. No synthetic input or fake clickable painted controls are used.
+- The minimap and sidebar entity resolver now use `KnowledgeService` as well. Full reader presentation and navigation remain unchanged.
 
-Tests cover real article fixtures, exact Bronze dagger attack bonuses, Recipe for Disaster starting requirements, Vorkath table content, preserved lists/links, malformed markup, redirect fragments, entity IDs and coordinates, allowed URLs, response limits, cache expiry/eviction, image decode limits, stale article responses, failed requests preserving content, real Recipe for Disaster → Cook's Assistant navigation, and Swing Back/Forward scroll restoration.
+Menu Entry Swapper uses its own `MenuOpened` callbacks. WikiPane runs after its normal-priority callback and only adds local entries. It does not capture Shift, change swap settings, or mutate the event's original entries. Actual coexistence still requires player testing.
 
-`liveCheck` separately requests the three acceptance articles, suggestions, full search, exact Bronze dagger lookup, and one Vorkath image. It is not part of the offline test suite.
+Repository instructions require third-party-server features to be opt-in. Contextual lookup starts disabled; once enabled, Shift-right-click is the default. Ordinary right-click includes Shift as well, so it also provides both entry points.
 
-## Reader checks
+## Presentation and policy boundaries
 
-At normal sidebar width:
+The overlay shares the reader's palette and compact label/value conventions. Lines are prepared on the worker, grouped with their values, wrapped to 198 pixels and paginated to 12 lines. The panel is 210 pixels wide, with RuneLite's native small font and standard translucent background. Full requirements over 1,200 characters get an explicit full-article notice instead of a truncated logical expression. All source requirements remain available from the query model and full reader.
 
-- Search Bronze dagger. Choose Stats and select Unpoisoned. Confirm Stab attack is +4, Slash +2, Crush -4, Magic +1, Ranged +0, with defence values kept separate.
-- Check Poison, Poison+, and Poison++ variants have their own labels and content.
-- Search Recipe for Disaster. Open Sections → Requirements. Find 10 Cooking and Cook's Assistant as starting requirements; distinguish full completion requirements.
-- Open Walkthrough and its full-guide link, follow Cook's Assistant, then Back and Forward. Check reading position.
-- Search Vorkath. Choose monster variants, combat sections, and drop sections. Check every value has the right heading; test Show more entries and nested tables.
-- Follow section links and switch content areas. Check Back after an anchor jump.
-- Verify images fit, controls stay accessible, and no text is clipped or horizontally scrolled.
-- Open article, file, and external links. The explicit browser command must remain available. Right-click a section heading to check its source action.
+Monster overlays deliberately project static source statistics only. They do not project strategy prose, preparation requirements, combat prayer recommendations or live encounter cues. Wiki articles remain available in the full reader. This is not a claim of Plugin Hub approval.
 
-## In-game checks
+The original lookup/Quick Inspect milestone reads no player state; local reader comparisons were added separately in [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md). No player state is transmitted. Wiki requests contain the selected entity identity and, for location-sensitive lookups, its location. There are no hover-triggered downloads, scene scans, inventory snapshots or background tracking.
 
-1. Confirm standard mode leaves the core Wiki plugin and button alone.
-2. Enable replacement while core Wiki is enabled. Confirm guidance appears and there is only one button.
-3. Disable core Wiki. Enable replacement and SIDEBAR destination.
-4. Select an inventory item, equipped item, ground item, NPC, and object with the Wiki button. Confirm the right article/variant and no browser launch.
-5. Test a transformed NPC/object and an ambiguous entity. A failed resolution must keep the official lookup URL available; it must not guess by name.
-6. Cancel selection and click unsupported widgets. Confirm target mode exits and normal game actions resume.
-7. Test left-click Search, right-click Search, and BROWSER destination.
-8. Log out/in, resize, switch fixed/resizable layouts, toggle minimap, and disable/re-enable WikiPane. Confirm safe cleanup and no duplicate widgets.
-9. Re-enable core Wiki while replacement is active. Confirm WikiPane yields without altering core settings.
+## Test before continuing
 
-## Reliability
+1. Enable contextual lookup. With Menu Entry Swapper enabled, Shift-right-click an inventory herb seed. Confirm both plugins' menu actions remain available and ordinary left-click behavior is unchanged.
+2. Inspect ranarr seed. Check Farming 32, growth time, crop, source image, and related Herblore/crop links against the Wiki. Confirm the browser stays closed.
+3. Repeat with bank, equipment, ground item, NPC and object menus. Check transformed/variant NPCs and location-sensitive objects. Interfaces without reliable item metadata should offer no action.
+4. Read Recipe for Disaster, scroll, inspect an item and dismiss it. The article and scroll must stay put. Open the inspection's full article, then Back; confirm restoration.
+5. Shift-right-click the panel. Test full article, related submenu, paging, retry and dismiss. Alt-drag the panel. Check normal and small game sizes manually.
+6. Inspect rapidly, log out, hop, disable/re-enable the plugin, and disable contextual lookup during a request. No stale panel, extra overlay, competing target mode or browser should appear.
+7. Test failed Wiki requests and unavailable images. A failed image should leave facts readable; a failed lookup should offer retry, browser lookup and dismiss.
 
-- Empty query, no results, missing article, disconnected network, and a slow Wiki request.
-- Rapidly change queries and articles. Old results must not replace newer ones.
-- Disable WikiPane during a request, then re-enable it.
-- Search while logged out.
-- Navigate repeatedly and monitor client responsiveness and heap use. Cached navigation should avoid redundant article HTTP calls.
-- Expand a large table, navigate away/back, and confirm the expanded table and its revealed rows are restored.
+These game interactions are not automated. The isolated preview is not an in-game acceptance test.
 
-Record player results here before declaring in-game acceptance complete. At implementation time, no player test has been performed.
+## Remaining milestones
 
-## Semantic completeness
+- C: selection-based pins and independent native overlay lifecycle are implemented for player testing. Highlight sidebar text, right-click, then Pin selection. See [Pinning](PINNING.md). Manual checklists and persistence are not implemented.
+- D: client-thread snapshots and local met/unmet/unknown skill, quest-completion and quest-point annotations are implemented for player testing, preserving AND/OR and boosts. Inventory/equipment checks remain deferred.
+- E: verified quest-journal and skill entry points routed through the shared service.
+- F: map connections using validated coordinates, after earlier milestones are stable.
 
-Run `./gradlew semanticReport` to report source units, exposed areas, and full text sizes for the captured fixtures. Tests compare every normalized cell, its geometry, and its text against the semantic model, then check exposed paragraph and fact values. They also exercise all drop-table pages and the complete buffered quest walkthrough through isolated Swing components.
+Selection pinning is available alongside Quick Inspect. Native text selection, overlay controls and lifecycle still require player testing. Local player-state annotations are ready for player testing; see [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md).
 
-Additional assertions cover explicit alternative requirements, quantities, boost rules, instruction numbering, unknown content, provenance, and variant-specific highlighted values. These checks do not establish universal Wiki parsing completeness. New template types still need source comparison and visual review.
-
-## Presentation framework checks
-
-- Compare item attack and defence groups. Every value should line up with its own label.
-- Open Vorkath drops. Names should head separate records, with quantity, rarity, price, and alchemy values below. Long image descriptions should not fill the record body.
-- Check Recipe for Disaster starting and full-completion requirement cards. No duplicate bullets or oversized gaps.
-- Confirm explicit line breaks separate notice text and instructions.
-- Switch variants and areas, then use Back and Forward. Confirm the same reading position and expanded records return.
-- Inspect at narrow sidebar width and with a larger UI scale. Automated component bounds cover 185, 225, and 300 pixels; desktop scaling still needs player review.
-
-## Validation and references
-
-- Open Recipe for Disaster/Full guide. Follow its citation marker, read the reference card, and use Return to citation. Test Back and Forward across both locations.
-- Confirm reference definitions no longer appear as numbered walkthrough steps.
-- Right-click the article title → Composition audit. Check that source units are accounted for and inspect any warnings. An audit generated without a rendered panel must say visual inspection has not been measured.
-- Resize the reader narrowly. Facts should stack and highlight grids should become lists when necessary. Images must shrink rather than crop.
-- Repeat after expanding tables and scrolling into later content. A geometry warning is diagnostic evidence, not a claim that an automatic repair succeeded.
-
-For isolated screenshots and audit output, without RuneScape:
+## Developer commands
 
 ```sh
-xvfb-run -a env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Particle="Recipe for Disaster/Full guide" -Panchor=cite_note-1 -Pcapture=/tmp/wikipane-references.png
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew liveCheck
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew inspectPreview -Pcapture=/tmp/wikipane-inspect.png
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew inspectPreview -Particle=Vorkath -PentityId=8061 -Pcapture=/tmp/wikipane-npc.png
 ```
 
-## Contextual navigation
+`inspectPreview` paints only the offline overlay, without launching or interacting with RuneScape. Sources and revisions are listed in `THIRD_PARTY.md`.
 
-- Reading shows the article identity and at most two primary modes. Search opens with the magnifying-glass icon. It must not remain expanded above an article.
-- Search a query, open a result, press Back, and confirm the query/results/scroll return. Forward must restore the article without another search.
-- Scroll Overview, switch to Walkthrough, scroll again, and switch back and forth. Each position should be retained.
-- Open Sections, filter for a chapter, and choose it with Enter. It should jump directly to that chapter in the relevant mode. Test Back and Forward afterward.
-- Open the full Recipe for Disaster guide and select Freeing the Mountain dwarf under Walkthrough. Its content should be reachable even though the original heading has no immediate prose.
-- Scroll a long guide. Article identity, Back, Forward, Search, Open in Browser, and Sections must remain accessible.
-- Test Escape from search, popup keyboard focus, switching variants, and disabling WikiPane while Sections is open.
+## Replacement-button regression checks
 
-Native automated tests cover these navigation transitions using captured Wiki responses and isolated Swing panels. Actual RuneLite interaction and desktop scaling still need player review.
+The replacement supports the game's disabled native entity-lookup setting, using RuneLite's existing Wiki-button positioning. A rebuilt parent must still own the installed child before the widget can be reused. Search menu actions are consumed explicitly, including low-priority actions and dynamic-child IDs; the native on-op listener remains a guarded fallback. Sidebar/Browser routing is separate from Search, which always opens WikiPane. Conflicts surface once in the sidebar instead of leaving an apparently active checkbox without guidance. Other plugins are never disabled automatically.
 
-## Contextual lookup checkpoint
+## Local requirements and contextual menu checks
 
-The first gameplay integration has its setup, manual scenarios and remaining scope in [NATIVE_INTEGRATION.md](NATIVE_INTEGRATION.md). Contextual lookup is opt-in. Start with Shift-right-click on an inventory seed, then test bank, equipment, ground item, NPC and object entries with Menu Entry Swapper enabled. Inspecting and dismissing must preserve the open article; explicit full-article navigation must support Back. Overlay actions use Shift-right-click and positioning uses Alt-drag.
-
-## Selection pins
-
-Highlight article text, right-click and choose Pin selection. No editor or confirmation should appear. Test selection across linked paragraphs, requirements and table fields; verify list numbering, emphasis, field labels and source variants. Close the sidebar and confirm the pin remains. Test Alt-drag, Shift-right-click source/paging/unpin actions and repeated plugin enable/disable. The complete checklist is in [PINNING.md](PINNING.md).
-
-## Presentation refinement pass
-
-After launching the development client, test:
-
-1. Rake: one Daily volume value, no perpetual chart Loading text, and a usable real-time price link.
-2. Vorkath: in Sections, open Tertiary. Scaly blue dragonhide's `1/10` has a visible Common label; conditional, multi-roll and citation-qualified odds remain neutral. Quantities, prices, notes and all source links must remain associated with their item.
-3. Recipe for Disaster: starting and full-completion groups remain separate. Check readable boostable/not-boostable qualifiers, nested alternatives and links to prerequisite quests.
-4. Bronze dagger: switch variants, open Stats, and verify +4 Stab for Unpoisoned along with separate attack/defence groups and intact signed values.
-5. Ranarr seed: Farming requirements, crop/growth information and existing Quick Inspect still work. Highlight requirements or field values, pin, and test footer paging and return-to-source without losing the article position.
-
-The offline section-specific preview can target long-page content without RuneScape:
-
-```sh
-env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew presentationPreview -Particle=Vorkath -Panchor=Tertiary -Pcapture=/tmp/wikipane-tertiary.png
-```
-
-This paints an isolated Swing reader, not the game. The ordinary `preview` task additionally shows the persistent sidebar controls. Neither replaces player testing.
+See [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md) for the manual sequence covering character levels, boosts, quest completion, quest points, logout/account changes, sidebar activation, pin selection and Menu Entry Swapper. Automated mocked-client and Swing tests do not establish in-game success.

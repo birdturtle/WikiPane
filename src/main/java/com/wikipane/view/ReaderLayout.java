@@ -37,35 +37,47 @@ public final class ReaderLayout {
         public final String title;
         public final Requirement condition;
         public final List<String> lines, styledLines;
+        public final List<Requirement> conditions;
+        public final List<RequirementRows.Row> rows;
         public final Source source;
         ConditionGroup(String title, Requirement condition, Source source) {
             this.title = title;
             this.condition = condition;
+            rows = RequirementRows.of(condition);
             List<String> content = new ArrayList<>();
-            conditionLines(condition, content);
+            List<Requirement> expressions = new ArrayList<>();
+            conditionLines(condition, content, expressions);
+            conditions = List.copyOf(expressions);
             lines = List.copyOf(content);
             styledLines = content.stream().map(RequirementPresentation::html).collect(java.util.stream.Collectors.toUnmodifiableList());
             this.source = source;
         }
     }
-    private static void conditionLines(Requirement condition, List<String> lines) {
+    private static void conditionLines(Requirement condition, List<String> lines, List<Requirement> expressions) {
         if (condition.kind == Requirement.Kind.ALL && !condition.children.isEmpty()
             && condition.original.html.trim().matches("(?is)^<(ul|ol)[ >].*")) {
-            for (Requirement child : condition.children) conditionLines(child, lines);
+            for (Requirement child : condition.children) conditionLines(child, lines, expressions);
         } else {
             String html = condition.original.html.trim()
                               .replaceFirst("(?is)^<li(?: [^>]*)?>", "")
                               .replaceFirst("(?is)</li>$", "");
-            lines.add(html);
+            lines.add(html); expressions.add(condition);
         }
     }
     public static final class Section {
         public final String title, breadcrumb, textHtml;
+        public final Requirement textCondition;
         public final List<FactGroup> facts;
         public final List<ConditionGroup> requirements;
         Section(ArticleViewModel.Component c) {
             textHtml = c.node.text == null ? "" : !c.node.requirements.isEmpty()
                 ? RequirementPresentation.html(c.node.text.html) : c.node.text.html;
+            List<Requirement> textConditions = new ArrayList<>();
+            if (c.node.text != null) for (RequirementSet set : c.node.requirements)
+                for (RequirementGroup group : set.groups) textConditions.add(group.expression);
+            textCondition = textConditions.isEmpty() ? null : textConditions.size() == 1 ? textConditions.get(0)
+                : new Requirement(Requirement.Kind.ALL, "Requirements", "", null, null, Requirement.Boost.UNSPECIFIED,
+                    c.node.text, textConditions);
             String[] path = c.source.sectionTitle.split(" / ");
             title = path[path.length - 1];
             breadcrumb = path.length > 1 ? String.join(" / ", Arrays.copyOf(path, path.length - 1)) : "";

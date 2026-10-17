@@ -123,3 +123,9 @@ tasks.register('presentationPreview', JavaExec) {
     args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-semantic-presentation.png')
     args providers.gradleProperty('variant').getOrElse('')
 }
+
+tasks.register('playerContextPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.context.PlayerContextPreview'
+    args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-player-context.png')
+}

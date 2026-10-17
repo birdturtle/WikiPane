@@ -44,6 +44,9 @@ public class WikiPanePlugin extends Plugin {
     @Inject private OverlayManager overlays;
     @Inject private net.runelite.client.input.MouseManager mouseManager;
     private final java.util.Map<PinnedOverlay, PinMouseListener> pinMouse = new java.util.HashMap<>();
+    @Inject private net.runelite.client.game.SkillIconManager skillIcons;
+    private com.wikipane.context.PlayerContextService playerContext;
+    private volatile com.wikipane.context.PlayerContextSnapshot playerSnapshot = com.wikipane.context.PlayerContextSnapshot.unavailable(true);
     private WikiClient wiki;
     private ExecutorService workers, pinWorkers;
     private WikiPanePanel panel;
@@ -104,12 +107,32 @@ public class WikiPanePlugin extends Plugin {
         }));
         pinOwner[0] = pinned;
         PinnedReferences currentPins = pinned;
+        playerSnapshot = com.wikipane.context.PlayerContextSnapshot.unavailable(config.playerRequirements());
+        playerContext = new com.wikipane.context.PlayerContextService(client, task -> clientThread.invokeLater(task), snapshot -> {
+            if (!active || version != lifecycle) return;
+            playerSnapshot = snapshot;
+            SwingUtilities.invokeLater(() -> { if (active && version == lifecycle && panel != null) panel.playerContext(snapshot); });
+        });
+        com.wikipane.context.PlayerContextService currentPlayer = playerContext;
         SwingUtilities.invokeLater(() -> {
             if (!active || version != lifecycle)
                 return;
             panel = new WikiPanePanel(currentWiki, currentWorkers, selection -> clientThread.invokeLater(() -> {
                 if (active && version == lifecycle) currentPins.pin(selection);
             }));
+            panel.playerContext(playerSnapshot);
+            panel.contextRequests(requirements -> clientThread.invokeLater(() -> {
+                if (active && version == lifecycle) currentPlayer.watch(requirements);
+            }));
+            try { currentWorkers.submit(() -> {
+                java.util.Map<String, javax.swing.Icon> icons = new java.util.HashMap<>();
+                for (net.runelite.api.Skill skill : net.runelite.api.Skill.values()) if (skill != net.runelite.api.Skill.OVERALL) {
+                    try { icons.put(com.wikipane.context.PlayerContextSnapshot.skillKey(skill.getName()),
+                        new javax.swing.ImageIcon(skillIcons.getSkillImage(skill, true))); }
+                    catch (RuntimeException ex) { /* An unavailable bundled icon does not affect requirement checks. */ }
+                }
+                SwingUtilities.invokeLater(() -> { if (active && version == lifecycle && panel != null) panel.skillIcons(icons); });
+            }); } catch (RejectedExecutionException ex) { /* Shutdown may precede optional icon preparation. */ }
             navigation =
                 NavigationButton.builder().tooltip("WikiPane").priority(7).icon(icon()).panel(panel).build();
             toolbar.addNavigation(navigation);
@@ -140,14 +163,19 @@ public class WikiPanePlugin extends Plugin {
                 }
             }));
         clientThread.invokeLater(() -> {
-            if (active && version == lifecycle)
+            if (active && version == lifecycle) {
+                currentPlayer.enabled(config.playerRequirements());
                 integration.reconcile();
+            }
         });
     }
     @Override
     protected void shutDown() {
         active = false;
         lifecycle++;
+        com.wikipane.context.PlayerContextService oldPlayer = playerContext;
+        if (oldPlayer != null) clientThread.invokeLater(oldPlayer::stop);
+        playerSnapshot = com.wikipane.context.PlayerContextSnapshot.unavailable(false);
         WikiPanePanel oldPanel = panel;
         NavigationButton oldNavigation = navigation;
         WikiButtonIntegration old = integration;
@@ -217,9 +245,13 @@ public class WikiPanePlugin extends Plugin {
         if (active)
             integration.menu(event);
     }
+    @Subscribe public void onStatChanged(StatChanged event) { if (active && playerContext != null) playerContext.statChanged(); }
+    @Subscribe public void onVarbitChanged(VarbitChanged event) { if (active && playerContext != null) playerContext.variablesChanged(); }
+    @Subscribe public void onGameTick(GameTick event) { if (active && playerContext != null) playerContext.tick(); }
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
         if (active) {
+            if (playerContext != null) playerContext.stateChanged(event.getGameState());
             integration.reconcile();
             if (inspections != null && (event.getGameState() == net.runelite.api.GameState.LOGIN_SCREEN
                 || event.getGameState() == net.runelite.api.GameState.HOPPING
@@ -235,6 +267,10 @@ public class WikiPanePlugin extends Plugin {
             && event.getKey().startsWith("context");
         clientThread.invokeLater(() -> {
             if (!active || version != lifecycle) return;
+            if (event.getGroup().equals(WikiPaneConfig.GROUP) && event.getKey().equals("playerRequirements")) {
+                if (playerContext != null) playerContext.enabled(config.playerRequirements());
+                return;
+            }
             if (!contextOnly) integration.refresh();
             if (!config.contextLookups() && inspections != null) inspections.dismiss();
         });

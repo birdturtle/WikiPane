@@ -1,100 +1,77 @@
-# Semantic reader validation
+# Native gameplay integration
 
-2026-10-16, Java 11, RuneLite dependency 1.13.2.
+Original checkpoint: milestones A and B on `work/next-features`. Current extensions are on `gameplay-event-integration`.
 
-Original semantic implementation: 39 passing tests. See the validation-pass update below for the current result.
+## Implemented
 
-## Fixture coverage
+- `knowledge/KnowledgeService` resolves exact Wiki lookups and reads the existing cached `WikiDocument`. It does not construct Swing components or the full article view.
+- `KnowledgeArticle` exposes the existing semantic nodes, facts, structured requirements, relationships, source sections and locations. Selection respects the Wiki's entity-ID mapping and redirect anchor. Unknown variants omit variant-specific nodes.
+- `Inspection` selects a compact projection with unchanged rich values, source units and revision references. It does not summarize or infer missing values. Relevant section links and the full article retain access to unselected information.
+- `ContextMenuIntegration` snapshots canonical item IDs, transformed NPC/object IDs and object locations on the client thread. Local callbacks are added only when a right-click menu opens. No gameplay actions are replaced, reordered, consumed or sent to the server. The existing target-selection mode is left alone.
+- `QuickInspectController` runs resolution, parsing, layout and image decoding on the bounded worker pool. Client-thread completions check a generation token. Superseded queued work is canceled and removed; dismiss, logout, hopping and shutdown invalidate pending completions.
+- `QuickInspectOverlay` uses real RuneLite overlay menu callbacks and a native related-article submenu. RuneLite currently exposes these overlay actions on Shift-right-click. Alt-drag positioning belongs to RuneLite. No synthetic input or fake clickable painted controls are used.
+- The minimap and sidebar entity resolver now use `KnowledgeService` as well. Full reader presentation and navigation remain unchanged.
 
-| Article | Semantic source units | Units assigned to reader areas |
-| --- | ---: | ---: |
-| Bronze dagger | 673 | 673 |
-| Recipe for Disaster | 112 | 112 |
-| Vorkath | 1071 | 1071 |
-| Cooking | 1417 | 1417 |
-| Vorkath/Strategies | 374 | 374 |
-| Recipe for Disaster/Full guide | 458 | 458 |
+Menu Entry Swapper uses its own `MenuOpened` callbacks. WikiPane runs after its normal-priority callback and only adds local entries. It does not capture Shift, change swap settings, or mutate the event's original entries. Actual coexistence still requires player testing.
 
-A source unit is a meaningful normalized paragraph, cell, or image, including nested tables. Headings are retained separately as section hierarchy. Tests compare source cell values and geometry against semantic data, check source text and facts against the view model, and verify selected requirements and statistics. These counts do not prove that normalization recognizes every possible Wiki structure.
+Repository instructions require third-party-server features to be opt-in. Contextual lookup starts disabled; once enabled, Shift-right-click is the default. Ordinary right-click includes Shift as well, so it also provides both entry points.
 
-The full-guide Walkthrough area contains 182 components and 42,855 characters. Vorkath's Drops area contains 20 components and 15,015 characters; its reference definitions now live in References. Separate linked articles remain separate navigable pages.
+## Presentation and policy boundaries
 
-Isolated Swing tests exercise complete drop-table pagination, complete walkthrough materialization, visible area navigation, stale requests, failed-request retention, and Recipe for Disaster → Cook's Assistant → Back/Forward with scroll restoration. Requirement tests cover explicit quantities, alternatives, boost qualifiers, and unknown prose. Monster highlights are checked against each source variant.
+The overlay shares the reader's palette and compact label/value conventions. Lines are prepared on the worker, grouped with their values, wrapped to 198 pixels and paginated to 12 lines. The panel is 210 pixels wide, with RuneLite's native small font and standard translucent background. Full requirements over 1,200 characters get an explicit full-article notice instead of a truncated logical expression. All source requirements remain available from the query model and full reader.
 
-Standalone previews were inspected at 242 × 780 pixels with dark styling. Requirements and drop text wrap at sidebar width. This inspection did not interact with RuneScape.
+Monster overlays deliberately project static source statistics only. They do not project strategy prose, preparation requirements, combat prayer recommendations or live encounter cues. Wiki articles remain available in the full reader. This is not a claim of Plugin Hub approval.
 
-## Still needs player review
+The original lookup/Quick Inspect milestone reads no player state; local reader comparisons were added separately in [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md). No player state is transmitted. Wiki requests contain the selected entity identity and, for location-sensitive lookups, its location. There are no hover-triggered downloads, scene scans, inventory snapshots or background tracking.
 
-- Ordinary reading and switching areas inside the actual RuneLite sidebar.
-- Scrolling long guides, following section links, and Back/Forward after switching variants.
-- Replacement-button targeting, transformed entities, and widget lifecycle across game layouts.
-- Responsiveness and memory during extended ordinary gameplay.
+## Test before continuing
 
-Unusual interactive templates, calculators, media, and arbitrary embedded anchors may still need the browser. General fallback preserves unclassified normalized content; it is not a guarantee of universal Wiki fidelity.
+1. Enable contextual lookup. With Menu Entry Swapper enabled, Shift-right-click an inventory herb seed. Confirm both plugins' menu actions remain available and ordinary left-click behavior is unchanged.
+2. Inspect ranarr seed. Check Farming 32, growth time, crop, source image, and related Herblore/crop links against the Wiki. Confirm the browser stays closed.
+3. Repeat with bank, equipment, ground item, NPC and object menus. Check transformed/variant NPCs and location-sensitive objects. Interfaces without reliable item metadata should offer no action.
+4. Read Recipe for Disaster, scroll, inspect an item and dismiss it. The article and scroll must stay put. Open the inspection's full article, then Back; confirm restoration.
+5. Shift-right-click the panel. Test full article, related submenu, paging, retry and dismiss. Alt-drag the panel. Check normal and small game sizes manually.
+6. Inspect rapidly, log out, hop, disable/re-enable the plugin, and disable contextual lookup during a request. No stale panel, extra overlay, competing target mode or browser should appear.
+7. Test failed Wiki requests and unavailable images. A failed image should leave facts readable; a failed lookup should offer retry, browser lookup and dismiss.
 
-## Presentation framework refactor
+These game interactions are not automated. The isolated preview is not an in-game acceptance test.
 
-Final verification: `./gradlew test build` successful; 45 tests, zero failures or errors. A clean build also passed before the final source-heading adapter cleanup.
+## Remaining milestones
 
-A reusable `ReaderLayout` adapter and `ReaderComponents` library now separate component content from Swing styling. Added tests compare every table field against its presentation role across six real fixtures, check record identities and linked illustration descriptions, preserve requirement scopes, exercise record links, and verify fact-panel bounds at 185/225/300 pixels. A separate regression checks actual line positions across an explicit HTML line break.
+- C: selection-based pins and independent native overlay lifecycle are implemented for player testing. Highlight sidebar text, right-click, then Pin selection. See [Pinning](PINNING.md). Manual checklists and persistence are not implemented.
+- D: client-thread snapshots and local met/unmet/unknown skill, quest-completion and quest-point annotations are implemented for player testing, preserving AND/OR and boosts. Inventory/equipment checks remain deferred.
+- E: verified quest-journal and skill entry points routed through the shared service.
+- F: map connections using validated coordinates, after earlier milestones are stable.
 
-Standalone previews inspected item bonuses, monster facts, drop records, and quest requirement groups. These are local Swing previews, not game screenshots or in-game acceptance.
+Selection pinning is available alongside Quick Inspect. Native text selection, overlay controls and lifecycle still require player testing. Local player-state annotations are ready for player testing; see [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md).
 
-## Presentation validation pass
+## Developer commands
 
-`./gradlew test build semanticReport`: successful, 59 tests, zero failures or errors. A clean build also passed during this validation pass. Fault injection covers missing source destinations, altered statistics, invalid reference components, dropped requirement groups, duplicate IDs, and misplaced references. Native tests cover citation → reference → backlink → Back navigation, narrow-field stacking, highlight fallback, overflow/clipping diagnostics, and complete-image fitting.
+```sh
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew liveCheck
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew inspectPreview -Pcapture=/tmp/wikipane-inspect.png
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew inspectPreview -Particle=Vorkath -PentityId=8061 -Pcapture=/tmp/wikipane-npc.png
+```
 
-All six fixture audits retain their source-unit coverage. Reference definitions match the raw Wiki HTML: Vorkath 13, Vorkath/Strategies 13, and Recipe for Disaster/Full guide 1. Reference lists no longer become walkthrough steps. A normal numbered instruction containing `[1]` remains an instruction.
+`inspectPreview` paints only the offline overlay, without launching or interacting with RuneScape. Sources and revisions are listed in `THIRD_PARTY.md`.
 
-Standalone reference and drop previews were inspected at 242 × 780. These are visual checks of isolated Swing panels, not in-game acceptance or automatic aesthetic scoring. Whole-page pixel baselines are not part of the suite; the preview command emits a screenshot and the current audit for manual regression comparison.
+## Replacement-button regression checks
 
-The final standalone Vorkath drop view measured 216 pixels, inspected 43 visible components, and reported no geometry warnings. This is one measured view, not whole-Wiki visual certification.
+The replacement supports the game's disabled native entity-lookup setting, using RuneLite's existing Wiki-button positioning. A rebuilt parent must still own the installed child before the widget can be reused. Search menu actions are consumed explicitly, including low-priority actions and dynamic-child IDs; the native on-op listener remains a guarded fallback. Sidebar/Browser routing is separate from Search, which always opens WikiPane. Conflicts surface once in the sidebar instead of leaving an apparently active checkbox without guidance. Other plugins are never disabled automatically.
 
-## Contextual navigation
+## Local requirements and contextual menu checks
 
-`./gradlew clean test build semanticReport`: successful, 72 tests, zero failures or errors.
+See [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md) for the manual sequence covering character levels, boosts, quest completion, quest points, logout/account changes, sidebar activation, pin selection and Menu Entry Swapper. Automated mocked-client and Swing tests do not establish in-game success.
 
-Added checks cover page-type mode selection, complete source-area reachability through Sections, search-result history and forward branching, persistent identity/controls, hidden reading-state search, per-mode scroll restoration, direct section history, section filtering/Enter, parent-chapter materialization, and source-backed transclusion hierarchy.
+## Contextual lookup verification and local player requirements
 
-Standalone previews inspected the quest overview and full-guide walkthrough at 242 × 780. Article identity is outside the scroll pane, with no repeated dedicated title in the reader. Source-unit coverage remains complete for the existing fixtures. In-client navigation acceptance remains a player test.
+`env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build playerContextPreview semanticReport` passes: 150 tests, zero failures, errors or skips. The eight-fixture source report still shows complete coverage, valid composition and zero composition warnings.
 
-## Native gameplay integration: first checkpoint
+New tests cover base/current levels, allowed/forbidden/unspecified boosts and drains, recursive ALL/ANY logic, unavailable state, exact quest links and unsupported stages/variants, quest points without future rewards, source extraction confidence, immutable snapshots, client-thread enforcement, targeted/coalesced quest reads, logout/new-login state replacement, unavailable-script recovery, shutdown/disable/pending work, original-menu preservation, canonical item and transformed entity identity, modifier settings and stale menu callbacks. Swing tests cover status updates without replacing source panes or changing scroll, selection excluding player values, disabled checks, queued stale results, and wrapped-text geometry at 185 and 225 pixels.
 
-`./gradlew test build` passes: 85 tests, zero failures or errors. This includes the existing reader tests and new knowledge-query, exact-variant filtering, seed facts, compact provenance, stale response, dismissal/shutdown, queue rejection, retry bounded overlay-layout tests, and rejection of comparison-table values as entity statistics. A Swing integration test verifies that temporary inspection leaves Recipe for Disaster at its existing scroll position, then explicit full-article navigation and Back restore it.
+The isolated 242 × 780 actual-sidebar preview uses synthetic Cooking, Agility, Mining, quest completion and quest-point values. It was inspected for readable icons/status, preserved source groups, correct met/unmet/unknown examples and full wrapped-text visibility. The first preview exposed a clipped final requirement line; width-aware row measurement fixed it, and a glyph-bound regression now checks source text as well as status bounds. No live game capture or game input was used.
 
-Live Wiki checks passed for exact ranarr seed item lookup and Vorkath NPC ID 8061, resolved to its Post-quest variant with 750 Hitpoints. Existing live search, article and image checks also passed. Offline previews inspected the 280-pixel seed panel and post-quest Vorkath statistics. They did not interact with RuneScape.
+Actual character-state comparisons, event timing, native menu coexistence and lifecycle behavior still require player acceptance. Partial quest stages, unfamiliar conditional prose, inventory/equipment possession and unsupported quest aliases remain unknown. Player state is local only; Wiki caches and pin contents remain account-independent. See `PLAYER_CONTEXT.md`.
 
-The seed fixture exposed a parser bug: a table heading could inherit the preceding row's requirement label. Header-only text no longer creates that false condition; actual skill markup remains eligible. Compact projection also avoids repeating the same source value as both a fact and a requirement. Source cell coverage now includes the captured ranarr seed article.
-
-Native menu access, Menu Entry Swapper coexistence, overlay menu hit testing, positioning, all supported item interfaces and game lifecycle still require player testing. See `NATIVE_INTEGRATION.md`. Pins, player-state evaluation, quest/skill entry points and map integration are not implemented at this checkpoint.
-
-
-## Replacement-button and compact overlay fixes
-
-`./gradlew test build` passes: 97 tests, zero failures or errors. Before the fix, widget fixtures reproduced three failures: no replacement when vanilla entity lookup is disabled, a detached widget reused after reconstruction, and Search not handled by the menu callback. These tests now pass. Additional fixtures check low-priority dynamic-child search, left-click Search's action index, exact ground-item identity routing, parent layout restoration, stale callbacks after shutdown, foreign-widget ownership, conflict reporting and explicit destination switching. They mock RuneLite APIs; they do not interact with the game.
-
-Quick Inspect now uses RuneLite's native small font and `BackgroundComponent` with its standard translucent background. It is 210 pixels wide with 6-pixel padding, 13-pixel line spacing and 12-line pages. Pixel checks verify translucency as well as wrapping and bounded dimensions. An isolated Evergreen tree variant 3 preview measures 210 × 151 pixels. Wiki navigation notices retain semantic metadata and remain available in the full reader, while the compact About projection selects actual article content. Numeric variant labels are explicit.
-
-Both fixes still need player confirmation in RuneLite, including minimap lookup, both Search interactions, interface resizing/reconstruction, and comfortable overlay positioning during gameplay. Mockito is test-only and is not a production plugin dependency.
-
-## Selection-based reference pins
-
-`env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build` passes: 114 tests, zero failures, errors or skipped tests. A preceding clean build and offline `pinPreview` also passed.
-
-Tests cover source-backed selection across native reader components, links and emphasis, numbered and nested lists, field labels and partial-value excerpts, variant identity, Unicode whitespace, bounded long selections and paging, duplicate pins, the five-pin limit, shutdown with pending work, queue rejection and translucent overlay dimensions. A Recipe for Disaster reader test verifies that pinning leaves the article and scroll position unchanged without additional Wiki requests.
-
-The isolated requirements pin preview measures 210 × 104 pixels and was inspected without launching or interacting with RuneScape. Actual mouse selection, native overlay menus, Alt-drag positioning, sidebar independence and login/world-hop behavior require user testing in RuneLite. Pins are session-only; manual checklists and player-aware annotations are not implemented.
-
-## Clickable pin paging
-
-`env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build` passes: 116 tests, zero failures, errors or skips. Pins now use six body lines per page and explicit previous/next footer buttons with disabled boundary states and a page counter. MouseManager input handling consumes the footer click sequence locally, dispatches page changes to the client thread, and unregisters with the overlay. Tests cover a single page action per click, press/release/click consumption, modified clicks, outside clicks and inactive listeners; existing paging tests retain all selected content and clamp page boundaries. Actual in-game button hit testing, Alt-drag and overlapping overlays still need player confirmation.
-
-## Semantic presentation refinement: Milestone A
-
-`env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew test build semanticReport inspectPreview pinPreview` passes: 126 tests, zero failures, errors or skips. This retains the previous 116 tests and adds tests for probability boundaries, invalid/conditional/multi-roll neutrality, explicit field labeling, preserved requirement wording/links/nesting/scopes, source identity, Rake normalization and live-price navigation, selectable odds without derived captions, and real component bounds at 185 and 225 pixels.
-
-The source-coverage report passes all eight fixtures, including newly captured Rake revision 15184295 and ranarr seed. Every fixture reports complete semantic-unit coverage and valid composition with zero composition warnings. Signed Bronze dagger values and separate attack/defence groups remain covered by existing tests. No player-state or game-menu behavior changed.
-
-Isolated 242 × 780 Swing previews were inspected for Rake, Recipe for Disaster requirements and full-guide instructions, Bronze dagger combat bonuses, ranarr seed and Vorkath drops. A deterministic source-section preview separately inspected Vorkath's Tertiary table. It showed green `1/10` with a Common caption, independent quantity/price rows, and unchanged neutral qualified odds. That fully materialized preview hit the existing 1024-component inspection budget and reported its explicit budget warning; it is not a whole-page geometry certification. Dedicated native-overlay previews inspected ranarr seed at 210 × 190 and quest requirement pins at 210 × 104.
-
-The live Wiki Rake API response was retrieved to diagnose the inherited Daily volume label and chart-placeholder issue. Automated tests use captured fixtures, not the live network. Actual RuneLite usability, scaling and input remain player tests. No in-game screenshots or automated game input were used. See `SEMANTIC_STYLING.md` for rules and `TESTING.md` for the manual checklist. Further milestones wait for player feedback on this pass.
+RFD prerequisite regression: individual nested quest checks retain source text and ordered links; all extracted quest names match the RuneLite quest catalog. Completed parent quests check independently of prerequisite availability. Positive partial-stage requirements are satisfied only by verified full completion; intermediate stages remain unknown. Isolated synthetic-state preview inspected at 242px outer panel width (`playerContextPreview`); in-game confirmation remains required.

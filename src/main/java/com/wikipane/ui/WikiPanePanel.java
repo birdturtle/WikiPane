@@ -25,6 +25,14 @@ public final class WikiPanePanel extends PluginPanel {
     private final WikiClient wiki;
     private final ExecutorService workers;
     private final ContentRenderer renderer;
+    private java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> contextRequests = requirements -> {};
+    private java.util.List<com.wikipane.semantic.SemanticDocument.Requirement> contextRequirements = java.util.List.of();
+    private boolean contextVisible;
+    public void contextRequests(java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> requests) { contextRequests = requests; }
+    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { if (active) renderer.playerContext(snapshot); }
+    public void skillIcons(java.util.Map<String, javax.swing.Icon> icons) { if (active) renderer.skillIcons(icons); }
+    @Override public void onActivate() { contextVisible = true; contextRequests.accept(contextRequirements); }
+    @Override public void onDeactivate() { contextVisible = false; contextRequests.accept(java.util.List.of()); }
     private final NavigationHistory history = new NavigationHistory();
     private final JTextField search = new JTextField();
     private final JLabel message = new JLabel("Search the OSRS Wiki");
@@ -69,6 +77,10 @@ public final class WikiPanePanel extends PluginPanel {
         this.wiki = wiki;
         this.workers = workers;
         renderer = new ContentRenderer(this::openLink, workers, new ImageCache(wiki), pin, this::guidance);
+        renderer.contextRequests(requirements -> {
+            contextRequirements = requirements;
+            contextRequests.accept(contextVisible ? requirements : java.util.List.of());
+        });
         setLayout(new BorderLayout(0, 6));
         setBackground(ReaderComponents.BACKGROUND);
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));

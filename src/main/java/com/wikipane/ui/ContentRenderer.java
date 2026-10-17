@@ -39,6 +39,11 @@ public final class ContentRenderer {
     private int revealed;
     private String areaId = "";
     private String selectedVariant = "", previousBreadcrumb = "";
+    private final java.util.List<RequirementBadge> badges = new ArrayList<>();
+    private com.wikipane.context.PlayerContextSnapshot player = com.wikipane.context.PlayerContextSnapshot.unavailable(false);
+    private Consumer<java.util.List<Requirement>> contextRequests = requirements -> {};
+    private java.util.Map<String, javax.swing.Icon> skillIcons = java.util.Map.of();
+    private Future<?> evaluation;
     private final Set<String> presentedFacts = new HashSet<>();
     public ContentRenderer(Consumer<String> links, ExecutorService workers, ImageCache images) {
         this(links, workers, images, null, message -> {});
@@ -51,8 +56,48 @@ public final class ContentRenderer {
         this.workers = workers;
         this.images = images;
     }
-    public void clear() {
+    public void contextRequests(Consumer<java.util.List<Requirement>> requests) { contextRequests = requests; }
+    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { player = snapshot; evaluateRequirements(); }
+    public void skillIcons(java.util.Map<String, javax.swing.Icon> icons) { skillIcons = java.util.Map.copyOf(icons); evaluateRequirements(); }
+    private void cancelEvaluation() {
+        if (evaluation != null) {
+            evaluation.cancel(false);
+            if (workers instanceof ThreadPoolExecutor && evaluation instanceof Runnable) ((ThreadPoolExecutor)workers).remove((Runnable)evaluation);
+            evaluation = null;
+        }
+    }
+    private void evaluateRequirements() {
+        cancelEvaluation();
+        if (badges.isEmpty()) return;
+        long version = generation;
+        com.wikipane.context.PlayerContextSnapshot snapshot = player;
+        java.util.List<RequirementBadge> rows = java.util.List.copyOf(badges);
+        // Clear old account values immediately while the worker prepares the new annotations.
+        com.wikipane.context.RequirementEvaluator evaluator = new com.wikipane.context.RequirementEvaluator();
+        for (RequirementBadge row : rows) if (!snapshot.available || row.getClientProperty("wiki.requirementStatusReady") == null)
+            row.update(evaluator.evaluate(row.condition,
+            com.wikipane.context.PlayerContextSnapshot.unavailable(snapshot.enabled)), snapshot.enabled, null);
+        try {
+            evaluation = workers.submit(() -> {
+                java.util.List<com.wikipane.context.RequirementEvaluator.Result> results = new ArrayList<>();
+                for (RequirementBadge row : rows) results.add(evaluator.evaluate(row.condition, snapshot));
+                SwingUtilities.invokeLater(() -> {
+                    if (version != generation || player != snapshot) return;
+                    for (int i = 0; i < rows.size(); i++) {
+                        Requirement condition = rows.get(i).condition;
+                        javax.swing.Icon icon = condition.kind == Requirement.Kind.SKILL
+                            ? skillIcons.get(com.wikipane.context.PlayerContextSnapshot.skillKey(condition.name)) : null;
+                        rows.get(i).update(results.get(i), snapshot.enabled, icon);
+                    }
+                });
+            });
+        } catch (RejectedExecutionException ex) { /* Unknown remains visible; no guessed state. */ }
+    }
+    public void clear() { clear(true); }
+    private void clear(boolean notify) {
         generation++;
+        cancelEvaluation(); badges.clear();
+        if (notify) contextRequests.accept(java.util.List.of());
         if (selection != null) selection.clear();
         components.pinContext(null);
         components.pinDocument(null); pinDocument = null;
@@ -102,11 +147,15 @@ public final class ContentRenderer {
         WikiPage page, ArticleViewModel.Area area, Map<String, Integer> saved, String variant) {
         WikiDocument article = page.document;
         layout = page.layout;
-        clear();
+        clear(false);
         audit = page.view.audit;
         components.audit(audit);
         pinDocument = article.semantic;
         components.pinDocument(pinDocument);
+        java.util.List<Requirement> requested = new ArrayList<>();
+        for (Node node : pinDocument.nodes) for (RequirementSet set : node.requirements)
+            for (RequirementGroup group : set.groups) requested.add(group.expression);
+        contextRequests.accept(java.util.List.copyOf(requested));
         areaId = area.id;
         anchorAliases = page.navigation.anchors(area.id);
         tableState = new HashMap<>(saved);
@@ -216,8 +265,14 @@ public final class ContentRenderer {
             }
             switch (component.type) {
                 case TEXT:
-                    if (component.node.text != null)
-                        section.add(text(layout.section(component.id).textHtml));
+                    if (component.node.text != null) {
+                        com.wikipane.view.ReaderLayout.Section source = layout.section(component.id);
+                        JComponent prose = text(source.textHtml);
+                        if (source.textCondition != null) {
+                            RequirementBadge row = new RequirementBadge(source.textCondition, prose);
+                            badges.add(row); section.add(row);
+                        } else section.add(prose);
+                    }
                     break;
                 case FACTS:
                 case REQUIREMENTS:
@@ -264,6 +319,7 @@ public final class ContentRenderer {
             components.pinContext(null);
         }
         if (selection != null && rendered != null) selection.refresh(rendered);
+        evaluateRequirements();
         tableState.put("@shown:" + areaId, revealed);
         flow.revalidate();
         flow.repaint();
@@ -305,7 +361,21 @@ public final class ContentRenderer {
             JPanel card = components.card("wiki.requirements");
             card.add(text("<b>" + escape(condition.title) + "</b>"));
             card.add(components.gap(4));
-            for (String line : condition.styledLines) card.add(components.condition(line));
+            for (com.wikipane.view.RequirementRows.Row content : condition.rows) {
+                if (basePin != null) components.pinContext(basePin.condition(condition.source, condition.title,
+                    content.condition == null ? condition.condition : content.condition));
+                JComponent source = components.condition(content.html);
+                JComponent row = source;
+                if (content.condition != null) {
+                    RequirementBadge badge = new RequirementBadge(content.condition, source);
+                    badges.add(badge); row = badge;
+                }
+                JPanel inset = column();
+                inset.setBorder(BorderFactory.createEmptyBorder(0, Math.min(4, content.depth) * 6, 0, 0));
+                inset.putClientProperty("wiki.requirement.depth", content.depth);
+                if (!content.parent.isBlank()) source.setToolTipText("Prerequisite of: " + content.parent);
+                inset.add(row); card.add(inset);
+            }
             target.add(card);
             target.add(components.gap(8));
         }

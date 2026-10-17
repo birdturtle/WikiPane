@@ -53,7 +53,13 @@ The small translucent panel leaves your sidebar article in place. Hold Shift and
 
 Settings also offer ordinary right-click access and direct full-article lookups. Contextual lookup works alongside RuneLite's Wiki plugin; replacing its minimap button is separate.
 
-Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations. Player-aware requirements are planned next.
+Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations.
+
+## Check your requirements
+
+Supported requirements show a check, cross or question mark alongside your local skill levels, quest completion or quest points. The original Wiki text stays intact. Boosts count only when the requirement explicitly allows them; unsupported conditions remain unknown.
+
+Turn **Check your requirements** off in WikiPane settings if you prefer the plain reader. These comparisons stay on your computer. Inventory, equipment and bank contents are not checked.
 
 ## Pin a reference
 
@@ -76,7 +82,7 @@ The core Wiki plugin's DPS action is not reproduced. Leave replacement mode off 
 
 ## Privacy and attribution
 
-Search terms, requested article titles, and selected entity lookup details are sent over HTTPS to the [OSRS Wiki](https://oldschool.runescape.wiki/). Entity requests contain type, ID, name, and, for NPCs or objects, location. The Wiki sees your IP address. There is no telemetry, account tracking, credential handling, or external backend.
+Search terms, requested article titles, and selected entity lookup details are sent over HTTPS to the [OSRS Wiki](https://oldschool.runescape.wiki/). Entity requests contain type, ID, name, and, for NPCs or objects, location. The Wiki sees your IP address. Skill levels, quest states and quest points used for requirement checks stay local and are not sent to the Wiki. There is no telemetry, account tracking, credential handling, or external backend.
 
 Wiki text is attributed to its contributors under [CC BY-NC-SA 3.0](https://oldschool.runescape.wiki/w/RuneScape:Copyrights). Rendering changes the layout, not the source information. Images have their own applicable terms, including Jagex copyright. Each article links back to the original.
 

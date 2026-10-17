@@ -1,6 +1,6 @@
 # Native gameplay integration
 
-Branch: `work/next-features`. First testing checkpoint: milestones A and B.
+Original checkpoint: milestones A and B on `work/next-features`. Current extensions are on `gameplay-event-integration`.
 
 ## Implemented
 
@@ -22,7 +22,7 @@ The overlay shares the reader's palette and compact label/value conventions. Lin
 
 Monster overlays deliberately project static source statistics only. They do not project strategy prose, preparation requirements, combat prayer recommendations or live encounter cues. Wiki articles remain available in the full reader. This is not a claim of Plugin Hub approval.
 
-No player state is read or transmitted in this milestone. Wiki requests contain the selected entity identity and, for location-sensitive lookups, its location. There are no hover-triggered downloads, scene scans, inventory snapshots or background tracking.
+The original lookup/Quick Inspect milestone reads no player state; local reader comparisons were added separately in [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md). No player state is transmitted. Wiki requests contain the selected entity identity and, for location-sensitive lookups, its location. There are no hover-triggered downloads, scene scans, inventory snapshots or background tracking.
 
 ## Test before continuing
 
@@ -39,11 +39,11 @@ These game interactions are not automated. The isolated preview is not an in-gam
 ## Remaining milestones
 
 - C: selection-based pins and independent native overlay lifecycle are implemented for player testing. Highlight sidebar text, right-click, then Pin selection. See [Pinning](PINNING.md). Manual checklists and persistence are not implemented.
-- D: client-thread player-state snapshots and local met/unmet/unknown requirement evaluation, preserving AND/OR and boosts.
+- D: client-thread snapshots and local met/unmet/unknown skill, quest-completion and quest-point annotations are implemented for player testing, preserving AND/OR and boosts. Inventory/equipment checks remain deferred.
 - E: verified quest-journal and skill entry points routed through the shared service.
 - F: map connections using validated coordinates, after earlier milestones are stable.
 
-Selection pinning is available alongside Quick Inspect. Native text selection, overlay controls and lifecycle still require player testing. Player-state evaluation remains unimplemented.
+Selection pinning is available alongside Quick Inspect. Native text selection, overlay controls and lifecycle still require player testing. Local player-state annotations are ready for player testing; see [PLAYER_CONTEXT.md](PLAYER_CONTEXT.md).
 
 ## Developer commands
 

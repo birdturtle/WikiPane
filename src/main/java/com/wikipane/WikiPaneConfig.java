@@ -36,6 +36,9 @@ public interface WikiPaneConfig extends Config {
     @ConfigItem(keyName = "contextDestination", name = "Context lookup destination", position = 5,
         description = "Quick Inspect keeps your current sidebar article and reading position.")
     default ContextDestination contextDestination() { return ContextDestination.QUICK_INSPECT; }
+    @ConfigItem(keyName = "playerRequirements", name = "Check your requirements", position = 6,
+        description = "Compare supported skills, quest completion and quest points locally. No player state is sent to the Wiki.")
+    default boolean playerRequirements() { return true; }
     enum ContextAccess {
         SHIFT_RIGHT_CLICK("Shift-right-click"), RIGHT_CLICK("Right-click");
         private final String label;

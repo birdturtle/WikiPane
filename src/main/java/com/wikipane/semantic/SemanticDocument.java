@@ -125,9 +125,10 @@ public final class SemanticDocument {
         }
     }
     public static final class Requirement {
-        public enum Kind { ALL, ANY, SKILL, QUEST, ITEM, QUEST_POINTS, OTHER }
+        public enum Kind { ALL, ANY, SKILL, QUEST, QUEST_STAGE, ITEM, QUEST_POINTS, OTHER }
         public enum Boost { ALLOWED, NOT_ALLOWED, UNSPECIFIED }
         public final Kind kind;
+        public final boolean verifiable;
         public final String name, url;
         public final Integer level, quantity;
         public final Boost boost;
@@ -135,6 +136,11 @@ public final class SemanticDocument {
         public final List<Requirement> children;
         public Requirement(Kind kind, String name, String url, Integer level, Integer quantity, Boost boost,
             RichText original, List<Requirement> children) {
+            this(kind, name, url, level, quantity, boost, original, children, true);
+        }
+        public Requirement(Kind kind, String name, String url, Integer level, Integer quantity, Boost boost,
+            RichText original, List<Requirement> children, boolean verifiable) {
+            this.verifiable = verifiable;
             this.kind = kind;
             this.name = name;
             this.url = url;

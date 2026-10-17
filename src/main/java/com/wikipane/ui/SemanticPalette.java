@@ -11,6 +11,7 @@ public final class SemanticPalette {
         LINK = new Color(255, 183, 77), NUMBER = new Color(166, 211, 225),
         REQUIREMENT = new Color(194, 207, 230), INPUT = new Color(194, 207, 230),
         OUTPUT = new Color(152, 207, 170), WARNING = new Color(244, 198, 111),
+        MET = new Color(143, 208, 156), UNMET = new Color(240, 155, 149),
         COMMON = new Color(143, 208, 156), UNCOMMON = new Color(143, 190, 244),
         RARE = new Color(203, 169, 241), VERY_RARE = new Color(244, 198, 111);
     public static Color field(FieldPresentation display) {

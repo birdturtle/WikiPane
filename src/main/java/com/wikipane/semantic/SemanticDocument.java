@@ -180,9 +180,19 @@ public final class SemanticDocument {
         }
     }
     public static final class Location {
+        public final boolean verifiedMap;
+        public final String mapId;
         public final String x, y, plane;
         public final Source source;
         public Location(String x, String y, String plane, Source source) {
+            this(x,y,plane,source,false);
+        }
+        public Location(String x, String y, String plane, Source source, boolean verifiedMap) {
+            this(x,y,plane,source,verifiedMap,"-1");
+        }
+        public Location(String x, String y, String plane, Source source, boolean verifiedMap, String mapId) {
+            this.mapId = mapId;
+            this.verifiedMap = verifiedMap;
             this.x = x;
             this.y = y;
             this.plane = plane;

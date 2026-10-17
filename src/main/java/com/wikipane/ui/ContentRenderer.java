@@ -32,6 +32,23 @@ public final class ContentRenderer {
     private JPanel flow;
     private Map<String, String> anchorAliases = Map.of();
     private JPanel rendered;
+    private Consumer<Location> mapRequests = location -> {};
+    private final Map<String, java.util.List<Location>> locationsByUnit = new HashMap<>();
+    public void mapRequests(Consumer<Location> show) { mapRequests=show; }
+    private JComponent mapActions(java.util.List<Location> locations) {
+        JPanel actions=column(); Set<String> seen=new HashSet<>();
+        for(Location location:locations) {
+            if(com.wikipane.integration.WikiMapIntegration.destination(location)==null) continue;
+            String key=location.x+","+location.y+","+location.plane;
+            if(!seen.add(key)) continue;
+            JButton show=linkButton("Show on map");
+            show.setName("wiki.showOnMap"); show.putClientProperty("wiki.location",location);
+            show.setToolTipText("From "+location.source.article+" · "+location.source.sectionTitle);
+            show.addActionListener(event->mapRequests.accept(location));
+            actions.add(show);
+        }
+        return actions;
+    }
     private String progressionSkill = "";
     private Consumer<String> skillRequests = skill -> {};
     private final Map<Integer, java.util.List<JComponent>> levelRows = new TreeMap<>();
@@ -117,6 +134,7 @@ public final class ContentRenderer {
         generation++;
         cancelEvaluation(); badges.clear();
         levelRows.clear(); levelRevealers.clear(); progressionSkill = "";
+        locationsByUnit.clear();
         if (notify) contextRequests.accept(java.util.List.of());
         if (notify) skillRequests.accept("");
         if (selection != null) selection.clear();
@@ -172,6 +190,8 @@ public final class ContentRenderer {
         audit = page.view.audit;
         components.audit(audit);
         pinDocument = article.semantic;
+        for(Node node:pinDocument.nodes) for(Location location:node.locations)
+            locationsByUnit.computeIfAbsent(location.source.unit,ignored->new ArrayList<>()).add(location);
         progressionSkill = com.wikipane.context.SkillGuideProgress.skill(article.title);
         components.pinDocument(pinDocument);
         java.util.List<Requirement> requested = new ArrayList<>();
@@ -388,6 +408,8 @@ public final class ContentRenderer {
                         section.add(text("This content is available through Open in browser."));
                     break;
             }
+            if(component.node.table==null||!component.node.table.kind.isEmpty())
+                section.add(mapActions(component.node.locations));
             flow.add(section);
             components.pinContext(null);
         }
@@ -568,6 +590,9 @@ public final class ContentRenderer {
                         contextRow.add(card); levelRows.computeIfAbsent(level, ignored -> new ArrayList<>()).add(contextRow); card = contextRow;
                     }
                     records.add(card);
+                    java.util.List<Location> locations=new ArrayList<>();
+                    for(String unit:record.units) locations.addAll(locationsByUnit.getOrDefault(unit,java.util.List.of()));
+                    records.add(mapActions(locations));
                     records.add(components.gap(3));
                 }
                 for (int n = 0; n < record.nested.size(); n++)

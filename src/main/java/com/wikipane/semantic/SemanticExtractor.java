@@ -112,6 +112,7 @@ public final class SemanticExtractor {
                 && (semanticRole == Role.OTHER || semanticRole == Role.INFORMATION))
                 semanticRole = Role.WALKTHROUGH;
             for (Fact fact : facts) locations.addAll(locations(fact.value, fact.source));
+            if (table != null) tableLocations(table, locations);
             Node node = new Node(id, nodeType, semanticRole, source, block, text, table, facts, requirements,
                 links, locations, instructions, units);
             nodes.add(node);
@@ -198,13 +199,24 @@ public final class SemanticExtractor {
     }
     private static List<Location> locations(RichText text, Source source) {
         List<Location> values = new ArrayList<>();
+        for (Element map : Jsoup.parseBodyFragment(text.html).select("span[data-wikipane-map]"))
+            values.add(new Location(map.attr("data-x"),map.attr("data-y"),map.attr("data-plane"),source,true,map.attr("data-mapid")));
+        boolean explicit = !values.isEmpty();
         java.util.regex.Matcher m = java.util.regex.Pattern
                                         .compile("Map coordinates: (-?[0-9]+(?:\\.[0-9]+)?), "
                                             + "(-?[0-9]+(?:\\.[0-9]+)?)(?: \\(plane ([0-9-]+)\\))?")
                                         .matcher(text.text);
         while (m.find())
-            values.add(new Location(m.group(1), m.group(2), Objects.toString(m.group(3), ""), source));
+            if (!explicit) values.add(new Location(m.group(1), m.group(2), Objects.toString(m.group(3), ""), source));
         return values;
+    }
+    private static void tableLocations(Table table, List<Location> target) {
+        for (Row row : table.rows) for (Cell cell : row.cells) {
+            for (Location location : locations(cell.value,cell.source))
+                if (target.stream().noneMatch(old -> old.source.unit.equals(location.source.unit)
+                    && old.x.equals(location.x) && old.y.equals(location.y) && old.plane.equals(location.plane))) target.add(location);
+            for (Table nested : cell.nested) tableLocations(nested,target);
+        }
     }
     private static void relationships(RichText text, Source source, Role context, List<Relationship> links) {
         for (Link link : text.links) {

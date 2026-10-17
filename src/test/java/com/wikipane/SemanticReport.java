@@ -7,7 +7,7 @@ import com.wikipane.view.*;
 public final class SemanticReport {
     public static void main(String[] args) throws Exception {
         for (String fixture : new String[] {"Bronze_dagger", "Recipe_for_Disaster", "Vorkath", "Cooking",
-                 "Vorkath__Strategies", "Recipe_for_Disaster__Full_guide", "Ranarr_seed", "Rake", "Prayer_potion", "Bronze_bar", "Sailing__Level_up_table", "Farming__Level_up_table", "Herblore__Level_up_table"}) {
+                 "Vorkath__Strategies", "Recipe_for_Disaster__Full_guide", "Ranarr_seed", "Rake", "Prayer_potion", "Bronze_bar", "Sailing__Level_up_table", "Farming__Level_up_table", "Herblore__Level_up_table", "Hans"}) {
             WikiPage page = new WikiPage(DocumentTest.document(fixture));
             WikiDocument doc = page.document;
             System.out.println("\n" + doc.title + " [" + doc.semantic.type + "]");

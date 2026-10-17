@@ -34,6 +34,9 @@ import okhttp3.OkHttpClient;
     tags = {"wiki", "search", "quest", "item", "npc"})
 public class WikiPanePlugin extends Plugin {
     @Inject private Client client;
+    @Inject private net.runelite.client.ui.overlay.worldmap.WorldMapPointManager mapPoints;
+    @Inject private net.runelite.client.game.SpriteManager sprites;
+    private com.wikipane.integration.WikiMapIntegration maps;
     @Inject private ClientThread clientThread;
     @Inject private ClientToolbar toolbar;
     @Inject private ItemManager items;
@@ -68,6 +71,10 @@ public class WikiPanePlugin extends Plugin {
     protected void startUp() {
         active = true;
         long version = ++lifecycle;
+        com.wikipane.integration.WikiMapIntegration currentMap = new com.wikipane.integration.WikiMapIntegration(client,mapPoints,sprites,
+            task -> clientThread.invokeLater(task),
+            message -> SwingUtilities.invokeLater(() -> { if(active&&version==lifecycle&&panel!=null)panel.guidance(message); }));
+        maps=currentMap;
         workers = new ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(48), r -> {
             Thread thread = new Thread(r, "WikiPane-worker");
             thread.setDaemon(true);
@@ -122,6 +129,9 @@ public class WikiPanePlugin extends Plugin {
                 if (active && version == lifecycle) currentPins.pin(selection);
             }));
             panel.playerContext(playerSnapshot);
+            panel.mapRequests(location -> clientThread.invokeLater(() -> {
+                if(active&&version==lifecycle)currentMap.show(location);
+            }));
             panel.contextRequests(requirements -> clientThread.invokeLater(() -> {
                 if (active && version == lifecycle) currentPlayer.watch(requirements);
             }));
@@ -180,6 +190,8 @@ public class WikiPanePlugin extends Plugin {
     protected void shutDown() {
         active = false;
         lifecycle++;
+        com.wikipane.integration.WikiMapIntegration oldMap=maps;
+        if(oldMap!=null)clientThread.invokeLater(oldMap::stop);
         com.wikipane.context.PlayerContextService oldPlayer = playerContext;
         if (oldPlayer != null) clientThread.invokeLater(oldPlayer::stop);
         playerSnapshot = com.wikipane.context.PlayerContextSnapshot.unavailable(false);
@@ -246,6 +258,7 @@ public class WikiPanePlugin extends Plugin {
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
         if (active) {
+            if (maps != null && maps.clicked(event)) return;
             if (skillMenus != null && skillMenus.clicked(event)) return;
             if (com.wikipane.integration.QuestInterfaceLookup.clicked(client, config, event,
                     url -> openReference(url.toString(), lifecycle))) return;
@@ -259,11 +272,16 @@ public class WikiPanePlugin extends Plugin {
     }
     @Subscribe public void onStatChanged(StatChanged event) { if (active && playerContext != null) playerContext.statChanged(); }
     @Subscribe public void onVarbitChanged(VarbitChanged event) { if (active && playerContext != null) playerContext.variablesChanged(); }
-    @Subscribe public void onGameTick(GameTick event) { if (active && playerContext != null) playerContext.tick(); }
+    @Subscribe public void onGameTick(GameTick event) {
+        if (active && playerContext != null) playerContext.tick();
+        if (active && maps != null) maps.center();
+    }
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
         if (active) {
             if (playerContext != null) playerContext.stateChanged(event.getGameState());
+            if(maps!=null&&(event.getGameState()==net.runelite.api.GameState.LOGIN_SCREEN
+                ||event.getGameState()==net.runelite.api.GameState.HOPPING))maps.clear();
             integration.reconcile();
             if (inspections != null && (event.getGameState() == net.runelite.api.GameState.LOGIN_SCREEN
                 || event.getGameState() == net.runelite.api.GameState.HOPPING

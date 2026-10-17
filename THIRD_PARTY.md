@@ -66,3 +66,5 @@ Shared table-layout regression fixture captured 2026-10-17: Sailing/Level up tab
 Shared table-layout regression fixture captured 2026-10-17: Farming/Level up table, revision 15369346, https://oldschool.runescape.wiki/w/Farming/Level_up_table . Used under the Wiki attribution above.
 
 Shared table-layout regression fixture captured 2026-10-17: Herblore/Level up table, revision 15369351, https://oldschool.runescape.wiki/w/Herblore/Level_up_table . Used under the Wiki attribution above.
+
+Map regression fixture captured 2026-10-17: Hans, revision 15373142, https://oldschool.runescape.wiki/w/Hans . Used under the Wiki attribution above.

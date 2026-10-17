@@ -47,7 +47,8 @@ public final class WikiDocumentParser {
         }
         for (Element map : root.select(".mw-kartographer-maplink")) {
             String x = map.attr("data-lon"), y = map.attr("data-lat"), plane = map.attr("data-plane");
-            map.replaceWith(new Element("span").text(x.isEmpty() || y.isEmpty() ? map.text()
+            map.replaceWith(new Element("span").attr("data-wikipane-map", "true")
+                .attr("data-x",x).attr("data-y",y).attr("data-plane",plane).attr("data-mapid",map.attr("data-mapid")).text(x.isEmpty() || y.isEmpty() ? map.text()
                                                                                 : "Map coordinates: " + x
                         + ", " + y + (plane.isEmpty() ? "" : " (plane " + plane + ")")));
         }
@@ -420,6 +421,13 @@ public final class WikiDocumentParser {
         String tag = e.normalName();
         if (Arrays.asList("script", "style", "iframe", "input", "form", "button").contains(tag))
             return "";
+        if (e.hasAttr("data-wikipane-map")) {
+            StringBuilder body = new StringBuilder();
+            for (Node child : e.childNodes()) body.append(inline(child));
+            return "<span data-wikipane-map=\"true\" data-x=\""+escape(e.attr("data-x"))
+                +"\" data-y=\""+escape(e.attr("data-y"))+"\" data-plane=\""+escape(e.attr("data-plane"))
+                +"\" data-mapid=\""+escape(e.attr("data-mapid"))+"\">"+body+"</span>";
+        }
         if (tag.equals("img"))
             return escape(imageText(e));
         if ((tag.equals("ol") && e.attr("start").matches("[0-9]+"))

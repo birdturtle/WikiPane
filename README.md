@@ -65,6 +65,12 @@ Supported Wiki actions inside the level-guide window also open in WikiPane when 
 
 Skill level-up tables start at your base level when local player state is available. Earlier levels are subtly dimmed and remain readable and clickable. Back/Forward restores your reading position; explicit section links and manual scrolling take priority. This uses **Check your requirements** and sends no character levels to the Wiki.
 
+## Wiki locations on the map
+
+Supported source locations have **Show on map**. It opens the native floating world map when needed, centers the destination, and marks it with the game's red destination flag. Selecting another location replaces the previous WikiPane marker. Other plugins' markers stay untouched.
+
+Only explicit Wiki map links with supported coordinates and a known plane qualify. General map centers, prose locations and unsupported instance maps keep the usual browser fallback. Markers are cleared on logout, world hopping and plugin shutdown.
+
 ## Check your requirements
 
 Supported requirements show a check, cross or question mark alongside your local skill levels, quest completion or quest points. The original Wiki text stays intact. Boosts count only when the requirement explicitly allows them; unsupported conditions remain unknown.

@@ -198,7 +198,7 @@ public final class ReaderComponents {
         Color color = display.membership
             ? field.value.text.equals("Members") ? net.runelite.client.ui.ColorScheme.BRAND_ORANGE : SemanticPalette.MUTED
             : SemanticPalette.field(display);
-        String valueHtml = field.value.html;
+        String valueHtml = field.displayHtml;
         if (display.membership)
             valueHtml = valueHtml.replace("<a ", "<a style='color:" + SemanticPalette.hex(color) + "' ");
         String html = "<span style='color:" + SemanticPalette.hex(color) + "'>" + valueHtml + "</span>";

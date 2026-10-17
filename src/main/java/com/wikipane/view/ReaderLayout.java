@@ -9,6 +9,7 @@ public final class ReaderLayout {
     public static final class Field {
         public final String label;
         public final RichText value;
+        public final String displayHtml;
         public final Source source;
         public final boolean inline;
         public final FieldPresentation presentation;
@@ -19,6 +20,7 @@ public final class ReaderLayout {
         Field(String label, RichText value, Source source, Role role) {
             this.label = label;
             this.value = value;
+            displayHtml = MapPresentation.html(value.html,source);
             this.source = source;
             presentation = FieldPresentation.of(label, value, role);
             inline = !label.isBlank() && label.length() <= 24 && value.text.length() <= 24
@@ -70,8 +72,8 @@ public final class ReaderLayout {
         public final List<FactGroup> facts;
         public final List<ConditionGroup> requirements;
         Section(ArticleViewModel.Component c, Map<String, com.wikipane.semantic.SemanticDocument.Section> sourceSections) {
-            textHtml = c.node.text == null ? "" : !c.node.requirements.isEmpty()
-                ? RequirementPresentation.html(c.node.text.html) : c.node.text.html;
+            textHtml = c.node.text == null ? "" : MapPresentation.html(!c.node.requirements.isEmpty()
+                ? RequirementPresentation.html(c.node.text.html) : c.node.text.html,c.source);
             List<Requirement> textConditions = new ArrayList<>();
             if (c.node.text != null) for (RequirementSet set : c.node.requirements)
                 for (RequirementGroup group : set.groups) textConditions.add(group.expression);

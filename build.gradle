@@ -14,10 +14,12 @@ repositories {
 }
 
 def runeLiteVersion = 'latest.release'
-def pluginMainClass = 'com.example.ExamplePluginTest'
+def pluginMainClass = 'com.wikipane.WikiPanePluginTest'
 
 dependencies {
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
+
+	implementation 'org.jsoup:jsoup:1.23.2'
 
 	compileOnly 'org.projectlombok:lombok:1.18.30'
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
@@ -27,7 +29,7 @@ dependencies {
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
 
-group = 'com.example'
+group = 'com.wikipane'
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
@@ -39,6 +41,9 @@ tasks.register('run', JavaExec) {
 	mainClass = pluginMainClass
 
 	jvmArgs "-ea"
+    if (providers.gradleProperty("devHome").isPresent()) {
+        jvmArgs "-Duser.home=" + providers.gradleProperty("devHome").get()
+    }
 	args "--developer-mode", "--debug"
 }
 
@@ -66,4 +71,31 @@ tasks.register('shadowJar', Jar) {
 	group = BasePlugin.BUILD_GROUP
 	archiveClassifier.set('shadow')
 	archiveFileName.set("${rootProject.name}-${project.version}-all.jar")
+}
+
+tasks.register('preview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.WikiPanePreview'
+    args providers.gradleProperty('article').getOrElse('Bronze dagger')
+    if (providers.gradleProperty('capture').isPresent()) {
+        args providers.gradleProperty('capture').get()
+        args providers.gradleProperty('anchor').getOrElse('')
+        args providers.gradleProperty('expandTable').getOrElse('')
+    }
+}
+
+test {
+    systemProperty 'java.awt.headless', 'true'
+}
+
+version = '0.1.0'
+
+tasks.register('liveCheck', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.LiveWikiCheck'
+}
+
+tasks.register('semanticReport', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.SemanticReport'
 }

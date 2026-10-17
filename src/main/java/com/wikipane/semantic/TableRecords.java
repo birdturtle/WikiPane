@@ -1,0 +1,85 @@
+package com.wikipane.semantic;
+
+import com.wikipane.semantic.SemanticDocument.*;
+import java.util.*;
+
+/** Complete table records, prepared off EDT. Geometry is resolved before native rendering. */
+public final class TableRecords {
+    public static final class Field {
+        public final String label, illustrationTarget;
+        public final RichText value;
+        public final Source source;
+        Field(String label, RichText value, Source source, String illustrationTarget) {
+            this.illustrationTarget = illustrationTarget;
+            this.label = label;
+            this.value = value;
+            this.source = source;
+        }
+    }
+    public static final class Record {
+        public final String heading;
+        public final boolean columnHeader;
+        public final List<Field> fields;
+        public final List<Table> nested;
+        public final Set<String> units;
+        Record(String heading, List<Field> fields, List<Table> nested, Set<String> units) {
+            this(heading, fields, nested, units, false);
+        }
+        Record(
+            String heading, List<Field> fields, List<Table> nested, Set<String> units, boolean columnHeader) {
+            this.columnHeader = columnHeader;
+            this.heading = heading;
+            this.fields = List.copyOf(fields);
+            this.nested = List.copyOf(nested);
+            this.units = Set.copyOf(units);
+        }
+    }
+    private TableRecords() {}
+    public static List<Record> of(Table table) {
+        List<Record> result = new ArrayList<>();
+        String group = "";
+        for (Row row : table.rows) {
+            List<Cell> cells = new ArrayList<>();
+            for (Cell cell : row.cells)
+                if (!cell.value.text.isBlank() || !cell.nested.isEmpty())
+                    cells.add(cell);
+            if (cells.isEmpty())
+                continue;
+            if (cells.stream().allMatch(c -> c.header)) {
+                for (Cell cell : cells)
+                    if (cell.colspan > 1 || cells.size() == 1) {
+                        group = cell.value.text;
+                        break;
+                    }
+                // Retain standalone notes/terminal header content as a readable heading record.
+                Set<String> units = new LinkedHashSet<>();
+                cells.forEach(c -> units.add(c.source.unit));
+                result.add(new Record(group.isEmpty()
+                        ? String.join(" / ", cells.stream().map(c -> c.value.text).toArray(String[] ::new))
+                        : group,
+                    List.of(), List.of(), units,
+                    cells.size() > 1 && cells.stream().allMatch(cell -> cell.colspan == 1)));
+                continue;
+            }
+            List<Field> fields = new ArrayList<>();
+            List<Table> nested = new ArrayList<>();
+            Set<String> units = new LinkedHashSet<>();
+            List<Cell> all = new ArrayList<>(row.carried);
+            all.addAll(cells);
+            Set<String> values = new HashSet<>();
+            for (Cell cell : all) {
+                units.add(cell.source.unit);
+                nested.addAll(cell.nested);
+                if (cell.header || cell.value.text.isBlank())
+                    continue;
+                String label = cell.label.isBlank() ? "" : cell.label;
+                String key = label + "\0" + cell.value.text;
+                if (values.add(key))
+                    fields.add(new Field(label, cell.value, cell.source, cell.illustrationTarget));
+            }
+            if (!fields.isEmpty() || !nested.isEmpty())
+                result.add(new Record(group, fields, nested, units));
+        }
+        return List.copyOf(result);
+    }
+}

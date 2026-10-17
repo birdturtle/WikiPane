@@ -16,7 +16,7 @@ At normal sidebar width:
 
 - Search Bronze dagger. Choose Stats and select Unpoisoned. Confirm Stab attack is +4, Slash +2, Crush -4, Magic +1, Ranged +0, with defence values kept separate.
 - Check Poison, Poison+, and Poison++ variants have their own labels and content.
-- Search Recipe for Disaster. Choose Requirements. Find 10 Cooking and Cook's Assistant as starting requirements; distinguish full completion requirements.
+- Search Recipe for Disaster. Open Sections → Requirements. Find 10 Cooking and Cook's Assistant as starting requirements; distinguish full completion requirements.
 - Open Walkthrough and its full-guide link, follow Cook's Assistant, then Back and Forward. Check reading position.
 - Search Vorkath. Choose monster variants, combat sections, and drop sections. Check every value has the right heading; test Show more entries and nested tables.
 - Follow section links and switch content areas. Check Back after an anchor jump.
@@ -60,3 +60,29 @@ Additional assertions cover explicit alternative requirements, quantities, boost
 - Confirm explicit line breaks separate notice text and instructions.
 - Switch variants and areas, then use Back and Forward. Confirm the same reading position and expanded records return.
 - Inspect at narrow sidebar width and with a larger UI scale. Automated component bounds cover 185, 225, and 300 pixels; desktop scaling still needs player review.
+
+## Validation and references
+
+- Open Recipe for Disaster/Full guide. Follow its citation marker, read the reference card, and use Return to citation. Test Back and Forward across both locations.
+- Confirm reference definitions no longer appear as numbered walkthrough steps.
+- Right-click the article title → Composition audit. Check that source units are accounted for and inspect any warnings. An audit generated without a rendered panel must say visual inspection has not been measured.
+- Resize the reader narrowly. Facts should stack and highlight grids should become lists when necessary. Images must shrink rather than crop.
+- Repeat after expanding tables and scrolling into later content. A geometry warning is diagnostic evidence, not a claim that an automatic repair succeeded.
+
+For isolated screenshots and audit output, without RuneScape:
+
+```sh
+xvfb-run -a env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Particle="Recipe for Disaster/Full guide" -Panchor=cite_note-1 -Pcapture=/tmp/wikipane-references.png
+```
+
+## Contextual navigation
+
+- Reading shows the article identity and at most two primary modes. Search opens with the magnifying-glass icon. It must not remain expanded above an article.
+- Search a query, open a result, press Back, and confirm the query/results/scroll return. Forward must restore the article without another search.
+- Scroll Overview, switch to Walkthrough, scroll again, and switch back and forth. Each position should be retained.
+- Open Sections, filter for a chapter, and choose it with Enter. It should jump directly to that chapter in the relevant mode. Test Back and Forward afterward.
+- Open the full Recipe for Disaster guide and select Freeing the Mountain dwarf under Walkthrough. Its content should be reachable even though the original heading has no immediate prose.
+- Scroll a long guide. Article identity, Back, Forward, Search, Open in Browser, and Sections must remain accessible.
+- Test Escape from search, popup keyboard focus, switching variants, and disabling WikiPane while Sections is open.
+
+Native automated tests cover these navigation transitions using captured Wiki responses and isolated Swing panels. Actual RuneLite interaction and desktop scaling still need player review.

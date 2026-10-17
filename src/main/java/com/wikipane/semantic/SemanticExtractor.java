@@ -74,22 +74,25 @@ public final class SemanticExtractor {
             NodeType nodeType = NodeType.FALLBACK;
             if (block instanceof WikiDocument.Text) {
                 text = rich(((WikiDocument.Text) block).html);
-                nodeType = text.html.contains("<ol>") ? NodeType.INSTRUCTIONS
-                    : text.html.contains("<ul>")      ? NodeType.LIST
-                                                      : NodeType.TEXT;
+                nodeType = !((WikiDocument.Text) block).references.isEmpty() ? NodeType.REFERENCES
+                    : text.html.contains("<ol>")                             ? NodeType.INSTRUCTIONS
+                    : text.html.contains("<ul>")                             ? NodeType.LIST
+                                                                             : NodeType.TEXT;
                 units.add(id);
                 relationships(text, source, inherited, links);
                 locations.addAll(locations(text, source));
                 WikiDocument.Text raw = (WikiDocument.Text) block;
                 List<RequirementGroup> groups = raw.requirements;
-                if (groups.isEmpty() && inherited == Role.REQUIREMENTS)
+                if (groups.isEmpty() && inherited == Role.REQUIREMENTS && nodeType != NodeType.REFERENCES)
                     groups = RequirementExtractor.extract(
                         Jsoup.parseBodyFragment(raw.html, document.url).body(), "Requirements");
                 if (!groups.isEmpty())
                     requirements.add(new RequirementSet(groups, source));
                 Element content = Jsoup.parseBodyFragment(raw.html, document.url).body();
+                if (nodeType == NodeType.REFERENCES)
+                    semanticRole = Role.REFERENCES;
                 for (Element ol : content.select("ol"))
-                    if (ol.parent().closest("ol") == null)
+                    if (nodeType != NodeType.REFERENCES && ol.parent().closest("ol") == null)
                         instructions.addAll(instructions(ol, source));
             } else if (block instanceof WikiDocument.Image) {
                 WikiDocument.Image image = (WikiDocument.Image) block;
@@ -109,11 +112,6 @@ public final class SemanticExtractor {
                 && (semanticRole == Role.OTHER || semanticRole == Role.INFORMATION))
                 semanticRole = Role.WALKTHROUGH;
             for (Fact fact : facts) locations.addAll(locations(fact.value, fact.source));
-            if (type == PageType.QUEST && semanticRole == Role.OTHER
-                && links.stream().anyMatch(r
-                    -> r.target.internal && r.target.url.startsWith(document.url + "/")
-                        && r.role == Role.OTHER))
-                semanticRole = Role.WALKTHROUGH;
             Node node = new Node(id, nodeType, semanticRole, source, block, text, table, facts, requirements,
                 links, locations, instructions, units);
             nodes.add(node);
@@ -232,7 +230,7 @@ public final class SemanticExtractor {
             return Role.DROPS;
         if (s.matches(".*(requirement|prerequisite|items needed|equipment needed).*"))
             return Role.REQUIREMENTS;
-        if (s.matches(".*(walkthrough|guide|getting started|quest stages).*"))
+        if (s.matches(".*(walkthrough|guide|getting started|quest stages|subquests|chapters).*"))
             return Role.WALKTHROUGH;
         if (s.matches(".*(strateg|mechanic|fight overview|attacks|fight).*"))
             return Role.STRATEGY;
@@ -280,8 +278,9 @@ public final class SemanticExtractor {
         }
         if (classes.contains("infobox-skill"))
             return PageType.SKILL;
-        if (document.blocks.stream().anyMatch(
-                b -> b instanceof WikiDocument.Text && ((WikiDocument.Text) b).html.contains("<ol>")))
+        if (document.blocks.stream().anyMatch(b
+                -> b instanceof WikiDocument.Text && ((WikiDocument.Text) b).references.isEmpty()
+                    && ((WikiDocument.Text) b).html.contains("<ol>")))
             return PageType.GUIDE;
         return PageType.GENERAL;
     }

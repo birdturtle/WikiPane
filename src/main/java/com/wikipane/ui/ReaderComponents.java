@@ -3,6 +3,8 @@ package com.wikipane.ui;
 import static com.wikipane.document.WikiDocumentParser.escape;
 
 import com.wikipane.semantic.SemanticDocument.*;
+import com.wikipane.view.CompositionAudit;
+import com.wikipane.view.LayoutConstraints;
 import com.wikipane.view.ReaderLayout;
 import java.awt.*;
 import java.util.function.Consumer;
@@ -19,6 +21,10 @@ public final class ReaderComponents {
     public static final Color MUTED = new Color(160, 165, 171);
     public static final Color ACCENT = new Color(255, 183, 77);
     private final Consumer<String> links;
+    private CompositionAudit audit;
+    public void audit(CompositionAudit audit) {
+        this.audit = audit;
+    }
     public ReaderComponents(Consumer<String> links) {
         this.links = links;
     }
@@ -69,8 +75,21 @@ public final class ReaderComponents {
         JEditorPane label = text("<span class='muted'>" + escape(field.label) + "</span>");
         JEditorPane value = text(field.value.html);
         if (field.inline) {
+            CompositionAudit diagnostics = audit;
             JPanel row = new JPanel(null) {
+                private boolean paired(int width) {
+                    boolean paired = LayoutConstraints.pairedFields(width);
+                    if (!paired && getWidth() > 0 && diagnostics != null)
+                        diagnostics.add("FACT_STACKED", field.source.unit, CompositionAudit.Outcome.REPAIRED,
+                            "Label and value stacked at " + width + " px to preserve readable widths.");
+                    return paired;
+                }
                 private int heightAt(int width) {
+                    if (!paired(width)) {
+                        label.setSize(width, Short.MAX_VALUE);
+                        value.setSize(width, Short.MAX_VALUE);
+                        return label.getPreferredSize().height + value.getPreferredSize().height + 6;
+                    }
                     int split = Math.max(1, (int) (width * .46));
                     label.setSize(split, Short.MAX_VALUE);
                     value.setSize(Math.max(1, width - split - 6), Short.MAX_VALUE);
@@ -87,12 +106,20 @@ public final class ReaderComponents {
                 }
                 @Override
                 public void doLayout() {
-                    int split = (int) (getWidth() * .46);
-                    int h = heightAt(getWidth());
-                    label.setBounds(0, 0, split, h);
-                    value.setBounds(split + 6, 0, Math.max(1, getWidth() - split - 6), h);
+                    int width = getWidth(), h = heightAt(width);
+                    if (!paired(width)) {
+                        int labelHeight = label.getPreferredSize().height;
+                        label.setBounds(0, 0, width, labelHeight);
+                        value.setBounds(0, labelHeight + 2, width, h - labelHeight - 2);
+                    } else {
+                        int split = (int) (width * .46);
+                        label.setBounds(0, 0, split, h);
+                        value.setBounds(split + 6, 0, Math.max(1, width - split - 6), h);
+                    }
                 }
             };
+            row.setName("wiki.field");
+            row.putClientProperty("wiki.source", field.source.unit);
             row.setOpaque(false);
             row.setAlignmentX(Component.LEFT_ALIGNMENT);
             row.add(label);
@@ -117,7 +144,27 @@ public final class ReaderComponents {
     }
     public JComponent highlights(java.util.List<ReaderLayout.Field> fields) {
         JPanel strip = card("wiki.highlights");
-        strip.setLayout(new GridLayout(1, fields.size(), 6, 0));
+        CompositionAudit diagnostics = audit;
+        strip.setLayout(new GridLayout(0, Math.max(1, fields.size()), 6, 4) {
+            private void choose(Container parent) {
+                int width = parent.getWidth() - parent.getInsets().left - parent.getInsets().right;
+                int columns = LayoutConstraints.highlightColumns(Math.max(1, width), fields.size());
+                setColumns(columns);
+                if (parent.getWidth() > 0 && columns < fields.size() && diagnostics != null)
+                    diagnostics.add("HIGHLIGHTS_STACKED", "highlights", CompositionAudit.Outcome.REPAIRED,
+                        "Highlight grid uses a vertical list at " + width + " px.");
+            }
+            @Override
+            public Dimension preferredLayoutSize(Container parent) {
+                choose(parent);
+                return super.preferredLayoutSize(parent);
+            }
+            @Override
+            public void layoutContainer(Container parent) {
+                choose(parent);
+                super.layoutContainer(parent);
+            }
+        });
         for (ReaderLayout.Field field : fields) {
             JPanel stat = column();
             stat.add(text("<b>" + field.value.html + "</b>"));
@@ -151,6 +198,9 @@ public final class ReaderComponents {
                     width = 200;
                 setSize(width, Short.MAX_VALUE);
                 Dimension size = super.getPreferredSize();
+                Object floor = getClientProperty("reader.requiredHeight");
+                if (floor instanceof Dimension && ((Dimension) floor).width == width)
+                    size.height = Math.max(size.height, ((Dimension) floor).height);
                 return new Dimension(width, size.height);
             }
             @Override

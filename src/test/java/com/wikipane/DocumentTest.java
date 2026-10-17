@@ -39,6 +39,38 @@ public class DocumentTest {
         }
         return s.toString();
     }
+    private String importedHeading(int level, String id, String title, String source) {
+        return "<div class='mw-heading'><h" + level + " id='" + id + "'>" + title + "</h" + level
+            + "><span class='mw-editsection'><a href='/w/" + source + "?action=edit'>edit</a></span></div>";
+    }
+    @Test
+    public void transcludedArticleIdentityCreatesAContainerButUnrelatedHeadingsStaySiblings() {
+        JsonObject response = new JsonObject(), parse = new JsonObject();
+        parse.addProperty("title", "Combined guide");
+        parse.addProperty("text",
+            importedHeading(2, "Chapter", "Study chapter", "Example/Study_chapter")
+                + importedHeading(3, "Details", "Details", "Example/Study_chapter") + "<p>Details.</p>"
+                + importedHeading(2, "Steps", "Walkthrough", "Example/Study_chapter")
+                + "<p>Follow these steps.</p>"
+                + importedHeading(2, "Unrelated", "First topic", "Example/Other_article")
+                + importedHeading(3, "Subtopic", "Subtopic", "Example/Other_article") + "<p>Content.</p>"
+                + importedHeading(2, "Independent", "Second topic", "Example/Other_article")
+                + "<p>Independent.</p>");
+        response.add("parse", parse);
+        WikiDocument doc = new WikiDocumentParser().parse(response);
+        assertEquals("Chapter",
+            doc.semantic.sections.stream()
+                .filter(section -> section.anchor.equals("Steps"))
+                .findFirst()
+                .orElseThrow()
+                .parent);
+        assertEquals("",
+            doc.semantic.sections.stream()
+                .filter(section -> section.anchor.equals("Independent"))
+                .findFirst()
+                .orElseThrow()
+                .parent);
+    }
     @Test
     public void bronzeBonusesKeepImageOnlyLabelsAndExactSignedValues() throws Exception {
         WikiDocument article = document("Bronze_dagger");
@@ -63,7 +95,8 @@ public class DocumentTest {
                     }
             }
         assertTrue("Stab attack must retain +4 and its heading", found);
-        assertTrue(article.blocks.stream().anyMatch(b -> b instanceof Image || b instanceof Table&&!((Table)b).images.isEmpty()));
+        assertTrue(article.blocks.stream().anyMatch(
+            b -> b instanceof Image || b instanceof Table && !((Table) b).images.isEmpty()));
         assertTrue(article.blocks.stream().anyMatch(
             b -> b instanceof Table && ((Table) b).caption.equals("Item information / Poison++")));
         assertFalse(flatten(article).contains("(edit)"));

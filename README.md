@@ -37,11 +37,13 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew run -PdevHome="$PWD/.dev/ho
 
 Type a title or search term. Suggestions appear after a short pause. Press Enter for broader results; click a result to open it. Down Arrow moves from the search field to the results; Up/Down and Enter navigate the result buttons.
 
-The search field and navigation buttons stay above the reader. Articles are organized by their content: monsters have Combat & strategy and Drops; items have Stats and Sources; quests have Requirements, Walkthrough, and Rewards. Remaining material stays under Other sections. Choose an area, then scroll through its content.
+While reading, the article title and navigation stay above the content. Use **Overview** and the primary mode for that article: Walkthrough for quests, Combat for monsters, Stats for items, or Training for skills. Each mode remembers its reading position.
 
-Requirements keep starting and full-completion conditions separate. Short facts use aligned rows; drops and other table entries have their own labeled records. Tables become labeled records with all columns retained; **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Links to separate strategy and full-guide articles open those articles in the same reader.
+**Sections** opens the article's contents, including requirements, chapters, drops, rewards, and references. Filter the list or select a heading to jump directly to it. Section jumps participate in Back and Forward history.
 
-Back and Forward restore your area, variant, expanded tables, and reading position. The **Browser ↗** button opens the current article in your browser. Right-click a section heading to open its source on the Wiki. Images load as they enter view.
+Use the magnifying glass to open search. Back returns to your previous results or article; Forward restores where you were reading. The arrow-out icon opens the current article in your browser. All four controls have tooltips.
+
+Short facts use aligned rows; table entries have their own labeled records. **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Separate strategy and full-guide links open inside the reader. Citation markers open reference cards with a return link to the cited passage. Right-click a section heading to open its Wiki source.
 
 ## Replace the Wiki button
 
@@ -79,5 +81,7 @@ An isolated reader preview requires no game client or login and makes no network
 ```sh
 env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Particle="Recipe for Disaster"
 ```
+
+Right-click the article title, or the WikiPane heading in search, and choose **Composition audit** for local diagnostics. See [presentation validation](docs/PRESENTATION_VALIDATION.md) for the checks and their limits.
 
 See [testing](docs/TESTING.md) for the player test checklist and [implementation notes](docs/IMPLEMENTATION.md) for limits and Plugin Hub preparation.

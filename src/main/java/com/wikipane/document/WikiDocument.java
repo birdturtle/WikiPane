@@ -35,13 +35,28 @@ public final class WikiDocument {
     public interface Block {}
     public static final class Text implements Block {
         public final String html;
+        public final List<ReferenceDefinition> references;
         public final List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements;
         public Text(String html) {
             this(html, List.of());
         }
         public Text(String html, List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements) {
+            this(html, requirements, List.of());
+        }
+        public Text(String html, List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements,
+            List<ReferenceDefinition> references) {
             this.html = html;
+            this.references = List.copyOf(references);
             this.requirements = List.copyOf(requirements);
+        }
+    }
+    public static final class ReferenceDefinition {
+        public final String id, html;
+        public final List<String> backlinks;
+        public ReferenceDefinition(String id, String html, List<String> backlinks) {
+            this.id = id;
+            this.html = html;
+            this.backlinks = List.copyOf(backlinks);
         }
     }
     public static final class Heading implements Block {

@@ -18,6 +18,7 @@ public final class WikiDocumentParser {
             throw new IllegalArgumentException("The Wiki returned an incomplete article.");
         String title = p.get("title").getAsString();
         Element root = Jsoup.parseBodyFragment(p.get("text").getAsString(), WikiUrls.article(title)).body();
+        normalizeTranscludedHeadings(root, title);
         Map<String, String> entityAnchors = variantIds(root);
         materializeVariants(root);
         for (Element map : root.select(".mw-kartographer-maplink")) {
@@ -42,6 +43,32 @@ public final class WikiDocumentParser {
         return new WikiDocument(title, WikiUrls.article(title),
             p.has("revid") ? p.get("revid").getAsLong() : 0, blocks, sections, entityAnchors,
             redirectAnchor(p), categories(p));
+    }
+    /** Recover article-identity containers in transcluded guides using Wiki-provided edit-source titles. */
+    private void normalizeTranscludedHeadings(Element root, String article) {
+        String origin = "";
+        int base = 0, offset = 0;
+        boolean container = false;
+        for (Element heading : root.select("h1,h2,h3,h4,h5,h6")) {
+            int level = Integer.parseInt(heading.tagName().substring(1));
+            Element wrapper = heading.closest(".mw-heading");
+            Element edit = wrapper == null ? heading.selectFirst(".mw-editsection a[href]")
+                                           : wrapper.selectFirst(".mw-editsection a[href]");
+            okhttp3.HttpUrl url = edit == null ? null : WikiUrls.resolve(edit.absUrl("href"));
+            String source = WikiUrls.wiki(url) ? Objects.toString(WikiUrls.title(url), "") : "";
+            if (source.equals(article))
+                source = "";
+            if (!source.equals(origin)) {
+                origin = source;
+                base = level;
+                offset = 0;
+                String leaf = source.substring(source.lastIndexOf('/') + 1).replace('_', ' ');
+                container = !source.isBlank() && leaf.equalsIgnoreCase(heading.text().trim());
+            } else if (container && level <= base)
+                offset = base + 1 - level;
+            if (container)
+                heading.attr("data-wikipane-level", Integer.toString(Math.min(6, level + offset)));
+        }
     }
     private Set<String> categories(JsonObject parse) {
         Set<String> values = new LinkedHashSet<>();
@@ -145,7 +172,26 @@ public final class WikiDocumentParser {
                 continue;
             Element e = (Element) n;
             String tag = e.normalName();
-            if (tag.matches("h[1-6]")) {
+            if (tag.equals("ol")
+                && (e.hasClass("references")
+                    || e.children().stream().anyMatch(li -> li.id().startsWith("cite_note")))) {
+                flush(loose, out);
+                List<ReferenceDefinition> definitions = new ArrayList<>();
+                for (Element li : e.children())
+                    if (li.tagName().equals("li")) {
+                        List<String> backlinks = new ArrayList<>();
+                        for (Element a : li.select(".mw-cite-backlink a[href]")) {
+                            String url = safeLink(a.absUrl("href"));
+                            if (!url.isBlank())
+                                backlinks.add(url);
+                        }
+                        Element content = li.clone();
+                        content.select(".mw-cite-backlink").remove();
+                        definitions.add(new ReferenceDefinition(li.id(), inline(content), backlinks));
+                    }
+                if (!definitions.isEmpty())
+                    out.add(new Text(inline(e), List.of(), definitions));
+            } else if (tag.matches("h[1-6]")) {
                 flush(loose, out);
                 String anchor = e.id();
                 if (anchor.isEmpty()) {
@@ -153,7 +199,9 @@ public final class WikiDocumentParser {
                     if (a != null)
                         anchor = a.id();
                 }
-                out.add(new Heading(e.text(), anchor, Integer.parseInt(tag.substring(1))));
+                out.add(new Heading(e.text(), anchor,
+                    e.hasAttr("data-wikipane-level") ? Integer.parseInt(e.attr("data-wikipane-level"))
+                                                     : Integer.parseInt(tag.substring(1))));
             } else if (tag.equals("table")) {
                 flush(loose, out);
                 Table normalized = table(e);
@@ -338,6 +386,8 @@ public final class WikiDocumentParser {
             return "<br>";
         StringBuilder body = new StringBuilder();
         for (Node child : e.childNodes()) body.append(inline(child));
+        if ((tag.equals("sup") || tag.equals("li")) && e.id().matches("cite_(?:ref|note)[A-Za-z0-9_.:-]*"))
+            return "<" + tag + " id=\"" + escape(e.id()) + "\">" + body + "</" + tag + ">";
         if (tag.equals("a")) {
             String link =
                 e.hasAttr("href") ? safeLink(e.baseUri().isEmpty() ? e.attr("href") : e.absUrl("href")) : "";

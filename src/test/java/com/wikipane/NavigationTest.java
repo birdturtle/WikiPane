@@ -46,6 +46,35 @@ public class NavigationTest {
         assertNull(h.current());
     }
     @Test
+    public void searchResultsAreRealHistoryEntriesAndNewQueriesBranchHistory() {
+        NavigationHistory history = new NavigationHistory();
+        history.pushSearch("bronze", List.of("Bronze dagger"));
+        history.saveScroll(83);
+        history.push(doc("Bronze_dagger"), "");
+        history.saveScroll(191);
+        assertTrue(history.back().isSearch());
+        assertEquals("bronze", history.current().query);
+        assertEquals(List.of("Bronze dagger"), history.current().results);
+        assertEquals(83, history.current().scroll);
+        assertFalse(history.forward().isSearch());
+        assertEquals(191, history.current().scroll);
+        history.back();
+        history.updateSearch("Vorkath", List.of("Vorkath"));
+        assertFalse(history.canForward());
+    }
+    @Test
+    public void sectionDestinationsRetainTheirModeAndDoNotDuplicateIdenticalJumps() {
+        NavigationHistory history = new NavigationHistory();
+        com.wikipane.view.WikiPage page = new com.wikipane.view.WikiPage(doc("Test"));
+        history.pushDestination(page, "overview", "");
+        history.pushDestination(page, "walkthrough", "Chapter");
+        history.saveScroll(914);
+        history.pushDestination(page, "walkthrough", "Chapter");
+        assertEquals(914, history.current().scroll);
+        assertEquals("overview", history.back().area);
+        assertEquals("Chapter", history.forward().section);
+    }
+    @Test
     public void cacheExpiresAndEvictsLeastRecentlyUsed() {
         long[] time = {1};
         WikiCache<String, String> cache = new WikiCache<>(2, 100, () -> time[0]);

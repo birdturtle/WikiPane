@@ -123,3 +123,5 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Particle="Recipe f
 Right-click the article title, or the WikiPane heading in search, and choose **Composition audit** for local diagnostics. See [presentation validation](docs/PRESENTATION_VALIDATION.md) for the checks and their limits.
 
 See [testing](docs/TESTING.md) for the player test checklist and [implementation notes](docs/IMPLEMENTATION.md) for limits and Plugin Hub preparation.
+
+Article images open in a resizable, non-modal Swing viewer when clicked. Press Escape or close the window to dismiss it. Larger images load on demand with bounded decoding and caching; decorative table icons remain non-interactive.

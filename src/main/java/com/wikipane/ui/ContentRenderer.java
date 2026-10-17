@@ -25,6 +25,8 @@ public final class ContentRenderer {
     private com.wikipane.view.ReaderLayout layout;
     private final ExecutorService workers;
     private final ImageCache images;
+    private ImageViewer imageViewer;
+    public void closeImageViewer() { if (imageViewer != null) imageViewer.close(); }
     private final List<Runnable> imageChecks = new ArrayList<>();
     private final Map<String, JComponent> anchors = new HashMap<>();
     private Map<String, Integer> tableState = new HashMap<>();
@@ -662,12 +664,14 @@ public final class ContentRenderer {
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setToolTipText(decoration ? null : image.alt);
         label.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        if (!decoration && !image.link.isBlank()) {
+        if (!decoration) {
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    links.accept(image.link);
+                    if (!SwingUtilities.isLeftMouseButton(e)) return;
+                    if (imageViewer == null) imageViewer = new ImageViewer(workers, images);
+                    imageViewer.open(label, image);
                 }
             });
         }

@@ -728,6 +728,7 @@ public final class WikiPanePanel extends PluginPanel {
         }
     }
     public void stop() {
+        renderer.closeImageViewer();
         sectionPopup.setVisible(false);
         sectionPopup.removeAll();
         active = false;

@@ -202,6 +202,11 @@ public final class WikiClient implements AutoCloseable {
             throw new IOException("Unsupported image host.");
         return get(u, 1_000_000);
     }
+    public byte[] originalImage(String url) throws IOException {
+        HttpUrl u = WikiUrls.resolve(url);
+        if (!WikiUrls.image(u)) throw new IOException("Unsupported image host.");
+        return get(u, 12_000_000);
+    }
     @Override
     public void close() {
         closed = true;

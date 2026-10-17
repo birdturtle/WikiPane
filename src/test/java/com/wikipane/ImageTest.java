@@ -44,6 +44,22 @@ public class ImageTest {
         }
     }
     @Test
+    public void previewUsesLargerBoundedRasterAndIndependentCache() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        try (WikiClient wiki = source(png(1600, 1200), calls)) {
+            ImageCache cache = new ImageCache(wiki);
+            String url = "https://oldschool.runescape.wiki/images/thumb/a/ab/Example.png/200px-Example.png";
+            BufferedImage small = cache.load(url), large = cache.preview(url);
+            assertTrue(large.getWidth() > small.getWidth());
+            assertEquals(1600, large.getWidth());
+            assertEquals(1200, large.getHeight());
+            assertSame(large, cache.preview(url));
+            assertEquals(2, calls.get());
+            cache.clear(); cache.preview(url);
+            assertEquals(3, calls.get());
+        }
+    }
+    @Test
     public void oversizedRasterIsRejectedBeforeDecoding() throws Exception {
         byte[] bytes = png(1, 1);
         bytes[16] = 0;

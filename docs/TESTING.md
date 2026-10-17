@@ -94,3 +94,21 @@ The first gameplay integration has its setup, manual scenarios and remaining sco
 ## Selection pins
 
 Highlight article text, right-click and choose Pin selection. No editor or confirmation should appear. Test selection across linked paragraphs, requirements and table fields; verify list numbering, emphasis, field labels and source variants. Close the sidebar and confirm the pin remains. Test Alt-drag, Shift-right-click source/paging/unpin actions and repeated plugin enable/disable. The complete checklist is in [PINNING.md](PINNING.md).
+
+## Presentation refinement pass
+
+After launching the development client, test:
+
+1. Rake: one Daily volume value, no perpetual chart Loading text, and a usable real-time price link.
+2. Vorkath: in Sections, open Tertiary. Scaly blue dragonhide's `1/10` has a visible Common label; conditional, multi-roll and citation-qualified odds remain neutral. Quantities, prices, notes and all source links must remain associated with their item.
+3. Recipe for Disaster: starting and full-completion groups remain separate. Check readable boostable/not-boostable qualifiers, nested alternatives and links to prerequisite quests.
+4. Bronze dagger: switch variants, open Stats, and verify +4 Stab for Unpoisoned along with separate attack/defence groups and intact signed values.
+5. Ranarr seed: Farming requirements, crop/growth information and existing Quick Inspect still work. Highlight requirements or field values, pin, and test footer paging and return-to-source without losing the article position.
+
+The offline section-specific preview can target long-page content without RuneScape:
+
+```sh
+env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew presentationPreview -Particle=Vorkath -Panchor=Tertiary -Pcapture=/tmp/wikipane-tertiary.png
+```
+
+This paints an isolated Swing reader, not the game. The ordinary `preview` task additionally shows the persistent sidebar controls. Neither replaces player testing.

@@ -19,6 +19,8 @@ public final class WikiDocumentParser {
         String title = p.get("title").getAsString();
         Element root = Jsoup.parseBodyFragment(p.get("text").getAsString(), WikiUrls.article(title)).body();
         normalizeTranscludedHeadings(root, title);
+        // Script-only chart placeholders contain no article data. Keep the separate real-time price link.
+        root.select(".GEChartBox .GEdatachart,.GEChartBox .GEdataprices,.GEChartBox .GEChartItems").remove();
         Map<String, String> entityAnchors = variantIds(root);
         materializeVariants(root);
         for (Element map : root.select(".mw-kartographer-maplink")) {
@@ -314,7 +316,11 @@ public final class WikiDocumentParser {
                         unique.add(l);
                 }
                 unique.forEach(join::add);
-                String label = !header && !rowLabel.isEmpty() ? rowLabel : join.toString();
+                // Infobox headers label their own row, not subsequent full-width controls or notes.
+                String label = !header && !rowLabel.isEmpty() ? rowLabel
+                    : (table.hasClass("infobox") || table.hasClass("questdetails")) && cs > 1
+                        && tr.children().stream().filter(child -> child.normalName().matches("td|th")).count() == 1
+                    ? "" : join.toString();
                 if (header && rowHeader && !text.isBlank())
                     rowLabel = text;
                 cells.add(new Cell(html, label, header, column, cs, rs, nested, td.attr("data-attr-param"),
@@ -322,7 +328,7 @@ public final class WikiDocumentParser {
                     own.text().isBlank() && own.selectFirst("img") != null
                             && own.selectFirst("a[href]") != null
                         ? safeLink(own.selectFirst("a[href]").absUrl("href"))
-                        : ""));
+                        : "", header && td.hasClass("infobox-subheader")));
                 if (header && !text.isBlank())
                     for (int c = column; c < column + cs; c++) labels.put(c, text);
                 for (int c = column; c < column + cs; c++) occupied.put(c, rs);

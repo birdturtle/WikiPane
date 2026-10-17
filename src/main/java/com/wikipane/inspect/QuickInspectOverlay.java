@@ -3,7 +3,7 @@ package com.wikipane.inspect;
 import java.awt.*;
 import net.runelite.api.*;
 import net.runelite.client.plugins.Plugin;
-import com.wikipane.ui.ReaderComponents;
+import com.wikipane.ui.SemanticPalette;
 import net.runelite.client.ui.overlay.*;
 import net.runelite.client.util.LinkBrowser;
 
@@ -78,7 +78,7 @@ public final class QuickInspectOverlay extends Overlay {
             background.setBackgroundColor(net.runelite.client.ui.overlay.components.ComponentConstants.STANDARD_BACKGROUND_COLOR);
             background.setRectangle(new Rectangle(0, 0, InspectionLayout.WIDTH, height));
             background.render(graphics);
-            graphics.setColor(ReaderComponents.ACCENT);
+            graphics.setColor(SemanticPalette.LINK);
             graphics.setFont(InspectionLayout.TITLE);
             if (view.layout == null) graphics.drawString("WikiPane", pad, 15);
             else {
@@ -93,19 +93,19 @@ public final class QuickInspectOverlay extends Overlay {
             int y = pad + titleHeight + 12;
             if (view.layout == null) {
                 graphics.setFont(InspectionLayout.BODY);
-                graphics.setColor(Color.WHITE);
+                graphics.setColor(SemanticPalette.TEXT);
                 for (String line : view.messageLines) { graphics.drawString(line, pad, y); y += step; }
             } else {
                 for (InspectionLayout.Line line : view.layout.pages.get(view.page)) {
                     graphics.setFont(line.label ? InspectionLayout.LABEL : InspectionLayout.BODY);
-                    graphics.setColor(line.label ? ReaderComponents.ACCENT : Color.WHITE);
+                    graphics.setColor(line.label ? SemanticPalette.LINK : line.color);
                     if (!line.value.isEmpty()) {
                         graphics.setFont(InspectionLayout.LABEL);
-                        graphics.setColor(ReaderComponents.ACCENT);
+                        graphics.setColor(SemanticPalette.LINK);
                         graphics.drawString(line.text, pad, y);
                         int valueX = pad + graphics.getFontMetrics().stringWidth(line.text) + 7;
                         graphics.setFont(InspectionLayout.BODY);
-                        graphics.setColor(Color.WHITE);
+                        graphics.setColor(line.color);
                         graphics.drawString(line.value, valueX, y);
                     } else graphics.drawString(line.text, pad, y);
                     y += step;

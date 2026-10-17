@@ -114,3 +114,12 @@ tasks.register('pinPreview', JavaExec) {
     mainClass = 'com.wikipane.pin.PinPreview'
     args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-pin.png')
 }
+
+tasks.register('presentationPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.ui.SemanticPresentationPreview'
+    args providers.gradleProperty('article').getOrElse('Vorkath')
+    args providers.gradleProperty('anchor').getOrElse('Tertiary')
+    args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-semantic-presentation.png')
+    args providers.gradleProperty('variant').getOrElse('')
+}

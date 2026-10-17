@@ -49,6 +49,7 @@ Fixture revisions, captured 2026-10-16:
 - Cook's Assistant, revision 15369640, https://oldschool.runescape.wiki/w/Cook's_Assistant
 
 - Evergreen tree, revision 15285567, https://oldschool.runescape.wiki/w/Evergreen_tree
+- Rake, revision 15184295, https://oldschool.runescape.wiki/w/Rake
 - Ranarr seed, revision 15333230, https://oldschool.runescape.wiki/w/Ranarr_seed
 - Cooking, revision 15359642, https://oldschool.runescape.wiki/w/Cooking
 - Vorkath/Strategies, revision 15368595, https://oldschool.runescape.wiki/w/Vorkath/Strategies

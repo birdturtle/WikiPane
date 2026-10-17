@@ -156,7 +156,8 @@ public final class SemanticExtractor {
                 mapped.put(original, cell);
                 if (!value.text.isBlank() || !nested.isEmpty())
                     units.add(id);
-                if (cell.header && (cell.colspan > 1 || row.cells.size() == 1) && !cell.value.text.isBlank())
+                if (cell.header && (original.sectionHeader || row.cells.stream().allMatch(candidate -> candidate.header))
+                    && (cell.colspan > 1 || row.cells.size() == 1) && !cell.value.text.isBlank())
                     group = cell.value.text;
                 if (!cell.header && !value.text.isBlank())
                     facts.add(new Fact(cell.key, cell.label, group, raw.variant, value, origin));

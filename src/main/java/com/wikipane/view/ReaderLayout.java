@@ -11,10 +11,16 @@ public final class ReaderLayout {
         public final RichText value;
         public final Source source;
         public final boolean inline;
+        public final FieldPresentation presentation;
+        public String identity() { return FieldPresentation.identity(label, value, source); }
         Field(String label, RichText value, Source source) {
+            this(label, value, source, Role.INFORMATION);
+        }
+        Field(String label, RichText value, Source source, Role role) {
             this.label = label;
             this.value = value;
             this.source = source;
+            presentation = FieldPresentation.of(label, value, role);
             inline = !label.isBlank() && label.length() <= 24 && value.text.length() <= 24
                 && !value.html.matches("(?is).*</?(ul|ol|li|p|br).*?");
         }
@@ -30,7 +36,7 @@ public final class ReaderLayout {
     public static final class ConditionGroup {
         public final String title;
         public final Requirement condition;
-        public final List<String> lines;
+        public final List<String> lines, styledLines;
         public final Source source;
         ConditionGroup(String title, Requirement condition, Source source) {
             this.title = title;
@@ -38,6 +44,7 @@ public final class ReaderLayout {
             List<String> content = new ArrayList<>();
             conditionLines(condition, content);
             lines = List.copyOf(content);
+            styledLines = content.stream().map(RequirementPresentation::html).collect(java.util.stream.Collectors.toUnmodifiableList());
             this.source = source;
         }
     }
@@ -53,10 +60,12 @@ public final class ReaderLayout {
         }
     }
     public static final class Section {
-        public final String title, breadcrumb;
+        public final String title, breadcrumb, textHtml;
         public final List<FactGroup> facts;
         public final List<ConditionGroup> requirements;
         Section(ArticleViewModel.Component c) {
+            textHtml = c.node.text == null ? "" : !c.node.requirements.isEmpty()
+                ? RequirementPresentation.html(c.node.text.html) : c.node.text.html;
             String[] path = c.source.sectionTitle.split(" / ");
             title = path[path.length - 1];
             breadcrumb = path.length > 1 ? String.join(" / ", Arrays.copyOf(path, path.length - 1)) : "";
@@ -77,7 +86,7 @@ public final class ReaderLayout {
                         || group.equalsIgnoreCase(f.label))
                         group = "";
                     grouped.computeIfAbsent(group, k -> new ArrayList<>())
-                        .add(new Field(f.label, f.value, f.source));
+                        .add(new Field(f.label, f.value, f.source, c.node.role));
                 }
             List<FactGroup> result = new ArrayList<>();
             grouped.forEach((name, fields) -> result.add(new FactGroup(name, fields)));
@@ -177,7 +186,7 @@ public final class ReaderLayout {
             Set<String> labels = new HashSet<>();
             for (Fact fact : view.highlights(variant))
                 if (labels.add(fact.label))
-                    values.add(new Field(fact.label, fact.value, fact.source));
+                    values.add(new Field(fact.label, fact.value, fact.source, Role.COMBAT));
             highlightMap.put(variant, List.copyOf(values));
         }
         highlights = Map.copyOf(highlightMap);

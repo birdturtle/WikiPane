@@ -18,8 +18,8 @@ public final class ReaderComponents {
     public static final Color BACKGROUND = new Color(37, 37, 37);
     public static final Color SURFACE = new Color(45, 45, 45);
     public static final Color BORDER = new Color(61, 61, 61);
-    public static final Color MUTED = new Color(160, 165, 171);
-    public static final Color ACCENT = new Color(255, 183, 77);
+    public static final Color MUTED = SemanticPalette.MUTED;
+    public static final Color ACCENT = SemanticPalette.LINK;
     private final Consumer<String> links;
     private CompositionAudit audit;
     private com.wikipane.pin.PinContext pinContext;
@@ -89,10 +89,10 @@ public final class ReaderComponents {
     }
     public JComponent field(ReaderLayout.Field field) {
         if (field.label.isBlank() || field.label.equals(field.value.text))
-            return boundText(field.value.html, fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE));
+            return fieldValue(field);
         JEditorPane label = boundText("<span class='muted'>" + escape(field.label) + "</span>",
             fieldContext(field, com.wikipane.pin.PinContext.Part.LABEL));
-        JEditorPane value = boundText(field.value.html, fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE));
+        JComponent value = fieldValue(field);
         if (field.inline) {
             CompositionAudit diagnostics = audit;
             JPanel row = new JPanel(null) {
@@ -154,6 +154,27 @@ public final class ReaderComponents {
         stacked.add(gap(5));
         return stacked;
     }
+    private JComponent fieldValue(ReaderLayout.Field field) {
+        com.wikipane.view.FieldPresentation display = field.presentation;
+        Color color = SemanticPalette.field(display);
+        String html = "<span style='color:" + SemanticPalette.hex(color) + "'>" + field.value.html + "</span>";
+        if (display.numeric || display.probability != null && display.probability.form != com.wikipane.view.Probability.Form.UNPARSED)
+            html = "<p style='text-align:right;margin:0'>" + html + "</p>";
+        JEditorPane text = boundText(html, fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE));
+        text.putClientProperty("wiki.field.presentation", display);
+        if (display.probability == null) return text;
+        text.setToolTipText(display.probability.explanation);
+        if (display.probability.label.isEmpty()) return text;
+        // Derived labels are separate from selectable source text, so pinning retains only Wiki facts.
+        JPanel value = column(); value.add(text);
+        JLabel rarity = new JLabel(display.probability.label) {
+            @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+        };
+        rarity.setName("wiki.rarity"); rarity.setAlignmentX(Component.LEFT_ALIGNMENT); rarity.setForeground(color);
+        rarity.setFont(rarity.getFont().deriveFont(10f)); rarity.setHorizontalAlignment(SwingConstants.RIGHT);
+        rarity.setToolTipText(display.probability.explanation); value.add(rarity);
+        return value;
+    }
     public JComponent condition(String html) {
         JPanel row = column();
         row.add(text(html));
@@ -186,7 +207,7 @@ public final class ReaderComponents {
         });
         for (ReaderLayout.Field field : fields) {
             JPanel stat = column();
-            stat.add(boundText("<b>" + field.value.html + "</b>", fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE)));
+            stat.add(fieldValue(field));
             stat.add(boundText("<span class='muted tiny'>" + escape(field.label) + "</span>",
                 fieldContext(field, com.wikipane.pin.PinContext.Part.LABEL)));
             strip.add(stat);
@@ -260,14 +281,16 @@ public final class ReaderComponents {
             }
         };
         kit.getStyleSheet().addRule(
-            "body { font-family: sans-serif; font-size: 12px; color: #dedede; margin: 0; } "
-            + "p { margin-top: 0; margin-bottom: 7px; } a { color: #ffb74d; text-decoration: none; } "
+            "body { font-family: sans-serif; font-size: 12px; margin: 0; } "
+            + "p { margin-top: 0; margin-bottom: 7px; } a { text-decoration: none; } "
             + "li { margin-bottom: 5px; } sup { font-size: 10px; vertical-align: baseline; } ul, ol { "
             + "margin-left: 13px; } pre { white-space: normal; } "
-            + ".muted { color: #a0a5ab; } .tiny, small { font-size: 10px; color: #a0a5ab; } "
+            + ".tiny, small { font-size: 10px; } "
             + ".heading { font-size: 13px; font-weight: bold; color: #f0f0f0; } "
             + ".article-title { font-size: 16px; font-weight: bold; } "
-            + ".source { font-size: 10px; color: #999; margin-top: 12px; }");
+            + ".source { font-size: 10px; margin-top: 12px; }");
+        kit.getStyleSheet().addRule(SemanticPalette.css());
+        kit.getStyleSheet().addRule("ul ul, ol ul, ul ol, ol ol { margin-left: 10px; } blockquote { margin-left: 8px; margin-right: 0; }");
         pane.putClientProperty(JEditorPane.W3C_LENGTH_UNITS, Boolean.TRUE);
         pane.setEditorKit(kit);
         pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.FALSE);

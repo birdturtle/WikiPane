@@ -38,7 +38,8 @@ public final class ContentRenderer {
     private List<ArticleViewModel.Component> pending = List.of();
     private int revealed;
     private String areaId = "";
-    private String selectedVariant = "";
+    private String selectedVariant = "", previousBreadcrumb = "";
+    private final Set<String> presentedFacts = new HashSet<>();
     public ContentRenderer(Consumer<String> links, ExecutorService workers, ImageCache images) {
         this(links, workers, images, null, message -> {});
     }
@@ -57,6 +58,7 @@ public final class ContentRenderer {
         components.pinDocument(null); pinDocument = null;
         imageChecks.clear();
         anchors.clear();
+        presentedFacts.clear(); previousBreadcrumb = "";
         pending = List.of();
         flow = null;
         rendered = null;
@@ -114,6 +116,7 @@ public final class ContentRenderer {
 
         if ((area.id.equals("info") || area.id.equals("overview")) && !layout.highlights(variant).isEmpty()) {
             body.add(components.highlights(layout.highlights(variant)));
+            for (com.wikipane.view.ReaderLayout.Field field : layout.highlights(variant)) presentedFacts.add(field.identity());
             body.add(components.gap(8));
         }
         // These are actual Wiki links to complete related guides, not generated recommendations.
@@ -214,7 +217,7 @@ public final class ContentRenderer {
             switch (component.type) {
                 case TEXT:
                     if (component.node.text != null)
-                        section.add(text(component.node.text.html));
+                        section.add(text(layout.section(component.id).textHtml));
                     break;
                 case FACTS:
                 case REQUIREMENTS:
@@ -283,7 +286,9 @@ public final class ContentRenderer {
         return ReaderComponents.column();
     }
     private JComponent sourceHeading(com.wikipane.view.ReaderLayout.Section section, Source source) {
-        return components.heading(section.title, section.breadcrumb, source);
+        String breadcrumb = section.breadcrumb.equals(previousBreadcrumb) ? "" : section.breadcrumb;
+        previousBreadcrumb = section.breadcrumb;
+        return components.heading(section.title, breadcrumb, source);
     }
     private void renderFacts(ArticleViewModel.Component component, JPanel target) {
         Table table = component.node.table;
@@ -300,16 +305,24 @@ public final class ContentRenderer {
             JPanel card = components.card("wiki.requirements");
             card.add(text("<b>" + escape(condition.title) + "</b>"));
             card.add(components.gap(4));
-            for (String line : condition.lines) card.add(components.condition(line));
+            for (String line : condition.styledLines) card.add(components.condition(line));
             target.add(card);
             target.add(components.gap(8));
         }
         for (com.wikipane.view.ReaderLayout.FactGroup group : section.facts) {
             if (basePin != null) components.pinContext(basePin.group(group.title));
+            java.util.List<com.wikipane.view.ReaderLayout.Field> visible = new ArrayList<>();
+            for (com.wikipane.view.ReaderLayout.Field field : group.fields) {
+                if (presentedFacts.add(field.identity())) visible.add(field);
+                else audit.add("FACT_ALREADY_PRESENTED", field.source.unit,
+                    com.wikipane.view.CompositionAudit.Outcome.REPAIRED,
+                    "Identical source fact is already visible in this reading mode; provenance retained.");
+            }
+            if (visible.isEmpty()) continue;
             if (!group.title.isBlank())
                 target.add(components.heading(group.title, "", null));
             JPanel card = components.card("wiki.facts");
-            for (com.wikipane.view.ReaderLayout.Field field : group.fields) card.add(components.field(field));
+            for (com.wikipane.view.ReaderLayout.Field field : visible) card.add(components.field(field));
             target.add(card);
             target.add(components.gap(8));
         }

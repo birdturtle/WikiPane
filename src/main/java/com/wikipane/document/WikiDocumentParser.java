@@ -19,6 +19,8 @@ public final class WikiDocumentParser {
         String title = p.get("title").getAsString();
         Element root = Jsoup.parseBodyFragment(p.get("text").getAsString(), WikiUrls.article(title)).body();
         normalizeTranscludedHeadings(root, title);
+        // Script-only chart placeholders contain no article data. Keep the separate real-time price link.
+        root.select(".GEChartBox .GEdatachart,.GEChartBox .GEdataprices,.GEChartBox .GEChartItems").remove();
         Map<String, String> entityAnchors = variantIds(root);
         materializeVariants(root);
         for (Element map : root.select(".mw-kartographer-maplink")) {
@@ -304,6 +306,12 @@ public final class WikiDocumentParser {
                         nested.add(table(nestedTable));
                 Element own = td.clone();
                 own.select("table").remove();
+                // Membership icons carry the visible meaning; hidden numeric sort keys do not.
+                if (own.select("a[title=Members] img, a[title=Free-to-play] img").size() > 0)
+                    own.select("span[style]").stream()
+                        .filter(span -> span.attr("style").replace(" ", "").toLowerCase(Locale.ROOT).contains("display:none")
+                            && span.text().matches("[01]"))
+                        .forEach(Element::remove);
                 String html = inline(own);
                 String text = Jsoup.parseBodyFragment(html).text();
                 StringJoiner join = new StringJoiner(" / ");
@@ -314,15 +322,23 @@ public final class WikiDocumentParser {
                         unique.add(l);
                 }
                 unique.forEach(join::add);
-                String label = !header && !rowLabel.isEmpty() ? rowLabel : join.toString();
+                // Infobox headers label their own row, not subsequent full-width controls or notes.
+                String label = !header && !rowLabel.isEmpty() ? rowLabel
+                    : (table.hasClass("infobox") || table.hasClass("questdetails")) && cs > 1
+                        && tr.children().stream().filter(child -> child.normalName().matches("td|th")).count() == 1
+                    ? "" : join.toString();
                 if (header && rowHeader && !text.isBlank())
                     rowLabel = text;
+                List<Block> cellImages = new ArrayList<>();
+                if (own.text().isBlank() && own.selectFirst("img") != null)
+                    addImage(own.selectFirst("img"), cellImages);
                 cells.add(new Cell(html, label, header, column, cs, rs, nested, td.attr("data-attr-param"),
                     com.wikipane.semantic.RequirementExtractor.extract(td, header ? "" : label),
                     own.text().isBlank() && own.selectFirst("img") != null
                             && own.selectFirst("a[href]") != null
                         ? safeLink(own.selectFirst("a[href]").absUrl("href"))
-                        : ""));
+                        : "", header && td.hasClass("infobox-subheader"),
+                    cellImages.isEmpty() ? null : (Image) cellImages.get(0)));
                 if (header && !text.isBlank())
                     for (int c = column; c < column + cs; c++) labels.put(c, text);
                 for (int c = column; c < column + cs; c++) occupied.put(c, rs);

@@ -7,9 +7,11 @@ import java.util.*;
 public final class TableRecords {
     public static final class Field {
         public final String label, illustrationTarget;
+        public final com.wikipane.document.WikiDocument.Image illustration;
         public final RichText value;
         public final Source source;
-        Field(String label, RichText value, Source source, String illustrationTarget) {
+        Field(String label, RichText value, Source source, String illustrationTarget, com.wikipane.document.WikiDocument.Image illustration) {
+            this.illustration = illustration;
             this.illustrationTarget = illustrationTarget;
             this.label = label;
             this.value = value;
@@ -38,6 +40,9 @@ public final class TableRecords {
     public static List<Record> of(Table table) {
         List<Record> result = new ArrayList<>();
         String group = "";
+        Set<String> fieldLabels = new HashSet<>();
+        for (Row sourceRow : table.rows) for (Cell cell : sourceRow.cells)
+            if (!cell.header) fieldLabels.addAll(Arrays.asList(cell.label.split(" / ")));
         for (Row row : table.rows) {
             List<Cell> cells = new ArrayList<>();
             for (Cell cell : row.cells)
@@ -58,7 +63,7 @@ public final class TableRecords {
                         ? String.join(" / ", cells.stream().map(c -> c.value.text).toArray(String[] ::new))
                         : group,
                     List.of(), List.of(), units,
-                    cells.size() > 1 && cells.stream().allMatch(cell -> cell.colspan == 1)));
+                    cells.size() > 1 && cells.stream().allMatch(cell -> fieldLabels.contains(cell.value.text))));
                 continue;
             }
             List<Field> fields = new ArrayList<>();
@@ -66,16 +71,13 @@ public final class TableRecords {
             Set<String> units = new LinkedHashSet<>();
             List<Cell> all = new ArrayList<>(row.carried);
             all.addAll(cells);
-            Set<String> values = new HashSet<>();
             for (Cell cell : all) {
                 units.add(cell.source.unit);
                 nested.addAll(cell.nested);
                 if (cell.header || cell.value.text.isBlank())
                     continue;
                 String label = cell.label.isBlank() ? "" : cell.label;
-                String key = label + "\0" + cell.value.html;
-                if (values.add(key))
-                    fields.add(new Field(label, cell.value, cell.source, cell.illustrationTarget));
+                fields.add(new Field(label, cell.value, cell.source, cell.illustrationTarget, cell.illustration));
             }
             if (!fields.isEmpty() || !nested.isEmpty())
                 result.add(new Record(group, fields, nested, units));
@@ -94,7 +96,7 @@ public final class TableRecords {
             for (Cell cell : cells) {
                 if (!cell.value.text.isBlank())
                     fields.add(new Field(
-                        cell.header ? "" : cell.label, cell.value, cell.source, cell.illustrationTarget));
+                        cell.header ? "" : cell.label, cell.value, cell.source, cell.illustrationTarget, cell.illustration));
                 nested.addAll(cell.nested);
                 if (!cell.value.text.isBlank() || !cell.nested.isEmpty())
                     units.add(cell.source.unit);

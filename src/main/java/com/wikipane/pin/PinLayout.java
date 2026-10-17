@@ -2,7 +2,7 @@ package com.wikipane.pin;
 
 import com.wikipane.pin.PinSelection.*;
 import com.wikipane.semantic.SemanticDocument.Source;
-import com.wikipane.ui.ReaderComponents;
+import com.wikipane.ui.SemanticPalette;
 import java.awt.*;
 import java.awt.font.*;
 import java.awt.geom.AffineTransform;
@@ -83,12 +83,15 @@ public final class PinLayout {
             boolean stacked = field && (fragment.paragraphs.size() > 1
                 || fragment.paragraphs.stream().anyMatch(paragraph -> !paragraph.marker.isEmpty()));
             if (stacked) lines.addAll(header(fieldLabel, context.source));
+            Color color = context.part == PinContext.Part.VALUE && context.value != null
+                ? SemanticPalette.field(com.wikipane.view.FieldPresentation.of(context.label, context.value, context.node.role))
+                : SemanticPalette.TEXT;
             for (Paragraph paragraph : fragment.paragraphs) {
                 List<Span> spans = new ArrayList<>();
                 if (field && !stacked) spans.add(new Span(fieldLabel + ": ", true, false, ""));
                 spans.addAll(paragraph.spans);
                 String carry = field ? fieldLabel : !context.group.isBlank() ? context.group : context.source.sectionTitle;
-                lines.addAll(wrap(spans, paragraph.marker, paragraph.depth, false, context.source, carry));
+                lines.addAll(wrap(spans, paragraph.marker, paragraph.depth, false, context.source, carry, color));
             }
         }
         if (lines.isEmpty()) throw new IllegalArgumentException("Highlight article text to pin it.");
@@ -125,6 +128,10 @@ public final class PinLayout {
     }
     private static List<Line> wrap(List<Span> original, String marker, int depth, boolean heading,
                                    Source source, String continuation) {
+        return wrap(original, marker, depth, heading, source, continuation, SemanticPalette.TEXT);
+    }
+    private static List<Line> wrap(List<Span> original, String marker, int depth, boolean heading,
+                                   Source source, String continuation, Color color) {
         List<Span> spans = new ArrayList<>();
         String prefix = marker.isEmpty() ? "" : (marker.equals("•") ? "-" : marker) + " ";
         if (!prefix.isEmpty()) spans.add(new Span(prefix, false, false, ""));
@@ -138,7 +145,7 @@ public final class PinLayout {
             int end = offset + span.text.length();
             if (end > offset) {
                 styled.addAttribute(TextAttribute.FONT, font(span), offset, end);
-                styled.addAttribute(TextAttribute.FOREGROUND, heading || span.bold ? ReaderComponents.ACCENT : Color.WHITE, offset, end);
+                styled.addAttribute(TextAttribute.FOREGROUND, heading || span.bold || !span.link.isEmpty() ? SemanticPalette.LINK : color, offset, end);
             }
             offset = end;
         }

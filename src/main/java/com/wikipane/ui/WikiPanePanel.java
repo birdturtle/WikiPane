@@ -25,13 +25,20 @@ public final class WikiPanePanel extends PluginPanel {
     private final WikiClient wiki;
     private final ExecutorService workers;
     private final ContentRenderer renderer;
+    private java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> contextRequests = requirements -> {};
+    private java.util.List<com.wikipane.semantic.SemanticDocument.Requirement> contextRequirements = java.util.List.of();
+    private boolean contextVisible;
+    public void contextRequests(java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> requests) { contextRequests = requests; }
+    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { if (active) renderer.playerContext(snapshot); }
+    public void skillIcons(java.util.Map<String, javax.swing.Icon> icons) { if (active) renderer.skillIcons(icons); }
+    @Override public void onActivate() { contextVisible = true; contextRequests.accept(contextRequirements); }
+    @Override public void onDeactivate() { contextVisible = false; contextRequests.accept(java.util.List.of()); }
     private final NavigationHistory history = new NavigationHistory();
     private final JTextField search = new JTextField();
     private final JLabel message = new JLabel("Search the OSRS Wiki");
     private final JButton back = button("", "Back"), forward = button("", "Forward"),
                           searchToggle = button("", "Search"), browser = button("", "Open in browser"),
-                          sectionsButton = button("Sections", "Jump to section");
-    private final JToggleButton overview = new JToggleButton("Overview"), secondary = new JToggleButton();
+                          sectionsButton = button("Overview", "Jump to section");
     private final JPanel content = new ReaderViewport();
     private final JScrollPane scroll = new JScrollPane(content);
     private final JComboBox<String> variants = new JComboBox<>();
@@ -49,7 +56,6 @@ public final class WikiPanePanel extends PluginPanel {
     private final JPanel identity = ContentRenderer.column();
     private final JEditorPane articleTitle = new ReaderComponents(this::openLink).text("");
     private final JEditorPane metadata = new ReaderComponents(this::openLink).text("");
-    private final JLabel currentSection = new JLabel();
     private final JPopupMenu sectionPopup = new JPopupMenu();
     private String lastQuery = "";
     private List<String> lastTitles = List.of();
@@ -69,6 +75,10 @@ public final class WikiPanePanel extends PluginPanel {
         this.wiki = wiki;
         this.workers = workers;
         renderer = new ContentRenderer(this::openLink, workers, new ImageCache(wiki), pin, this::guidance);
+        renderer.contextRequests(requirements -> {
+            contextRequirements = requirements;
+            contextRequests.accept(contextVisible ? requirements : java.util.List.of());
+        });
         setLayout(new BorderLayout(0, 6));
         setBackground(ReaderComponents.BACKGROUND);
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -118,23 +128,29 @@ public final class WikiPanePanel extends PluginPanel {
                 return label;
             }
         });
+        variants.setAlignmentX(Component.LEFT_ALIGNMENT);
         contextual.add(variants);
-        JPanel modeRow = new JPanel(new BorderLayout(4, 0));
-        modeRow.setOpaque(false);
-        JPanel modes = new JPanel(new GridLayout(1, 2, 3, 0));
-        modes.setOpaque(false);
-        modes.add(overview);
-        modes.add(secondary);
-        modeRow.add(modes, BorderLayout.CENTER);
-        modeRow.add(sectionsButton, BorderLayout.EAST);
-        modeRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
-        contextual.add(modeRow);
-        currentSection.setName("wiki.currentSection");
-        currentSection.setForeground(ReaderComponents.MUTED);
-        currentSection.setFont(currentSection.getFont().deriveFont(10f));
-        currentSection.putClientProperty("html.disable", true);
-        currentSection.setBorder(BorderFactory.createEmptyBorder(3, 0, 0, 0));
-        contextual.add(currentSection);
+        sectionsButton.setName("wiki.currentSection");
+        sectionsButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sectionsButton.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        sectionsButton.setMargin(new Insets(4,8,4,8));
+        sectionsButton.putClientProperty("html.disable", true);
+        sectionsButton.setHorizontalAlignment(SwingConstants.LEFT);
+        sectionsButton.setHorizontalTextPosition(SwingConstants.LEFT);
+        sectionsButton.setIconTextGap(8);
+        sectionsButton.setIcon(new Icon() {
+            public int getIconWidth() { return 8; }
+            public int getIconHeight() { return 6; }
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                x = Math.max(0, c.getWidth() - ((JComponent)c).getInsets().right - getIconWidth());
+                g.setColor(ReaderComponents.MUTED);
+                g.fillPolygon(new int[]{x,x+8,x+4},new int[]{y,y,y+5},3);
+            }
+        });
+        sectionsButton.setMaximumSize(new Dimension(Integer.MAX_VALUE,28));
+        sectionsButton.setPreferredSize(new Dimension(180,28));
+        sectionsButton.setComponentPopupMenu(sectionPopup);
+        contextual.add(sectionsButton);
         readingTools.add(contextual, BorderLayout.CENTER);
         statePanel.setOpaque(false);
         statePanel.add(searchTools, "search");
@@ -206,12 +222,6 @@ public final class WikiPanePanel extends PluginPanel {
         back.addActionListener(e -> travel(false));
         forward.addActionListener(e -> travel(true));
         searchToggle.addActionListener(e -> focusSearch());
-        overview.addActionListener(e -> switchMode("overview"));
-        secondary.addActionListener(e -> {
-            NavigationHistory.Entry entry = history.current();
-            if (entry != null && !entry.isSearch() && entry.page.navigation.secondary != null)
-                switchMode(entry.page.navigation.secondary.area);
-        });
         sectionsButton.addActionListener(e -> openSections());
         browser.addActionListener(e -> LinkBrowser.browse(fallbackUrl));
         variants.addActionListener(e -> {
@@ -481,23 +491,12 @@ public final class WikiPanePanel extends PluginPanel {
         if (entry != null)
             show(entry, true);
     }
-    private void modeStyle(JToggleButton button, boolean selected) {
-        button.setSelected(selected);
-        button.setFont(button.getFont().deriveFont(11f));
-        button.setMargin(new Insets(3, 3, 3, 3));
-        button.setForeground(selected ? ReaderComponents.ACCENT : ReaderComponents.MUTED);
-        button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(
-                0, 0, 2, 0, selected ? ReaderComponents.ACCENT : ReaderComponents.BORDER),
-            BorderFactory.createEmptyBorder(4, 3, 4, 3)));
-    }
     private void show(NavigationHistory.Entry entry, boolean restore) {
         if (entry.isSearch()) {
             showSearchEntry(entry, restore);
             return;
         }
         viewingArticle = true;
-        ArticleViewModel view = entry.page.view;
         ArticleNavigation nav = entry.page.navigation;
         if (entry.area.isEmpty())
             entry.area = nav.areaForAnchor(entry.anchor);
@@ -529,25 +528,10 @@ public final class WikiPanePanel extends PluginPanel {
             + "</span></body></html>");
         metadata.setText("<html><body><span class='muted tiny'>"
             + com.wikipane.document.WikiDocumentParser.escape(nav.subtitle) + "</span></body></html>");
-        overview.setToolTipText("Overview");
-        overview.getAccessibleContext().setAccessibleName("Overview");
-        modeStyle(overview, area.id.equals("overview"));
-        secondary.setVisible(nav.secondary != null);
-        if (nav.secondary != null) {
-            secondary.setText(nav.secondary.label);
-            secondary.setToolTipText(view.area(nav.secondary.area).label);
-            secondary.getAccessibleContext().setAccessibleName(nav.secondary.label);
-            modeStyle(secondary, area.id.equals(nav.secondary.area));
-        }
-        sectionsButton.setForeground(
-            !area.id.equals("overview") && (nav.secondary == null || !area.id.equals(nav.secondary.area))
-                ? ReaderComponents.ACCENT
-                : ReaderComponents.MUTED);
         String location = entry.section.isEmpty() ? area.label : nav.section(entry.section).label;
-        currentSection.setText(location);
-        currentSection.setToolTipText(location);
-        currentSection.setVisible(!entry.section.isEmpty()
-            || !area.id.equals("overview") && (nav.secondary == null || !area.id.equals(nav.secondary.area)));
+        sectionsButton.setText(location);
+        sectionsButton.setForeground(ReaderComponents.ACCENT);
+        sectionsButton.getAccessibleContext().setAccessibleName(location + ", choose article section");
         ((CardLayout) statePanel.getLayout()).show(statePanel, "article");
         display(renderer.renderArea(entry.page, area, entry.tables, entry.variant));
         controls();
@@ -565,27 +549,41 @@ public final class WikiPanePanel extends PluginPanel {
                     if (!active || history.current() != entry)
                         return;
                     JComponent target = renderer.anchor(anchor);
-                    if (target != null)
-                        target.scrollRectToVisible(
-                            new Rectangle(0, 0, 1, Math.min(24, Math.max(1, target.getHeight()))));
+                    if (target != null) {
+                        alignSectionHeader(target);
+                        // The native scroll pane can publish its final width/extent one event turn later.
+                        SwingUtilities.invokeLater(() -> {
+                            if (active && viewingArticle && history.current() == entry && renderer.anchor(anchor) == target)
+                                alignSectionHeader(target);
+                        });
+                    }
                 });
             } else
                 scroll.getVerticalScrollBar().setValue(0);
             renderer.loadVisibleImages();
         });
     }
-    private void switchMode(String id) {
-        NavigationHistory.Entry entry = history.current();
-        if (entry == null || entry.isSearch())
-            return;
-        request++;
-        searchRequest++;
-        debounce.stop();
-        saveScroll();
-        entry.area = id;
-        entry.section = "";
-        entry.scroll = entry.areaScroll.getOrDefault(id, 0);
-        show(entry, true);
+    private void alignSectionHeader(JComponent target) {
+        scroll.validate();
+        java.util.List<Container> path = new java.util.ArrayList<>();
+        for (Container parent = target.getParent(); parent != null; parent = parent.getParent()) {
+            path.add(parent);
+            if (parent == content) break;
+        }
+        if (path.isEmpty() || path.get(path.size()-1) != content) return;
+        java.util.Collections.reverse(path);
+        JViewport viewport = scroll.getViewport();
+        // Resolve width-dependent wrapping and the updated extent before using header coordinates.
+        // Work is limited to the destination's ancestor layouts, not a recursive article relayout.
+        for (int pass = 0; pass < 2; pass++) {
+            for (Container parent : path) parent.invalidate();
+            viewport.setViewSize(new Dimension(Math.max(1,viewport.getExtentSize().width), content.getPreferredSize().height));
+            for (Container parent : path) parent.doLayout();
+            scroll.validate();
+        }
+        Point position = SwingUtilities.convertPoint(target, 0, 0, content);
+        int maximum = Math.max(0,content.getHeight()-viewport.getExtentSize().height);
+        viewport.setViewPosition(new Point(0,Math.max(0,Math.min(position.y,maximum))));
     }
     private void openSections() {
         NavigationHistory.Entry entry = history.current();
@@ -620,8 +618,8 @@ public final class WikiPanePanel extends PluginPanel {
             target.variant = entry.variant;
             target.tables.putAll(entry.tables);
             target.areaScroll.putAll(entry.areaScroll);
-            target.scroll = 0;
-            show(target, false);
+            target.scroll = target.areaScroll.getOrDefault(destination.area, 0);
+            show(target, true);
             return;
         }
         anchor(destination.anchor, true, destination.area);

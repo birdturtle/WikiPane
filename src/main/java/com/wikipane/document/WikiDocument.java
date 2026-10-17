@@ -120,9 +120,10 @@ public final class WikiDocument {
     }
     public static final class Cell {
         public final String html, label, text, semanticKey, illustrationTarget;
+        public final Image illustration;
         public final List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements;
         public final List<Table> nested;
-        public final boolean header;
+        public final boolean header, sectionHeader;
         public final int column, colspan, rowspan;
         public Cell(String html, String label, boolean header, int column, int colspan, int rowspan,
             List<Table> nested) {
@@ -137,6 +138,20 @@ public final class WikiDocument {
             List<Table> nested, String semanticKey,
             List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements,
             String illustrationTarget) {
+            this(html, label, header, column, colspan, rowspan, nested, semanticKey, requirements, illustrationTarget, false);
+        }
+        public Cell(String html, String label, boolean header, int column, int colspan, int rowspan,
+            List<Table> nested, String semanticKey,
+            List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements,
+            String illustrationTarget, boolean sectionHeader) {
+            this(html,label,header,column,colspan,rowspan,nested,semanticKey,requirements,illustrationTarget,sectionHeader,null);
+        }
+        public Cell(String html, String label, boolean header, int column, int colspan, int rowspan,
+            List<Table> nested, String semanticKey,
+            List<com.wikipane.semantic.SemanticDocument.RequirementGroup> requirements,
+            String illustrationTarget, boolean sectionHeader, Image illustration) {
+            this.illustration = illustration;
+            this.sectionHeader = sectionHeader;
             this.illustrationTarget = illustrationTarget;
             this.semanticKey = semanticKey;
             this.requirements = List.copyOf(requirements);

@@ -91,6 +91,7 @@ public final class ArticleNavigation {
                         : "",
                     area.label, 0));
             for (Section section : view.document.sections) {
+                if (area.id.equals("references")) continue;
                 if (section.anchor.isBlank() || !anchors.add(area.id + "\0" + section.anchor))
                     continue;
                 if (area.components.stream().noneMatch(c -> descendsFrom(c.source.section, section.anchor)))
@@ -118,6 +119,7 @@ public final class ArticleNavigation {
         for (Area mode : modes) {
             Map<String, String> destinations = new LinkedHashMap<>();
             for (Component component : mode.components) {
+                if (mode.id.equals("references")) continue;
                 String own = component.source.section, ancestor = own;
                 Set<String> visited = new HashSet<>();
                 while (!ancestor.isBlank() && visited.add(ancestor)) {

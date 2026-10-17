@@ -9,9 +9,14 @@ import javax.swing.*;
 final class FittedThumbnail extends JLabel {
     private final int maxWidth, maxHeight, declaredWidth, declaredHeight;
     private final CompositionAudit audit;
+    private final boolean fixedSlot;
     private BufferedImage image;
     private int auditedWidth = -1;
     FittedThumbnail(int maxWidth, int maxHeight, int width, int height, CompositionAudit audit) {
+        this(maxWidth,maxHeight,width,height,audit,false);
+    }
+    FittedThumbnail(int maxWidth, int maxHeight, int width, int height, CompositionAudit audit, boolean fixedSlot) {
+        this.fixedSlot = fixedSlot;
         this.maxWidth = maxWidth;
         this.maxHeight = maxHeight;
         declaredWidth = width;
@@ -24,14 +29,17 @@ final class FittedThumbnail extends JLabel {
         revalidate();
         repaint();
     }
+    private Dimension reserved(int width) {
+        int available = Math.max(1,Math.min(maxWidth,width));
+        if (fixedSlot || declaredWidth <= 0 || declaredHeight <= 0)
+            return new Dimension(available,maxHeight);
+        double ratio = Math.min(1,Math.min((double)available/declaredWidth,(double)maxHeight/declaredHeight));
+        return new Dimension(Math.max(1,(int)(declaredWidth*ratio)),Math.max(1,(int)(declaredHeight*ratio)));
+    }
     private Dimension fitted(int width) {
-        int w = image == null ? declaredWidth : image.getWidth(),
-            h = image == null ? declaredHeight : image.getHeight();
-        int available = Math.max(1, Math.min(maxWidth, width));
-        if (w <= 0 || h <= 0)
-            return new Dimension(available, maxHeight);
-        double ratio = Math.min(1, Math.min((double) available / w, (double) maxHeight / h));
-        return new Dimension(Math.max(1, (int) (w * ratio)), Math.max(1, (int) (h * ratio)));
+        Dimension slot = reserved(width);
+        double ratio = Math.min(1,Math.min((double)slot.width/image.getWidth(),(double)slot.height/image.getHeight()));
+        return new Dimension(Math.max(1,(int)(image.getWidth()*ratio)),Math.max(1,(int)(image.getHeight()*ratio)));
     }
     @Override
     public Dimension getPreferredSize() {
@@ -39,7 +47,7 @@ final class FittedThumbnail extends JLabel {
         if (getParent() != null && getParent().getWidth() > 0)
             width = Math.min(
                 width, getParent().getWidth() - getParent().getInsets().left - getParent().getInsets().right);
-        Dimension fit = fitted(width);
+        Dimension fit = reserved(width);
         return new Dimension(fit.width, fit.height + 8);
     }
     @Override
@@ -59,7 +67,8 @@ final class FittedThumbnail extends JLabel {
         Dimension fit = fitted(getWidth());
         Graphics2D g = (Graphics2D) graphics.create();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g.drawImage(image, 0, 4, fit.width, fit.height, null);
+        Dimension slot = reserved(getWidth());
+        g.drawImage(image, (slot.width-fit.width)/2, 4+(slot.height-fit.height)/2, fit.width, fit.height, null);
         g.dispose();
         if (getWidth() < maxWidth && audit != null && auditedWidth != getWidth()) {
             auditedWidth = getWidth();

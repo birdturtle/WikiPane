@@ -38,7 +38,13 @@ public final class ContentRenderer {
     private List<ArticleViewModel.Component> pending = List.of();
     private int revealed;
     private String areaId = "";
-    private String selectedVariant = "";
+    private String selectedVariant = "", previousBreadcrumb = "";
+    private final java.util.List<RequirementBadge> badges = new ArrayList<>();
+    private com.wikipane.context.PlayerContextSnapshot player = com.wikipane.context.PlayerContextSnapshot.unavailable(false);
+    private Consumer<java.util.List<Requirement>> contextRequests = requirements -> {};
+    private java.util.Map<String, javax.swing.Icon> skillIcons = java.util.Map.of();
+    private Future<?> evaluation;
+    private final Set<String> presentedFacts = new HashSet<>();
     public ContentRenderer(Consumer<String> links, ExecutorService workers, ImageCache images) {
         this(links, workers, images, null, message -> {});
     }
@@ -50,13 +56,54 @@ public final class ContentRenderer {
         this.workers = workers;
         this.images = images;
     }
-    public void clear() {
+    public void contextRequests(Consumer<java.util.List<Requirement>> requests) { contextRequests = requests; }
+    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { player = snapshot; evaluateRequirements(); }
+    public void skillIcons(java.util.Map<String, javax.swing.Icon> icons) { skillIcons = java.util.Map.copyOf(icons); evaluateRequirements(); }
+    private void cancelEvaluation() {
+        if (evaluation != null) {
+            evaluation.cancel(false);
+            if (workers instanceof ThreadPoolExecutor && evaluation instanceof Runnable) ((ThreadPoolExecutor)workers).remove((Runnable)evaluation);
+            evaluation = null;
+        }
+    }
+    private void evaluateRequirements() {
+        cancelEvaluation();
+        if (badges.isEmpty()) return;
+        long version = generation;
+        com.wikipane.context.PlayerContextSnapshot snapshot = player;
+        java.util.List<RequirementBadge> rows = java.util.List.copyOf(badges);
+        // Clear old account values immediately while the worker prepares the new annotations.
+        com.wikipane.context.RequirementEvaluator evaluator = new com.wikipane.context.RequirementEvaluator();
+        for (RequirementBadge row : rows) if (!snapshot.available || row.getClientProperty("wiki.requirementStatusReady") == null)
+            row.update(evaluator.evaluate(row.condition,
+            com.wikipane.context.PlayerContextSnapshot.unavailable(snapshot.enabled)), snapshot.enabled, null);
+        try {
+            evaluation = workers.submit(() -> {
+                java.util.List<com.wikipane.context.RequirementEvaluator.Result> results = new ArrayList<>();
+                for (RequirementBadge row : rows) results.add(evaluator.evaluate(row.condition, snapshot));
+                SwingUtilities.invokeLater(() -> {
+                    if (version != generation || player != snapshot) return;
+                    for (int i = 0; i < rows.size(); i++) {
+                        Requirement condition = rows.get(i).condition;
+                        javax.swing.Icon icon = condition.kind == Requirement.Kind.SKILL
+                            ? skillIcons.get(com.wikipane.context.PlayerContextSnapshot.skillKey(condition.name)) : null;
+                        rows.get(i).update(results.get(i), snapshot.enabled, icon);
+                    }
+                });
+            });
+        } catch (RejectedExecutionException ex) { /* Unknown remains visible; no guessed state. */ }
+    }
+    public void clear() { clear(true); }
+    private void clear(boolean notify) {
         generation++;
+        cancelEvaluation(); badges.clear();
+        if (notify) contextRequests.accept(java.util.List.of());
         if (selection != null) selection.clear();
         components.pinContext(null);
         components.pinDocument(null); pinDocument = null;
         imageChecks.clear();
         anchors.clear();
+        presentedFacts.clear(); previousBreadcrumb = "";
         pending = List.of();
         flow = null;
         rendered = null;
@@ -100,11 +147,15 @@ public final class ContentRenderer {
         WikiPage page, ArticleViewModel.Area area, Map<String, Integer> saved, String variant) {
         WikiDocument article = page.document;
         layout = page.layout;
-        clear();
+        clear(false);
         audit = page.view.audit;
         components.audit(audit);
         pinDocument = article.semantic;
         components.pinDocument(pinDocument);
+        java.util.List<Requirement> requested = new ArrayList<>();
+        for (Node node : pinDocument.nodes) for (RequirementSet set : node.requirements)
+            for (RequirementGroup group : set.groups) requested.add(group.expression);
+        contextRequests.accept(java.util.List.copyOf(requested));
         areaId = area.id;
         anchorAliases = page.navigation.anchors(area.id);
         tableState = new HashMap<>(saved);
@@ -114,6 +165,7 @@ public final class ContentRenderer {
 
         if ((area.id.equals("info") || area.id.equals("overview")) && !layout.highlights(variant).isEmpty()) {
             body.add(components.highlights(layout.highlights(variant)));
+            for (com.wikipane.view.ReaderLayout.Field field : layout.highlights(variant)) presentedFacts.add(field.identity());
             body.add(components.gap(8));
         }
         // These are actual Wiki links to complete related guides, not generated recommendations.
@@ -129,6 +181,27 @@ public final class ContentRenderer {
             guide.setToolTipText(relationship.target.url);
             guide.addActionListener(e -> links.accept(relationship.target.url));
             body.add(guide);
+        }
+        if (area.id.equals("other") || area.id.equals("methods") || area.id.equals("sources")) {
+            for (com.wikipane.knowledge.RelatedInformation.Group group : page.relatedInformation) {
+                if (area.id.equals("methods") && !group.label.equals("Production & methods")
+                    || area.id.equals("sources") && !group.label.equals("Sources")
+                    || area.id.equals("other") && !group.label.equals("Related information")) continue;
+                JPanel related = column();
+                related.add(text("<b>" + escape(group.label) + " links</b>"));
+                for (Relationship relationship : group.links) {
+                    JButton destination = linkButton("<html>" + escape(relationship.target.label) + "</html>");
+                    destination.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+                    destination.setToolTipText("From: " + relationship.source.sectionTitle);
+                    destination.addActionListener(e -> links.accept(relationship.target.url));
+                    related.add(destination);
+                }
+                // Long link collections remain available without pushing the source content away.
+                JButton toggle = linkButton("Related links (" + group.links.size() + ")");
+                related.setVisible(false);
+                toggle.addActionListener(e -> { related.setVisible(!related.isVisible()); body.revalidate(); });
+                body.add(toggle); body.add(related);
+            }
         }
         pending = new ArrayList<>();
         for (ArticleViewModel.Component component : area.components)
@@ -190,18 +263,23 @@ public final class ContentRenderer {
             JPanel section = column();
             section.putClientProperty("wiki.source", component.node.id);
             String sourceSection = component.source.section;
+            JComponent anchorDestination = section;
             if (!sourceSection.isBlank() && !anchors.containsKey(sourceSection)) {
                 if (!component.source.sectionTitle.equals(component.source.article)
                     && !(component.source.sectionTitle.equals("Details")
                         && (component.type == ArticleViewModel.ComponentType.FACTS
-                            || component.type == ArticleViewModel.ComponentType.REQUIREMENTS)))
-                    section.add(sourceHeading(layout.section(component.id), component.source));
-                anchors.put(sourceSection, section);
+                            || component.type == ArticleViewModel.ComponentType.REQUIREMENTS))) {
+                    JComponent heading = sourceHeading(layout.section(component.id), component.source);
+                    section.add(heading);
+                    anchorDestination = (JComponent) heading.getClientProperty("wiki.heading.label");
+                }
+                anchors.put(sourceSection, anchorDestination);
             }
-            anchors.put(component.id, section);
+            anchors.put(component.id, anchorDestination);
+            JComponent sourceDestination = anchors.getOrDefault(sourceSection, anchorDestination);
             anchorAliases.forEach((alias, target) -> {
                 if (target.equals(component.source.section))
-                    anchors.putIfAbsent(alias, section);
+                    anchors.putIfAbsent(alias, sourceDestination);
             });
             for (Citation use : com.wikipane.view.PresentationValidator.citations(component.node))
                 if (!use.id.isBlank())
@@ -209,12 +287,18 @@ public final class ContentRenderer {
             if (component.node.fallback instanceof WikiDocument.Table) {
                 String id = ((WikiDocument.Table) component.node.fallback).anchor;
                 if (!id.isBlank())
-                    anchors.putIfAbsent(id, section);
+                    anchors.putIfAbsent(id, anchorDestination);
             }
             switch (component.type) {
                 case TEXT:
-                    if (component.node.text != null)
-                        section.add(text(component.node.text.html));
+                    if (component.node.text != null) {
+                        com.wikipane.view.ReaderLayout.Section source = layout.section(component.id);
+                        JComponent prose = text(source.textHtml);
+                        if (source.textCondition != null) {
+                            RequirementBadge row = new RequirementBadge(source.textCondition, prose);
+                            badges.add(row); section.add(row);
+                        } else section.add(prose);
+                    }
                     break;
                 case FACTS:
                 case REQUIREMENTS:
@@ -230,11 +314,20 @@ public final class ContentRenderer {
                             JPanel card = components.card("wiki.reference");
                             card.add(text("<b>" + escape(ref.label) + "</b>"));
                             card.add(text(ref.html));
-                            for (int back = 0; back < ref.backlinks.size(); back++) {
-                                String url = ref.backlinks.get(back);
-                                JButton returnTo = linkButton("Return to citation"
-                                    + (ref.backlinks.size() > 1 ? " " + (back + 1) : ""));
-                                returnTo.addActionListener(e -> links.accept(url));
+                            if (!ref.backlinks.isEmpty()) {
+                                JButton returnTo = linkButton("Referenced from (" + ref.backlinks.size() + ")");
+                                JPopupMenu destinations = new JPopupMenu();
+                                for (int back = 0; back < ref.backlinks.size(); back++) {
+                                    String url = ref.backlinks.get(back);
+                                    JMenuItem destination = new JMenuItem("Citation " + (back + 1));
+                                    destination.addActionListener(e -> links.accept(url));
+                                    destinations.add(destination);
+                                }
+                                returnTo.setComponentPopupMenu(destinations);
+                                returnTo.addActionListener(e -> {
+                                    if (ref.backlinks.size() == 1) links.accept(ref.backlinks.get(0));
+                                    else destinations.show(returnTo, 0, returnTo.getHeight());
+                                });
                                 card.add(returnTo);
                             }
                             anchors.put(ref.id, card);
@@ -261,6 +354,7 @@ public final class ContentRenderer {
             components.pinContext(null);
         }
         if (selection != null && rendered != null) selection.refresh(rendered);
+        evaluateRequirements();
         tableState.put("@shown:" + areaId, revealed);
         flow.revalidate();
         flow.repaint();
@@ -283,7 +377,9 @@ public final class ContentRenderer {
         return ReaderComponents.column();
     }
     private JComponent sourceHeading(com.wikipane.view.ReaderLayout.Section section, Source source) {
-        return components.heading(section.title, section.breadcrumb, source);
+        String breadcrumb = section.breadcrumb.equals(previousBreadcrumb) ? "" : section.breadcrumb;
+        previousBreadcrumb = section.breadcrumb;
+        return components.heading(section.title, breadcrumb, source);
     }
     private void renderFacts(ArticleViewModel.Component component, JPanel target) {
         Table table = component.node.table;
@@ -300,16 +396,38 @@ public final class ContentRenderer {
             JPanel card = components.card("wiki.requirements");
             card.add(text("<b>" + escape(condition.title) + "</b>"));
             card.add(components.gap(4));
-            for (String line : condition.lines) card.add(components.condition(line));
+            for (com.wikipane.view.RequirementRows.Row content : condition.rows) {
+                if (basePin != null) components.pinContext(basePin.condition(condition.source, condition.title,
+                    content.condition == null ? condition.condition : content.condition));
+                JComponent source = components.condition(content.html);
+                JComponent row = source;
+                if (content.condition != null) {
+                    RequirementBadge badge = new RequirementBadge(content.condition, source);
+                    badges.add(badge); row = badge;
+                }
+                JPanel inset = column();
+                inset.setBorder(BorderFactory.createEmptyBorder(0, Math.min(4, content.depth) * 6, 0, 0));
+                inset.putClientProperty("wiki.requirement.depth", content.depth);
+                if (!content.parent.isBlank()) source.setToolTipText("Prerequisite of: " + content.parent);
+                inset.add(row); card.add(inset);
+            }
             target.add(card);
             target.add(components.gap(8));
         }
         for (com.wikipane.view.ReaderLayout.FactGroup group : section.facts) {
             if (basePin != null) components.pinContext(basePin.group(group.title));
+            java.util.List<com.wikipane.view.ReaderLayout.Field> visible = new ArrayList<>();
+            for (com.wikipane.view.ReaderLayout.Field field : group.fields) {
+                if (presentedFacts.add(field.identity())) visible.add(field);
+                else audit.add("FACT_ALREADY_PRESENTED", field.source.unit,
+                    com.wikipane.view.CompositionAudit.Outcome.REPAIRED,
+                    "Identical source fact is already visible in this reading mode; provenance retained.");
+            }
+            if (visible.isEmpty()) continue;
             if (!group.title.isBlank())
                 target.add(components.heading(group.title, "", null));
             JPanel card = components.card("wiki.facts");
-            for (com.wikipane.view.ReaderLayout.Field field : group.fields) card.add(components.field(field));
+            for (com.wikipane.view.ReaderLayout.Field field : visible) card.add(components.field(field));
             target.add(card);
             target.add(components.gap(8));
         }
@@ -344,8 +462,8 @@ public final class ContentRenderer {
                 }
                 previous[0] = record.group;
                 if (record.identity != null || !record.fields.isEmpty()) {
-                    records.add(components.record(record));
-                    records.add(components.gap(6));
+                    records.add(components.record(record, record.icon == null ? null : image(record.icon, false, true)));
+                    records.add(components.gap(3));
                 }
                 for (int n = 0; n < record.nested.size(); n++)
                     records.add(table(record.nested.get(n), key + ".r" + i + ".n" + n));
@@ -380,16 +498,17 @@ public final class ContentRenderer {
     private JComponent image(Image image) {
         return image(image, false);
     }
-    private JComponent image(Image image, boolean identity) {
-        int maxWidth = identity ? 88 : 200, maxHeight = identity ? 88 : 220;
-        FittedThumbnail label = new FittedThumbnail(maxWidth, maxHeight, image.width, image.height, audit);
+    private JComponent image(Image image, boolean identity) { return image(image, identity, false); }
+    private JComponent image(Image image, boolean identity, boolean decoration) {
+        int maxWidth = decoration ? 22 : identity ? 88 : 200, maxHeight = decoration ? 22 : identity ? 88 : 220;
+        FittedThumbnail label = new FittedThumbnail(maxWidth, maxHeight, image.width, image.height, audit, decoration);
         label.putClientProperty("html.disable", true);
-        label.setText(image.alt.isBlank() ? "Image" : image.alt);
+        label.setText(decoration ? "" : image.alt.isBlank() ? "Image" : image.alt);
         label.setForeground(ReaderComponents.MUTED);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        label.setToolTipText(image.alt);
+        label.setToolTipText(decoration ? null : image.alt);
         label.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        if (!image.link.isBlank()) {
+        if (!decoration && !image.link.isBlank()) {
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
                 @Override
@@ -434,7 +553,7 @@ public final class ContentRenderer {
                     } catch (Exception ex) {
                         SwingUtilities.invokeLater(() -> {
                             if (version == generation)
-                                label.setText("Image unavailable");
+                                label.setText(decoration ? "" : "Image unavailable");
                         });
                     }
                 });

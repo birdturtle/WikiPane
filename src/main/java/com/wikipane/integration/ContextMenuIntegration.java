@@ -34,7 +34,7 @@ public final class ContextMenuIntegration {
             added++;
             client.getMenu().createMenuEntry(1).setOption("WikiPane")
                 .setTarget(original.getTarget()).setType(MenuAction.RUNELITE)
-                .onClick(ignored -> { if (config.contextLookups()) lookup.accept(entity); });
+                .onClick(ignored -> { if (config.contextLookups() && client.getGameState() == GameState.LOGGED_IN) lookup.accept(entity); });
         }
     }
 }

@@ -53,7 +53,7 @@ public class SemanticUiTest {
         }
     }
     @Test
-    public void monsterHasTwoPrimaryModesAndDropsAreADirectSectionDestination() throws Exception {
+    public void monsterHasOneSectionSelectorAndDropsAreADirectDestination() throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(3);
         WikiClient wiki =
             new WikiClient(new OkHttpClient.Builder()
@@ -76,10 +76,10 @@ public class SemanticUiTest {
             });
             await(()
                       -> all(panel).stream().anyMatch(c
-                          -> c instanceof JToggleButton
-                              && "Combat & strategy".equals(((JToggleButton) c).getToolTipText())));
+                          -> c instanceof JButton && "wiki.currentSection".equals(c.getName())
+                              && "Overview".equals(((JButton)c).getText())) && visibleText(panel).contains("Vorkath"));
             edt(() -> {
-                assertEquals(2, all(panel).stream().filter(c -> c instanceof JToggleButton).count());
+                assertEquals(0, all(panel).stream().filter(c -> c instanceof JToggleButton).count());
                 com.wikipane.view.WikiPage page =
                     new com.wikipane.view.WikiPage(DocumentTest.document("Vorkath"));
                 panel.navigateSection(page.navigation.sections.stream()

@@ -102,12 +102,12 @@ public class ContextualNavigationUiTest {
                 .findFirst()
                 .orElseThrow();
         }
-        JToggleButton mode(String label) {
-            return (JToggleButton) all(panel)
-                .stream()
-                .filter(c -> c instanceof JToggleButton && label.equals(((JToggleButton) c).getText()))
-                .findFirst()
-                .orElseThrow();
+        WikiPage opened;
+        String sectionLabel() {
+            return ((JButton) all(panel).stream().filter(c -> "wiki.currentSection".equals(c.getName())).findFirst().orElseThrow()).getText();
+        }
+        void chooseMode(String label) {
+            panel.navigateSection(opened.navigation.sections.stream().filter(d -> d.depth == 0 && d.label.equals(label)).findFirst().orElseThrow());
         }
         JTextField input() {
             return (JTextField) all(panel)
@@ -129,6 +129,7 @@ public class ContextualNavigationUiTest {
                     && org.jsoup.Jsoup.parseBodyFragment(((JEditorPane) c).getText()).text().equals(title));
         }
         void open(String title) throws Exception {
+            opened = new WikiPage(DocumentTest.document(title.replace("/", "__").replace(' ', '_')));
             edt(() -> {
                 panel.openTitle(title, "");
                 return null;
@@ -149,12 +150,18 @@ public class ContextualNavigationUiTest {
         }
     }
     @Test
-    public void readingHasPinnedIdentityTwoModesAndSearchExpandsOnlyWhenRequested() throws Exception {
+    public void readingHasOneSectionDropdownAndSearchExpandsOnlyWhenRequested() throws Exception {
         try (Reader reader = new Reader()) {
             reader.open("Recipe for Disaster");
             edt(() -> {
                 assertFalse(visible(reader.input(), reader.panel));
-                assertEquals(2,
+                JButton selector = (JButton) all(reader.panel).stream().filter(c -> "wiki.currentSection".equals(c.getName())).findFirst().orElseThrow();
+                assertEquals("Overview",selector.getText());
+                assertNotNull(selector.getIcon());
+                selector.doClick();
+                assertTrue(all(selector.getComponentPopupMenu()).stream().anyMatch(c -> "wiki.sections".equals(c.getName())));
+                assertEquals(1,all(reader.panel).stream().filter(c -> "wiki.currentSection".equals(c.getName())).count());
+                assertEquals(0,
                     all(reader.panel)
                         .stream()
                         .filter(c -> c instanceof JToggleButton && visible(c, reader.panel))
@@ -236,24 +243,56 @@ public class ContextualNavigationUiTest {
             reader.open("Recipe for Disaster/Full guide");
             edt(() -> {
                 reader.scroller().getVerticalScrollBar().setValue(211);
-                reader.mode("Walkthrough").doClick();
+                reader.chooseMode("Walkthrough");
                 reader.size();
                 return null;
             });
-            await(() -> reader.mode("Walkthrough").isSelected());
+            await(() -> !reader.sectionLabel().equals("Overview"));
             edt(() -> {
                 reader.scroller().getVerticalScrollBar().setValue(347);
-                reader.mode("Overview").doClick();
+                reader.chooseMode("Overview");
                 reader.size();
                 return null;
             });
             await(() -> reader.scroller().getVerticalScrollBar().getValue() == 211);
             edt(() -> {
-                reader.mode("Walkthrough").doClick();
+                reader.chooseMode("Walkthrough");
                 reader.size();
                 return null;
             });
             await(() -> reader.scroller().getVerticalScrollBar().getValue() == 347);
+        }
+    }
+    @Test
+    public void cookingWineJumpAlignsTheHeadingAtTheTopOfTheViewport() throws Exception {
+        try (Reader reader = new Reader()) {
+            reader.open("Cooking");
+            ArticleNavigation.Destination wine = reader.opened.navigation.sections.stream()
+                .filter(d -> d.anchor.equals("Wine")).findFirst().orElseThrow();
+            edt(() -> {
+                reader.panel.navigateSection(wine); reader.size();
+                // A non-displayable test panel needs the layout pass normally scheduled by RepaintManager.
+                SwingUtilities.invokeLater(reader::size);
+                return null;
+            });
+            try { await(() -> {
+                reader.size();
+                Component heading = all(reader.panel).stream()
+                    .filter(c -> c instanceof JEditorPane && "wiki.sectionHeading".equals(c.getName())
+                        && org.jsoup.Jsoup.parseBodyFragment(((JEditorPane)c).getText()).text().equals("Wine"))
+                    .findFirst().orElse(null);
+                if (heading == null) return false;
+                JViewport viewport = reader.scroller().getViewport();
+                int y = SwingUtilities.convertPoint(heading,0,0,viewport).y;
+                return y >= 0 && y <= 2;
+            });
+            } catch (TimeoutException ex) {
+                throw new AssertionError(edt(() -> all(reader.panel).stream()
+                    .filter(c -> c instanceof JEditorPane && "wiki.sectionHeading".equals(c.getName()))
+                    .map(c -> org.jsoup.Jsoup.parseBodyFragment(((JEditorPane)c).getText()).text()+"@"+SwingUtilities.convertPoint(c,0,0,reader.scroller().getViewport()).y)
+                    .collect(java.util.stream.Collectors.joining(",")) + " scroll=" + reader.scroller().getViewport().getViewPosition()),ex);
+            }
+            assertEquals("Wine",edt(reader::sectionLabel));
         }
     }
     @Test
@@ -273,13 +312,13 @@ public class ContextualNavigationUiTest {
                       -> all(reader.panel)
                           .stream()
                           .anyMatch(c
-                              -> c instanceof JLabel && "wiki.currentSection".equals(c.getName())
-                                  && ((JLabel) c).getText().equals("Drops")));
+                              -> c instanceof JButton && "wiki.currentSection".equals(c.getName())
+                                  && ((JButton) c).getText().equals("Drops")));
             edt(() -> {
                 reader.action("Back").doClick();
                 return null;
             });
-            await(() -> reader.mode("Overview").isSelected());
+            await(() -> reader.sectionLabel().equals("Overview"));
             edt(() -> {
                 reader.action("Forward").doClick();
                 return null;
@@ -288,8 +327,8 @@ public class ContextualNavigationUiTest {
                       -> all(reader.panel)
                           .stream()
                           .anyMatch(c
-                              -> c instanceof JLabel && "wiki.currentSection".equals(c.getName())
-                                  && ((JLabel) c).getText().equals("Drops")));
+                              -> c instanceof JButton && "wiki.currentSection".equals(c.getName())
+                                  && ((JButton) c).getText().equals("Drops")));
         }
     }
     @Test
@@ -398,13 +437,13 @@ public class ContextualNavigationUiTest {
                 reader.panel.navigateSection(chapter);
                 return null;
             });
-            await(() -> reader.mode("Walkthrough").isSelected());
+            await(() -> !reader.sectionLabel().equals("Overview"));
             edt(() -> {
                 assertTrue(all(reader.panel)
                         .stream()
                         .anyMatch(c
-                            -> "wiki.currentSection".equals(c.getName()) && c instanceof JLabel
-                                && ((JLabel) c)
+                            -> "wiki.currentSection".equals(c.getName()) && c instanceof JButton
+                                && ((JButton) c)
                                     .getText()
                                     .toLowerCase(Locale.ROOT)
                                     .contains("mountain dwarf")));

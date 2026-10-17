@@ -34,7 +34,7 @@ Source rows retain every cell, its column index, header label, colspan, and rows
 
 The pipeline is complete server-parsed article → normalized document → semantic document → page-type view model → native components. Extraction and page organization run on workers. Neither the document nor semantic layers imports Swing or depends on the view layer. Facts retain source article, revision, section, variant, and source-unit identifiers. Pure numeric values are available separately from their original text.
 
-Requirements retain their source groups, explicit skill levels, boost qualifiers, quest/item links, quantities when explicit, and ALL/ANY expressions. Unknown conditions remain original prose. Ordered instructions retain numbering and nested steps. This model can support later account comparisons; account inspection is not implemented.
+Requirements retain their source groups, explicit skill levels, boost qualifiers, quest/item links, quantities when explicit, and ALL/ANY expressions. Unknown conditions remain original prose. Ordered instructions retain numbering and nested steps. Read-only local skill, quest-completion and quest-point comparisons now consume this model independently; inventory and equipment checks remain unimplemented.
 
 All meaningful normalized text, cells, links, images, nested tables, and unknown content receive a destination. Source-to-semantic and semantic-to-view coverage are tested separately from selected factual values. This validates the captured fixtures, not every possible Wiki template. Website controls are removed; unrecognized article content remains generic content rather than being summarized away.
 
@@ -105,10 +105,20 @@ Quest prose is no longer labeled walkthrough simply because it links to a quest 
 
 `knowledge/KnowledgeService` provides worker-only exact entity and title queries through the same WikiClient source caches. `KnowledgeArticle` filters the existing semantic document by its entity-ID/redirect variant without constructing an article view. The sidebar and minimap entity path use this service too. `Inspection` is a deliberately selected, source-preserving projection, not another parser.
 
-`integration/ContextMenuIntegration` reads local menu entity metadata on the client thread and adds callbacks after a menu opens. `inspect/QuickInspectController` owns independent temporary state with generation guards and cancellation; it calls the existing sidebar only on explicit exploration. `InspectionLayout` prepares bounded text pages on the worker. `QuickInspectOverlay` paints them and uses RuneLite overlay actions and a native related-article submenu. Palette and label/value conventions are shared with the reader. No hover HTTP requests, player snapshots or account-dependent Wiki caches are introduced.
+`integration/ContextMenuIntegration` reads local menu entity metadata on the client thread and adds callbacks after a menu opens. `inspect/QuickInspectController` owns independent temporary state with generation guards and cancellation; it calls the existing sidebar only on explicit exploration. `InspectionLayout` prepares bounded text pages on the worker. `QuickInspectOverlay` paints them and uses RuneLite overlay actions and a native related-article submenu. Palette and label/value conventions are shared with the reader. Quick Inspect introduces no hover HTTP requests or account-dependent Wiki caches. Local reader comparisons are described below.
 
 See [NATIVE_INTEGRATION.md](NATIVE_INTEGRATION.md) for implementation boundaries, policy decisions and the next milestone's testing gate.
 
 ## Selection pins
 
 The reader attaches semantic provenance to selectable text. `ui/ReaderSelection` and `ui/SelectionCapture` create a structured `pin/PinSelection` from actual highlighted ranges, including selections across native components. A separate `PinLayout` applies compact native-overlay rules. `PinnedReferences` manages bounded session pins independently of sidebar navigation; `PinnedOverlay` supplies RuneLite movement and source/paging/removal actions. Layout has a small independent worker, and pinning performs no Wiki requests. See [PINNING.md](PINNING.md).
+
+## Semantic presentation refinement
+
+`view/FieldPresentation`, `Probability` and `RequirementPresentation` provide derived display metadata over original source values. `ui/SemanticPalette` supplies shared semantic colors to the reader and existing compact layouts. Odds are classified only in explicitly labeled probability fields under documented rules; exact text, multi-roll rates and source qualifications remain intact. Requirement styling is prepared on the worker and preserves words, links and nesting. `ReaderComponents` keeps derived rarity captions separate from selectable Wiki text.
+
+The renderer accounts for already-visible source facts by URL, revision, unit, label and HTML, and avoids repeating consecutive parent breadcrumbs. Infobox normalization distinguishes full-width content from row values and preserves explicit section headers alongside images. Script-only GE chart placeholders no longer become facts with inherited labels. The captured Rake fixture covers that regression. See [semantic styling](SEMANTIC_STYLING.md).
+
+## Player-aware requirements
+
+`context/PlayerContextSnapshot`, `PlayerContextService` and `RequirementEvaluator` add immutable local game state and pure three-state evaluation. Sidebar activation requests only current-article quests, updates are event-coalesced, and account state is cleared on logout and lifecycle changes. `ui/RequirementBadge` annotates existing source rows without replacing their text or adding player state to pins. See [local player context](PLAYER_CONTEXT.md) for bounds, supported cases and manual acceptance.

@@ -18,8 +18,10 @@ public final class InspectionLayout {
         public final String text;
         public final boolean label;
         public final String value;
+        public final Color color;
         Line(String text, boolean label) { this(text, label, ""); }
-        Line(String text, boolean label, String value) { this.text = text; this.label = label; this.value = value; }
+        Line(String text, boolean label, String value) { this(text, label, value, com.wikipane.ui.SemanticPalette.TEXT); }
+        Line(String text, boolean label, String value, Color color) { this.text = text; this.label = label; this.value = value; this.color = color; }
     }
     public final List<List<Line>> pages;
     public final List<String> title;
@@ -36,6 +38,8 @@ public final class InspectionLayout {
         String context = "";
         for (Inspection.Row row : inspection.rows) {
             String label = row.label;
+            Color color = com.wikipane.ui.SemanticPalette.field(com.wikipane.view.FieldPresentation.of(
+                label, row.value, com.wikipane.semantic.SemanticDocument.Role.INFORMATION));
             if (!row.source.section.isEmpty() && !context.equals(row.source.sectionTitle)) {
                 context = row.source.sectionTitle;
                 add(lines, context, true);
@@ -47,10 +51,10 @@ public final class InspectionLayout {
             } else if ((row.condition == null || row.condition.children.isEmpty()) && !row.label.equals("About")
                 && LABEL.getStringBounds(label, FRC).getWidth()
                     + BODY.getStringBounds(row.value.text, FRC).getWidth() + 7 <= INNER) {
-                lines.add(new Line(label, false, row.value.text));
+                lines.add(new Line(label, false, row.value.text, color));
             } else {
                 add(lines, label, true);
-                add(lines, row.value.text, false);
+                for (String part : wrap(row.value.text, BODY, INNER)) lines.add(new Line(part, false, "", color));
             }
         }
         if (lines.isEmpty()) add(lines, "No verified compact facts are available. Open the full article.", false);

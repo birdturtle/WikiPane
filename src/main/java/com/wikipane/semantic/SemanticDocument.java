@@ -125,9 +125,10 @@ public final class SemanticDocument {
         }
     }
     public static final class Requirement {
-        public enum Kind { ALL, ANY, SKILL, QUEST, ITEM, QUEST_POINTS, OTHER }
+        public enum Kind { ALL, ANY, SKILL, QUEST, QUEST_STAGE, ITEM, QUEST_POINTS, OTHER }
         public enum Boost { ALLOWED, NOT_ALLOWED, UNSPECIFIED }
         public final Kind kind;
+        public final boolean verifiable;
         public final String name, url;
         public final Integer level, quantity;
         public final Boost boost;
@@ -135,6 +136,11 @@ public final class SemanticDocument {
         public final List<Requirement> children;
         public Requirement(Kind kind, String name, String url, Integer level, Integer quantity, Boost boost,
             RichText original, List<Requirement> children) {
+            this(kind, name, url, level, quantity, boost, original, children, true);
+        }
+        public Requirement(Kind kind, String name, String url, Integer level, Integer quantity, Boost boost,
+            RichText original, List<Requirement> children, boolean verifiable) {
+            this.verifiable = verifiable;
             this.kind = kind;
             this.name = name;
             this.url = url;
@@ -200,6 +206,7 @@ public final class SemanticDocument {
     public static final class Cell {
         public final RichText value;
         public final String key, label, illustrationTarget;
+        public final WikiDocument.Image illustration;
         public final boolean header;
         public final int column, colspan, rowspan;
         public final Source source;
@@ -212,6 +219,12 @@ public final class SemanticDocument {
         public Cell(RichText value, String key, String label, boolean header, int column, int colspan,
             int rowspan, Source source, List<Table> nested, List<RequirementGroup> requirements,
             String illustrationTarget) {
+            this(value,key,label,header,column,colspan,rowspan,source,nested,requirements,illustrationTarget,null);
+        }
+        public Cell(RichText value, String key, String label, boolean header, int column, int colspan,
+            int rowspan, Source source, List<Table> nested, List<RequirementGroup> requirements,
+            String illustrationTarget, WikiDocument.Image illustration) {
+            this.illustration = illustration;
             this.illustrationTarget = illustrationTarget;
             this.value = value;
             this.key = key;

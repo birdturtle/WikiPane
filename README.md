@@ -37,9 +37,7 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew run -PdevHome="$PWD/.dev/ho
 
 Type a title or search term. Suggestions appear after a short pause. Press Enter for broader results; click a result to open it. Down Arrow moves from the search field to the results; Up/Down and Enter navigate the result buttons.
 
-While reading, the article title and navigation stay above the content. Use **Overview** and the primary mode for that article: Walkthrough for quests, Combat for monsters, Stats for items, or Training for skills. Each mode remembers its reading position.
-
-**Sections** opens the article's contents, including requirements, chapters, drops, rewards, and references. Filter the list or select a heading to jump directly to it. Section jumps participate in Back and Forward history.
+While reading, the article title and navigation stay above the content. Open the **Overview** dropdown to choose a view or section, including walkthroughs, stats, training, drops, and requirements. Its label follows your selection. Filter the list or select a heading to jump to it. Reading positions are preserved, and section jumps work with Back and Forward.
 
 Use the magnifying glass to open search. Back returns to your previous results or article; Forward restores where you were reading. The arrow-out icon opens the current article in your browser. All four controls have tooltips.
 
@@ -53,7 +51,13 @@ The small translucent panel leaves your sidebar article in place. Hold Shift and
 
 Settings also offer ordinary right-click access and direct full-article lookups. Contextual lookup works alongside RuneLite's Wiki plugin; replacing its minimap button is separate.
 
-Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations. Player-aware requirements are planned next.
+Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations.
+
+## Check your requirements
+
+Supported requirements show a check, cross or question mark alongside your local skill levels, quest completion or quest points. The original Wiki text stays intact. Boosts count only when the requirement explicitly allows them; unsupported conditions remain unknown.
+
+Turn **Check your requirements** off in WikiPane settings if you prefer the plain reader. These comparisons stay on your computer. Inventory, equipment and bank contents are not checked.
 
 ## Pin a reference
 
@@ -76,7 +80,7 @@ The core Wiki plugin's DPS action is not reproduced. Leave replacement mode off 
 
 ## Privacy and attribution
 
-Search terms, requested article titles, and selected entity lookup details are sent over HTTPS to the [OSRS Wiki](https://oldschool.runescape.wiki/). Entity requests contain type, ID, name, and, for NPCs or objects, location. The Wiki sees your IP address. There is no telemetry, account tracking, credential handling, or external backend.
+Search terms, requested article titles, and selected entity lookup details are sent over HTTPS to the [OSRS Wiki](https://oldschool.runescape.wiki/). Entity requests contain type, ID, name, and, for NPCs or objects, location. The Wiki sees your IP address. Skill levels, quest states and quest points used for requirement checks stay local and are not sent to the Wiki. There is no telemetry, account tracking, credential handling, or external backend.
 
 Wiki text is attributed to its contributors under [CC BY-NC-SA 3.0](https://oldschool.runescape.wiki/w/RuneScape:Copyrights). Rendering changes the layout, not the source information. Images have their own applicable terms, including Jagex copyright. Each article links back to the original.
 

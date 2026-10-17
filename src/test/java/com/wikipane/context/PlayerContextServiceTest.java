@@ -66,4 +66,14 @@ public class PlayerContextServiceTest {
         when(s.client.getIntStack()).thenReturn(new int[]{2});for(int i=0;i<5;i++)s.tick();
         assertEquals(PlayerContextSnapshot.QuestState.COMPLETE,s.last().quests.get("cook's assistant"));
     }
+    @Test public void skillGuideCanWatchLevelsWithoutInventingQuestRequirements() {
+        Session s = new Session(); s.service.watchSkill("Cooking"); s.tick();
+        assertTrue(s.last().available); assertEquals(42, s.last().levels.get("cooking").base);
+        assertTrue(s.last().quests.isEmpty()); verify(s.client, never()).getIntStack();
+        s.service.watch(List.of()); s.tick(); assertTrue(s.last().available);
+        clearInvocations(s.client);
+        s.service.watchSkill(""); assertFalse(s.last().available);
+        s.service.statChanged(); s.tick(); verify(s.client, never()).getRealSkillLevel(Skill.COOKING);
+        s.service.watchSkill("Unknown skill"); s.tick(); assertFalse(s.last().available);
+    }
 }

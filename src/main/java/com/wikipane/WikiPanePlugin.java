@@ -53,6 +53,7 @@ public class WikiPanePlugin extends Plugin {
     private NavigationButton navigation;
     private WikiButtonIntegration integration;
     private ContextMenuIntegration contextMenus;
+    private com.wikipane.integration.SkillInterfaceIntegration skillMenus;
     private QuickInspectController inspections;
     private QuickInspectOverlay inspectOverlay;
     private PinnedReferences pinned;
@@ -124,6 +125,9 @@ public class WikiPanePlugin extends Plugin {
             panel.contextRequests(requirements -> clientThread.invokeLater(() -> {
                 if (active && version == lifecycle) currentPlayer.watch(requirements);
             }));
+            panel.skillRequests(skill -> clientThread.invokeLater(() -> {
+                if (active && version == lifecycle) currentPlayer.watchSkill(skill);
+            }));
             try { currentWorkers.submit(() -> {
                 java.util.Map<String, javax.swing.Icon> icons = new java.util.HashMap<>();
                 for (net.runelite.api.Skill skill : net.runelite.api.Skill.values()) if (skill != net.runelite.api.Skill.OVERALL) {
@@ -147,6 +151,9 @@ public class WikiPanePlugin extends Plugin {
                 openEntity(url, version);
             else inspections.inspect(url);
         });
+        skillMenus = new com.wikipane.integration.SkillInterfaceIntegration(client, items, config,
+            () -> active && version == lifecycle, url -> openReference(url.toString(), version),
+            url -> openEntity(url, version));
         WikiLookupRouter wikiRouter = new WikiLookupRouter(config, url -> openEntity(url, version),
             LinkBrowser::browse, () -> SwingUtilities.invokeLater(() -> {
                 if (active && version == lifecycle && panel != null) {
@@ -223,6 +230,7 @@ public class WikiPanePlugin extends Plugin {
         if (!active) return;
         for (PinnedOverlay overlay : pinOverlays.values()) if (overlay.hovered()) return;
         if (inspectOverlay != null && inspectOverlay.opened()) return;
+        if (skillMenus != null) skillMenus.opened(event);
         if (contextMenus != null) contextMenus.opened(event);
     }
     @Subscribe
@@ -238,6 +246,7 @@ public class WikiPanePlugin extends Plugin {
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
         if (active) {
+            if (skillMenus != null && skillMenus.clicked(event)) return;
             if (com.wikipane.integration.QuestInterfaceLookup.clicked(client, config, event,
                     url -> openReference(url.toString(), lifecycle))) return;
             integration.clicked(event);

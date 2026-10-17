@@ -17,7 +17,7 @@ public class TableUxTest {
         assertTrue(food.fields.stream().anyMatch(f -> f.label.equals("Level") && f.value.text.equals("21")));
         assertTrue(food.fields.stream().anyMatch(f -> f.label.equals("XP") && f.value.text.equals("100")));
         assertTrue(food.fields.stream().anyMatch(f -> f.label.equals("Healing") && f.value.text.equals("10")));
-        assertTrue(food.fields.stream().anyMatch(f -> f.label.equals("Members") && f.value.text.equals("Members")));
+        assertTrue(food.metadata.stream().anyMatch(f -> f.label.equals("Members") && f.value.text.equals("Members")));
         assertFalse(food.illustrations.isEmpty());
         assertNotNull(food.icon);
         assertTrue(com.wikipane.api.WikiUrls.image(com.wikipane.api.WikiUrls.resolve(food.icon.url)));
@@ -29,7 +29,7 @@ public class TableUxTest {
         List<ReaderLayout.Field> membership = new ArrayList<>();
         for (Node node : page.document.semantic.nodes) if (node.table != null)
             for (ReaderLayout.Record row : page.layout.records(node.table))
-                for (ReaderLayout.Field field : row.fields) if (field.label.equals("Members")) membership.add(field);
+                for (ReaderLayout.Field field : row.metadata) if (field.label.equals("Members")) membership.add(field);
         assertTrue(membership.stream().anyMatch(f -> f.value.text.equals("Members")));
         assertTrue(membership.stream().anyMatch(f -> f.value.text.equals("Free-to-play")));
         assertFalse(membership.stream().anyMatch(f -> f.value.text.matches("[01]")));

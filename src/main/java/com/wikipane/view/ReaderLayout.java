@@ -118,6 +118,8 @@ public final class ReaderLayout {
         public final boolean columnHeader;
         public final Field identity;
         public final List<Field> fields;
+        public final List<Field> metadata;
+        public final boolean keyedIdentity;
         public final List<Table> nested;
         public final List<Field> illustrations;
         public final boolean compact;
@@ -145,12 +147,23 @@ public final class ReaderLayout {
                 else
                     values.add(field);
             }
+            if (specialize && named == null)
+                for (Field field : values)
+                    if (Set.of("level", "tier", "rank", "stage", "wave").contains(field.label.toLowerCase(Locale.ROOT))
+                        && field.presentation.numeric) { named = field; break; }
+            if (named != null) values.remove(named);
             identity = named;
+            keyedIdentity = named != null && named.presentation.numeric;
+            List<Field> meta = new ArrayList<>();
+            if (specialize) for (Field field : values) if (field.presentation.membership) meta.add(field);
+            values.removeAll(meta);
+            metadata = List.copyOf(meta);
             List<Field> captions = new ArrayList<>();
             if (named != null)
                 for (TableRecords.Field field : source.fields) {
+                    Field recordName = named;
                     if (!field.source.unit.equals(named.source.unit) && !field.illustrationTarget.isBlank()
-                        && named.value.links.stream().anyMatch(
+                        && recordName.value.links.stream().anyMatch(
                             link -> link.url.equals(field.illustrationTarget))) {
                         values.removeIf(value -> value.source.unit.equals(field.source.unit));
                         captions.add(new Field(field.label, field.value, field.source));
@@ -284,6 +297,7 @@ public final class ReaderLayout {
     }
     static boolean recordContract(TableRecords.Record source, Record target) {
         List<Field> fields = new ArrayList<>(target.fields);
+        fields.addAll(target.metadata);
         fields.addAll(target.illustrations);
         if (target.identity != null)
             fields.add(target.identity);

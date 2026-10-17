@@ -28,6 +28,12 @@ public final class SemanticPresentationPreview {
             SwingUtilities.invokeAndWait(() -> {
                 com.formdev.flatlaf.FlatDarkLaf.setup();
                 ContentRenderer renderer = new ContentRenderer(url -> {}, workers, new ImageCache(wiki));
+                if (args.length > 4) {
+                    String skill = com.wikipane.context.SkillGuideProgress.skill(page.document.title);
+                    int level = Integer.parseInt(args[4]);
+                    renderer.playerContext(new com.wikipane.context.PlayerContextSnapshot(true,true,
+                        Map.of(skill,new com.wikipane.context.PlayerContextSnapshot.Level(level,level)),Map.of(),null));
+                }
                 JPanel body = renderer.renderArea(page, page.view.sourceArea(args[1]), Map.of(), args.length > 3 ? args[3] : "");
                 renderer.revealAll();
                 JScrollPane scroll = new JScrollPane(body); scroll.setBorder(BorderFactory.createEmptyBorder());

@@ -57,6 +57,14 @@ Settings also offer ordinary right-click access and direct full-article lookups.
 
 Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations.
 
+## Skill Wiki links
+
+With **Replace Wiki button → WikiPane sidebar** active, right-click a skill in the Skills tab and choose **Wiki** to read it in WikiPane. The existing entry is reused when present. **Skill Wiki links in WikiPane** enables this separately without replacing the minimap button.
+
+Supported Wiki actions inside the level-guide window also open in WikiPane when the interface supplies an explicit Wiki destination or item ID. Ordinary guide, experience, category and material-check actions keep their normal behavior.
+
+Skill level-up tables start at your base level when local player state is available. Earlier levels are subtly dimmed and remain readable and clickable. Back/Forward restores your reading position; explicit section links and manual scrolling take priority. This uses **Check your requirements** and sends no character levels to the Wiki.
+
 ## Check your requirements
 
 Supported requirements show a check, cross or question mark alongside your local skill levels, quest completion or quest points. The original Wiki text stays intact. Boosts count only when the requirement explicitly allows them; unsupported conditions remain unknown.

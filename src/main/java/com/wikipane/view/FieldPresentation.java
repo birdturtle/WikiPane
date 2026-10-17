@@ -9,8 +9,10 @@ public final class FieldPresentation {
     public final Tone tone;
     public final boolean numeric;
     public final Probability probability;
-    private FieldPresentation(Tone tone, boolean numeric, Probability probability) {
+    public final boolean membership;
+    private FieldPresentation(Tone tone, boolean numeric, Probability probability, boolean membership) {
         this.tone = tone; this.numeric = numeric; this.probability = probability;
+        this.membership = membership;
     }
     public static FieldPresentation of(String label, RichText value, Role role) {
         String key = label.toLowerCase(Locale.ROOT).strip();
@@ -22,7 +24,10 @@ public final class FieldPresentation {
             : Set.of("output", "outputs", "produces", "product", "products", "crop").contains(key) ? Tone.OUTPUT
             : Set.of("warning", "important", "note").contains(key) ? Tone.NOTE
             : role == Role.COMBAT && number ? Tone.COMBAT : number ? Tone.NUMBER : Tone.TEXT;
-        return new FieldPresentation(tone, number, odds);
+        boolean membership = Set.of("Members", "Free-to-play").contains(value.text)
+            && (key.equals("members") || value.links.stream().anyMatch(link ->
+                link.url.equals(com.wikipane.api.WikiUrls.article(value.text))));
+        return new FieldPresentation(tone, number, odds, membership);
     }
     public static String identity(String label, RichText value, Source source) {
         return source.url + "\0" + source.revision + "\0" + source.unit + "\0" + label + "\0" + value.html;

@@ -195,19 +195,17 @@ public final class ReaderComponents {
     private JComponent fieldValue(ReaderLayout.Field field) { return fieldValue(field, true); }
     private JComponent fieldValue(ReaderLayout.Field field, boolean alignNumbers) {
         com.wikipane.view.FieldPresentation display = field.presentation;
-        Color color = field.label.equalsIgnoreCase("Members")
-            && java.util.Set.of("Members", "Free-to-play").contains(field.value.text)
+        Color color = display.membership
             ? field.value.text.equals("Members") ? net.runelite.client.ui.ColorScheme.BRAND_ORANGE : SemanticPalette.MUTED
             : SemanticPalette.field(display);
         String valueHtml = field.value.html;
-        if (field.label.equalsIgnoreCase("Members")
-            && java.util.Set.of("Members", "Free-to-play").contains(field.value.text))
+        if (display.membership)
             valueHtml = valueHtml.replace("<a ", "<a style='color:" + SemanticPalette.hex(color) + "' ");
         String html = "<span style='color:" + SemanticPalette.hex(color) + "'>" + valueHtml + "</span>";
         if (!alignNumbers && (display.numeric || display.probability != null)) html = "<b>" + html + "</b>";
         if (alignNumbers && (display.numeric || display.probability != null && display.probability.form != com.wikipane.view.Probability.Form.UNPARSED))
             html = "<p style='text-align:right;margin:0'>" + html + "</p>";
-        JEditorPane text = boundText(html, fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE));
+        JEditorPane text = boundText("<div class='record-content'>" + html + "</div>", fieldContext(field, com.wikipane.pin.PinContext.Part.VALUE));
         text.putClientProperty("wiki.field.presentation", display);
         if (display.probability == null) return text;
         text.setToolTipText(display.probability.explanation);
@@ -264,11 +262,49 @@ public final class ReaderComponents {
     public JComponent record(ReaderLayout.Record record) { return record(record, null); }
     public JComponent record(ReaderLayout.Record record, JComponent icon) {
         com.wikipane.pin.PinContext previous = pinContext;
-        if (pinContext != null && record.identity != null) pinContext = pinContext.record(record.identity.value.text);
+        if (pinContext != null && record.identity != null) pinContext = pinContext.record(record.keyedIdentity
+            ? record.identity.label + " " + record.identity.value.text : record.identity.value.text);
         JPanel card = card("wiki.record");
         card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0,0,1,0,BORDER),
             BorderFactory.createEmptyBorder(4,7,4,7)));
-        if (record.identity != null) {
+        // A keyed row with one short detail is a line, rather than a heading over another card body.
+        if (record.keyedIdentity && record.metadata.isEmpty() && record.nested.isEmpty()
+            && record.fields.size() == 1 && record.fields.get(0).value.text.length() <= 64
+            && !record.fields.get(0).value.html.matches("(?is).*</?(ul|ol|li|p|br).*?")
+            && record.fields.get(0).label.equals(record.group)) {
+            JComponent key = compactMetric(record.identity, true);
+            JComponent detail = fieldValue(record.fields.get(0), false);
+            detail.putClientProperty("reader.column", Boolean.TRUE);
+            int keyWidth = Math.max(24 + key.getFontMetrics(new Font(Font.SANS_SERIF, Font.PLAIN, 12))
+                    .stringWidth(record.identity.label),
+                10 + key.getFontMetrics(new Font(Font.SANS_SERIF, Font.BOLD, 12))
+                    .stringWidth(record.identity.label + " " + record.identity.value.text));
+            JPanel summary = new JPanel(null) {
+                private int heightAt(int width) {
+                    key.setSize(keyWidth, Short.MAX_VALUE);
+                    detail.setSize(Math.max(1, width-keyWidth-8), Short.MAX_VALUE);
+                    return Math.max(key.getPreferredSize().height, detail.getPreferredSize().height);
+                }
+                @Override public Dimension getPreferredSize() {
+                    int width=getWidth()>0?getWidth():180; return new Dimension(width,heightAt(width));
+                }
+                @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE,getPreferredSize().height); }
+                @Override public Dimension getMinimumSize() { return new Dimension(0,getPreferredSize().height); }
+                @Override public void doLayout() {
+                    int height=heightAt(getWidth()); key.setBounds(0,0,keyWidth,height);
+                    detail.setBounds(keyWidth+8,0,Math.max(1,getWidth()-keyWidth-8),height);
+                }
+            };
+            summary.setOpaque(false); summary.setAlignmentX(Component.LEFT_ALIGNMENT);
+            summary.setName("wiki.record.summary"); summary.add(key); summary.add(detail); card.add(summary);
+            pinContext=previous; return card;
+        }
+        if (record.keyedIdentity) {
+            JPanel heading = column(); heading.setLayout(new CompactRecordLayout(false));
+            heading.setName("wiki.record.key"); heading.add(compactMetric(record.identity, true));
+            for (ReaderLayout.Field field : record.metadata) heading.add(fieldValue(field, false));
+            card.add(heading);
+        } else if (record.identity != null) {
             JEditorPane name = boundText("<b>" + record.identity.value.html + "</b>",
                 fieldContext(record.identity, com.wikipane.pin.PinContext.Part.VALUE));
             if (!record.illustrations.isEmpty())
@@ -301,6 +337,11 @@ public final class ReaderComponents {
             } else card.add(name);
             card.add(gap(3));
         }
+        if (!record.keyedIdentity && !record.compact && !record.metadata.isEmpty()) {
+            JPanel metadata = column(); metadata.setName("wiki.record.metadata");
+            for (ReaderLayout.Field field : record.metadata) metadata.add(fieldValue(field, false));
+            card.add(metadata);
+        }
         if (record.compact) {
             JPanel metrics = column();
             metrics.setName("wiki.record.metrics");
@@ -309,25 +350,35 @@ public final class ReaderComponents {
             for (ReaderLayout.Field field : record.fields) {
                 metrics.add(compactMetric(field));
             }
+            if (!record.keyedIdentity)
+                for (ReaderLayout.Field field : record.metadata) metrics.add(compactMetric(field));
             card.add(metrics);
-        } else for (ReaderLayout.Field field : record.fields) card.add(field(field));
+        } else for (ReaderLayout.Field field : record.fields) {
+            if (record.keyedIdentity && record.fields.size() == 1 && field.label.equals(record.group))
+                card.add(fieldValue(field, false));
+            else card.add(field(field));
+        }
         pinContext = previous;
         return card;
     }
     private JComponent compactMetric(ReaderLayout.Field field) {
+        return compactMetric(field, false);
+    }
+    private JComponent compactMetric(ReaderLayout.Field field, boolean heading) {
         JComponent value = fieldValue(field, false);
-        if (field.label.equalsIgnoreCase("Members")
-            && java.util.Set.of("Members", "Free-to-play").contains(field.value.text)) {
+        if (field.presentation.membership) {
             JPanel membership = column(); membership.add(value); return membership;
         }
-        JEditorPane label = boundText("<span class='muted tiny'>" + escape(field.label) + "</span>",
+        JEditorPane label = boundText(heading ? "<b>" + escape(field.label) + "</b>"
+            : "<span class='muted tiny'>" + escape(field.label) + "</span>",
             fieldContext(field, com.wikipane.pin.PinContext.Part.LABEL));
         int labelWidth = label.getFontMetrics(new Font(Font.SANS_SERIF, Font.PLAIN, 12)).stringWidth(field.label) + 12;
+        int minimumValueWidth = heading ? 12 : 30;
         label.putClientProperty("reader.column", Boolean.TRUE);
         value.putClientProperty("reader.column", Boolean.TRUE);
         JPanel row = new JPanel(null) {
             private int heightAt(int width) {
-                boolean paired = width >= labelWidth + 30;
+                boolean paired = width >= labelWidth + minimumValueWidth;
                 label.setSize(paired ? labelWidth : width, Short.MAX_VALUE);
                 value.setSize(paired ? width-labelWidth : width, Short.MAX_VALUE);
                 return paired ? Math.max(label.getPreferredSize().height, value.getPreferredSize().height)
@@ -341,7 +392,7 @@ public final class ReaderComponents {
             @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
             @Override public void doLayout() {
                 int width=getWidth(), height=heightAt(width);
-                if(width >= labelWidth+30) {
+                if(width >= labelWidth+minimumValueWidth) {
                     label.setBounds(0,0,labelWidth,height); value.setBounds(labelWidth,0,width-labelWidth,height);
                 } else {
                     int top=label.getPreferredSize().height;
@@ -412,6 +463,7 @@ public final class ReaderComponents {
             + ".article-title { font-size: 16px; font-weight: bold; } "
             + ".source { font-size: 10px; margin-top: 12px; }");
         kit.getStyleSheet().addRule(SemanticPalette.css());
+        kit.getStyleSheet().addRule(".record-content li { margin-bottom: 2px; } .record-content ul, .record-content ol { margin-top: 2px; margin-bottom: 2px; }");
         kit.getStyleSheet().addRule("ul ul, ol ul, ul ol, ol ol { margin-left: 10px; } blockquote { margin-left: 8px; margin-right: 0; }");
         pane.putClientProperty(JEditorPane.W3C_LENGTH_UNITS, Boolean.TRUE);
         pane.setEditorKit(kit);

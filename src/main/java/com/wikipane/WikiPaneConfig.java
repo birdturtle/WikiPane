@@ -8,7 +8,7 @@ public interface WikiPaneConfig extends Config {
     @ConfigItem(keyName = "replacement", name = "Replace Wiki button",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by "
             + "RuneLite developers",
-        description = "Disable RuneLite's core Wiki plugin first. Sidebar destination also routes quest-list Wiki guides. WikiPane does not provide the DPS tool.",
+        description = "Disable RuneLite's core Wiki plugin first. Sidebar destination also routes quest and skill Wiki links. WikiPane does not provide the DPS tool.",
         position = 0)
     default boolean
     replacement() {
@@ -43,6 +43,10 @@ public interface WikiPaneConfig extends Config {
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         description = "Also route quest-list guides into the sidebar without replacing the Wiki button. Replacement with Sidebar destination already includes this.")
     default boolean questLookups() { return false; }
+    @ConfigItem(keyName = "skillLookups", name = "Skill Wiki links in WikiPane", position = 8,
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
+        description = "Route supported skill Wiki actions into the sidebar. Replacement with Sidebar destination already includes this.")
+    default boolean skillLookups() { return false; }
     enum ContextAccess {
         SHIFT_RIGHT_CLICK("Shift-right-click"), RIGHT_CLICK("Right-click");
         private final String label;

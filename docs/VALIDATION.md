@@ -91,3 +91,21 @@ The player reviewed the recipe checkpoint in the development client and confirme
 ## Quest guide routing checkpoint
 
 Java 11 `test build` passes 178 tests with zero failures. Existing quest-list full-guide and quick-guide actions route through the sidebar navigation pipeline. Regression coverage includes game-label punctuation, exact row/catalog resolution, event consumption, preserved journal/map actions, opt-out and logout guards, and all combinations of replacement, guide opt-in and destination settings. Live diagnostics identified the original independent-setting gate failure; replacement with Sidebar destination now enables quest routing. The player confirmed the corrected build works in-game on 2026-10-17. Detailed lifecycle and plugin-coexistence checks remain documented in QUEST_INTERFACES.md.
+
+## Skill Wiki routing checkpoint
+
+Java 11 `test build` passes 187 tests, zero failures/errors/skips. New mocked-client checks simulate the installed dispatch ordering (attached callbacks run even when an event is consumed), verify reuse of existing core Wiki callbacks without browser launches or duplicate entries, single fallback entry when core Wiki is absent, settings matrix, lifecycle and logout/target-selection guards, unchanged ordinary guide operations, canonical item lookups in both guide interfaces, exact source training URLs and rejection of ambiguous/untrusted destinations. The reader pipeline is unchanged. Live skills-tab and level-guide behavior still require player verification; see SKILL_INTERFACES.md.
+
+## Shared table-record hierarchy checkpoint
+
+Java 11 `test build semanticReport presentationPreview` passes: 191 tests, zero failures/errors/skips, thirteen source fixtures with valid composition and no warnings. Three live-captured level-up-table fixtures validate general row-key/column-label preservation; synthetic named-row and tier tables cover the same rules independently of skills. Every source field remains assigned across identity, metadata, illustration and body roles. UI tests check complete text and horizontal bounds at 185/225px, readable labeled keys, one occurrence of key values and bounded short-detail rows. Existing Cooking/loot/recipe/quest tests pass.
+
+Isolated Swing previews were inspected for Sailing and Farming level tables and compact Cooking records. Labeled levels, gold membership and lists now have distinct roles; short one-detail rows retain their complete wording in a compact line. No title-specific layout selection or content filtering is used. No live game input or capture was performed. Player verification is still needed for native rendering, navigation and pinning after the shared change.
+
+## Local skill-guide progression checkpoint
+
+Java 11 `test build presentationPreview` passes 195 tests, zero failures/errors/skips. Added tests cover skill-only context watching without quest requirements, stop/no-further-read behavior, known article identity, base-versus-boosted levels, missing rows, disabled/unavailable context, lazy materialization through level 80, dimming updates without replacing rows or disabling links, logout styling reset, initial viewport positioning, and Back preserving a manually chosen position after a subsequent skill update. An intermittent UI test wait used an HTML-specific label predicate; the wait now observes the existing loaded-article status label instead. No production behavior was changed to satisfy that wait.
+
+An isolated Farming preview with synthetic base level 5 was inspected: earlier rows are subtly dimmed while the current/later levels remain at full contrast. Source text is unchanged. Native RuneLite positioning, late-snapshot/manual-scroll interaction, links and pin UX still need player verification. See SKILL_INTERFACES.md.
+
+Player checkpoint accepted on 2026-10-17: skill Wiki entry routing, shared table presentation and local skill progression were reviewed in the development client. The player specifically confirmed the follow-up that dims every members/free-to-play row sharing a reached level. Final Java 11 `test build` passes 196 tests, zero failures/errors/skips. This is user acceptance of the demonstrated flows, not certification of every interface or lifecycle scenario.

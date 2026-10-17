@@ -32,6 +32,25 @@ public final class ContentRenderer {
     private JPanel flow;
     private Map<String, String> anchorAliases = Map.of();
     private JPanel rendered;
+    private String progressionSkill = "";
+    private Consumer<String> skillRequests = skill -> {};
+    private final Map<Integer, java.util.List<JComponent>> levelRows = new TreeMap<>();
+    private final java.util.List<Consumer<Integer>> levelRevealers = new ArrayList<>();
+    public void skillRequests(Consumer<String> requests) { skillRequests = requests; }
+    public JComponent currentLevelTarget() {
+        Integer base = com.wikipane.context.SkillGuideProgress.base(progressionSkill, player);
+        if (base == null) return null;
+        for (Consumer<Integer> reveal : java.util.List.copyOf(levelRevealers)) reveal.accept(base);
+        Integer target = com.wikipane.context.SkillGuideProgress.target(levelRows.keySet(), base);
+        return target == null ? null : levelRows.get(target).get(0);
+    }
+    private void updateLevelRows() {
+        Integer base = com.wikipane.context.SkillGuideProgress.base(progressionSkill, player);
+        levelRows.forEach((level, rows) -> rows.forEach(row -> {
+            row.putClientProperty("wiki.reachedLevel", base != null && level < base);
+            row.repaint();
+        }));
+    }
     private com.wikipane.view.CompositionAudit audit;
     private int auditedWidth = -1, auditedState, auditedBand = -1;
     private boolean auditScheduled;
@@ -57,7 +76,7 @@ public final class ContentRenderer {
         this.images = images;
     }
     public void contextRequests(Consumer<java.util.List<Requirement>> requests) { contextRequests = requests; }
-    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { player = snapshot; evaluateRequirements(); }
+    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { player = snapshot; evaluateRequirements(); updateLevelRows(); }
     public void skillIcons(java.util.Map<String, javax.swing.Icon> icons) { skillIcons = java.util.Map.copyOf(icons); evaluateRequirements(); }
     private void cancelEvaluation() {
         if (evaluation != null) {
@@ -97,7 +116,9 @@ public final class ContentRenderer {
     private void clear(boolean notify) {
         generation++;
         cancelEvaluation(); badges.clear();
+        levelRows.clear(); levelRevealers.clear(); progressionSkill = "";
         if (notify) contextRequests.accept(java.util.List.of());
+        if (notify) skillRequests.accept("");
         if (selection != null) selection.clear();
         components.pinContext(null);
         components.pinDocument(null); pinDocument = null;
@@ -151,6 +172,7 @@ public final class ContentRenderer {
         audit = page.view.audit;
         components.audit(audit);
         pinDocument = article.semantic;
+        progressionSkill = com.wikipane.context.SkillGuideProgress.skill(article.title);
         components.pinDocument(pinDocument);
         java.util.List<Requirement> requested = new ArrayList<>();
         for (Node node : pinDocument.nodes) for (RequirementSet set : node.requirements)
@@ -158,6 +180,7 @@ public final class ContentRenderer {
         for(com.wikipane.semantic.Recipe recipe:pinDocument.recipes)
             for(com.wikipane.semantic.Recipe.Skill skill:recipe.skills) requested.add(skill.requirement);
         contextRequests.accept(java.util.List.copyOf(requested));
+        skillRequests.accept(progressionSkill);
         areaId = area.id;
         anchorAliases = page.navigation.anchors(area.id);
         tableState = new HashMap<>(saved);
@@ -523,12 +546,28 @@ public final class ContentRenderer {
                     && !record.group.equals(table.source.article)) {
                     // A column-header-only row does not need to repeat the labels printed on every record.
                     if (!record.columnHeader
-                        || rows.stream().noneMatch(r -> r.identity != null || !r.fields.isEmpty()))
+                        || rows.stream().noneMatch(r -> r.identity != null || !r.fields.isEmpty() || !r.metadata.isEmpty()))
                         records.add(components.heading(record.group, "", null));
                 }
                 previous[0] = record.group;
-                if (record.identity != null || !record.fields.isEmpty()) {
-                    records.add(components.record(record, record.icon == null ? null : image(record.icon, false, true)));
+                if (record.identity != null || !record.fields.isEmpty() || !record.metadata.isEmpty()) {
+                    JComponent card = components.record(record, record.icon == null ? null : image(record.icon, false, true));
+                    Integer level = progressionSkill.isEmpty() ? null : com.wikipane.context.SkillGuideProgress.level(record);
+                    if (level != null) {
+                        JPanel contextRow = new JPanel(new BorderLayout()) {
+                            @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+                            @Override public void paint(Graphics graphics) {
+                                Graphics2D copy = (Graphics2D) graphics.create();
+                                if (Boolean.TRUE.equals(getClientProperty("wiki.reachedLevel")))
+                                    copy.setComposite(AlphaComposite.SrcOver.derive(.72f));
+                                super.paint(copy); copy.dispose();
+                            }
+                        };
+                        contextRow.setOpaque(false); contextRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        contextRow.putClientProperty("wiki.skillLevel", level);
+                        contextRow.add(card); levelRows.computeIfAbsent(level, ignored -> new ArrayList<>()).add(contextRow); card = contextRow;
+                    }
+                    records.add(card);
                     records.add(components.gap(3));
                 }
                 for (int n = 0; n < record.nested.size(); n++)
@@ -544,12 +583,26 @@ public final class ContentRenderer {
             if (selection != null && rendered != null) selection.refresh(rendered);
             group.revalidate();
             group.repaint();
+            updateLevelRows();
             scheduleAudit();
         };
         int wanted = Math.max(20, tableState.getOrDefault(key, 20));
         do {
             next.run();
         } while (shown[0] < Math.min(wanted, rows.size()));
+        if (!progressionSkill.isEmpty()) {
+            long version = generation;
+            levelRevealers.add(base -> {
+                if (version != generation) return;
+                java.util.Map<Integer, Integer> positions = new TreeMap<>();
+                for (int i = 0; i < rows.size(); i++) {
+                    Integer level = com.wikipane.context.SkillGuideProgress.level(rows.get(i));
+                    if (level != null) positions.putIfAbsent(level, i);
+                }
+                Integer target = com.wikipane.context.SkillGuideProgress.target(positions.keySet(), base);
+                if (target != null) while (shown[0] <= positions.get(target)) next.run();
+            });
+        }
         more.addActionListener(e -> next.run());
         return group;
     }

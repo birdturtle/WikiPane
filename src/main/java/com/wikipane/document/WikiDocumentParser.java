@@ -315,6 +315,9 @@ public final class WikiDocumentParser {
             String rowLabel = "";
             boolean rowHeader = tr.children().stream().filter(c -> c.tagName().equals("th")).count() == 1
                 && tr.children().stream().anyMatch(c -> c.tagName().equals("td"));
+            // In a data grid, a row key (e.g. Level 1) is not the label for every following cell.
+            boolean keyedRow = rowHeader && labels.containsKey(0) && !table.hasClass("infobox")
+                && !table.hasClass("questdetails") && table.attr("data-wikipane-recipe").isEmpty();
             for (Element td : tr.children()) {
                 if (!td.normalName().equals("td") && !td.normalName().equals("th"))
                     continue;
@@ -345,7 +348,7 @@ public final class WikiDocumentParser {
                 }
                 unique.forEach(join::add);
                 // Infobox headers label their own row, not subsequent full-width controls or notes.
-                String label = !header && !rowLabel.isEmpty() ? rowLabel
+                String label = !header && !rowLabel.isEmpty() && !keyedRow ? rowLabel
                     : (table.hasClass("infobox") || table.hasClass("questdetails")) && cs > 1
                         && tr.children().stream().filter(child -> child.normalName().matches("td|th")).count() == 1
                     ? "" : join.toString();
@@ -361,7 +364,7 @@ public final class WikiDocumentParser {
                         ? safeLink(own.selectFirst("a[href]").absUrl("href"))
                         : "", header && td.hasClass("infobox-subheader"),
                     cellImages.isEmpty() ? null : (Image) cellImages.get(0)));
-                if (header && !text.isBlank() && (table.attr("data-wikipane-recipe").isEmpty()
+                if (header && !keyedRow && !text.isBlank() && (table.attr("data-wikipane-recipe").isEmpty()
                     || tr.children().stream().filter(child -> child.normalName().matches("td|th")).allMatch(child -> child.normalName().equals("th"))))
                     for (int c = column; c < column + cs; c++) labels.put(c, text);
                 for (int c = column; c < column + cs; c++) occupied.put(c, rs);

@@ -60,3 +60,9 @@ The offline reader preview includes the Wiki's Vorkath and Bronze dagger PNGs. T
 Recipe fixture captured 2026-10-17: Prayer potion, revision 15374387, https://oldschool.runescape.wiki/w/Prayer_potion . Used to validate explicit recipe inputs, outputs, skill levels, quantities and source notes under the Wiki attribution above.
 
 Alternative-method fixture captured 2026-10-17: Bronze bar, revision 15315107, https://oldschool.runescape.wiki/w/Bronze_bar . Standard smelting, Blast Furnace and Superheat methods retain their separate source conditions.
+
+Shared table-layout regression fixture captured 2026-10-17: Sailing/Level up table, revision 15369359, https://oldschool.runescape.wiki/w/Sailing/Level_up_table . Used under the Wiki attribution above.
+
+Shared table-layout regression fixture captured 2026-10-17: Farming/Level up table, revision 15369346, https://oldschool.runescape.wiki/w/Farming/Level_up_table . Used under the Wiki attribution above.
+
+Shared table-layout regression fixture captured 2026-10-17: Herblore/Level up table, revision 15369351, https://oldschool.runescape.wiki/w/Herblore/Level_up_table . Used under the Wiki attribution above.

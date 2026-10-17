@@ -23,9 +23,32 @@ public final class WikiDocumentParser {
         root.select(".GEChartBox .GEdatachart,.GEChartBox .GEdataprices,.GEChartBox .GEChartItems").remove();
         Map<String, String> entityAnchors = variantIds(root);
         materializeVariants(root);
+        int recipeIndex=0;
+        for (Element recipe : root.select(".recipe-table")) {
+            String group="recipe-"+(recipeIndex++), variant="";
+            Element item=recipe.closest(".item[data-id]"), switches=recipe.closest(".switch-infobox");
+            Element method=recipe.closest(".tabbertab[data-title]");
+            if(item!=null && switches!=null)
+                for(Element trigger:switches.select(".switch-infobox-triggers [data-id]"))
+                    if(trigger.attr("data-id").equals(item.attr("data-id"))) variant=trigger.text();
+            for(Element table:recipe.select("table")) if(table.closest(".recipe-table")==recipe && table.parent().closest("table")==null) {
+                table.attr("data-wikipane-recipe",group).attr("data-wikipane-recipe-variant",variant)
+                    .attr("data-wikipane-recipe-method",method==null?"":method.attr("data-title"));
+                for(Element boost:table.select("sup[title]"))
+                    if(boost.text().equals("(b)") && boost.attr("title").equals("This requirement is boostable"))
+                        boost.text("(boostable)");
+            }
+        }
+        for(Element switches:root.select(".switch-infobox")) {
+            List<Element> recipes=switches.select(".recipe-table");
+            if(!recipes.isEmpty()&&recipes.stream().allMatch(recipe -> recipe.selectFirst("table")!=null
+                && !recipe.selectFirst("table").attr("data-wikipane-recipe-variant").isEmpty()))
+                switches.select(".loading-button,.switch-infobox-triggers").remove();
+        }
         for (Element map : root.select(".mw-kartographer-maplink")) {
             String x = map.attr("data-lon"), y = map.attr("data-lat"), plane = map.attr("data-plane");
-            map.replaceWith(new Element("span").text(x.isEmpty() || y.isEmpty() ? map.text()
+            map.replaceWith(new Element("span").attr("data-wikipane-map", "true")
+                .attr("data-x",x).attr("data-y",y).attr("data-plane",plane).attr("data-mapid",map.attr("data-mapid")).text(x.isEmpty() || y.isEmpty() ? map.text()
                                                                                 : "Map coordinates: " + x
                         + ", " + y + (plane.isEmpty() ? "" : " (plane " + plane + ")")));
         }
@@ -293,6 +316,9 @@ public final class WikiDocumentParser {
             String rowLabel = "";
             boolean rowHeader = tr.children().stream().filter(c -> c.tagName().equals("th")).count() == 1
                 && tr.children().stream().anyMatch(c -> c.tagName().equals("td"));
+            // In a data grid, a row key (e.g. Level 1) is not the label for every following cell.
+            boolean keyedRow = rowHeader && labels.containsKey(0) && !table.hasClass("infobox")
+                && !table.hasClass("questdetails") && table.attr("data-wikipane-recipe").isEmpty();
             for (Element td : tr.children()) {
                 if (!td.normalName().equals("td") && !td.normalName().equals("th"))
                     continue;
@@ -323,11 +349,11 @@ public final class WikiDocumentParser {
                 }
                 unique.forEach(join::add);
                 // Infobox headers label their own row, not subsequent full-width controls or notes.
-                String label = !header && !rowLabel.isEmpty() ? rowLabel
+                String label = !header && !rowLabel.isEmpty() && !keyedRow ? rowLabel
                     : (table.hasClass("infobox") || table.hasClass("questdetails")) && cs > 1
                         && tr.children().stream().filter(child -> child.normalName().matches("td|th")).count() == 1
                     ? "" : join.toString();
-                if (header && rowHeader && !text.isBlank())
+                if (header && (rowHeader || !table.attr("data-wikipane-recipe").isEmpty()) && !text.isBlank())
                     rowLabel = text;
                 List<Block> cellImages = new ArrayList<>();
                 if (own.text().isBlank() && own.selectFirst("img") != null)
@@ -339,7 +365,8 @@ public final class WikiDocumentParser {
                         ? safeLink(own.selectFirst("a[href]").absUrl("href"))
                         : "", header && td.hasClass("infobox-subheader"),
                     cellImages.isEmpty() ? null : (Image) cellImages.get(0)));
-                if (header && !text.isBlank())
+                if (header && !keyedRow && !text.isBlank() && (table.attr("data-wikipane-recipe").isEmpty()
+                    || tr.children().stream().filter(child -> child.normalName().matches("td|th")).allMatch(child -> child.normalName().equals("th"))))
                     for (int c = column; c < column + cs; c++) labels.put(c, text);
                 for (int c = column; c < column + cs; c++) occupied.put(c, rs);
                 if (rs > 1)
@@ -363,7 +390,8 @@ public final class WikiDocumentParser {
             for (Block image : images) pictures.add((Image) image);
         }
         return new Table(
-            name, table.id(), rows, kind, table.attr("data-wikipane-variant"), pictures, table.classNames());
+            name, table.id(), rows, kind, table.attr("data-wikipane-variant"), pictures, table.classNames(),
+            table.attr("data-wikipane-recipe"),table.attr("data-wikipane-recipe-variant"),table.attr("data-wikipane-recipe-method"));
     }
     public static String escape(String text) {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
@@ -393,6 +421,13 @@ public final class WikiDocumentParser {
         String tag = e.normalName();
         if (Arrays.asList("script", "style", "iframe", "input", "form", "button").contains(tag))
             return "";
+        if (e.hasAttr("data-wikipane-map")) {
+            StringBuilder body = new StringBuilder();
+            for (Node child : e.childNodes()) body.append(inline(child));
+            return "<span data-wikipane-map=\"true\" data-x=\""+escape(e.attr("data-x"))
+                +"\" data-y=\""+escape(e.attr("data-y"))+"\" data-plane=\""+escape(e.attr("data-plane"))
+                +"\" data-mapid=\""+escape(e.attr("data-mapid"))+"\">"+body+"</span>";
+        }
         if (tag.equals("img"))
             return escape(imageText(e));
         if ((tag.equals("ol") && e.attr("start").matches("[0-9]+"))

@@ -12,7 +12,7 @@ public class ReaderLayoutTest {
     @Test
     public void everyTableValueHasAPresentationRoleIncludingImageDescriptions() throws Exception {
         for (String fixture : List.of("Bronze_dagger", "Vorkath", "Recipe_for_Disaster", "Cooking",
-                 "Vorkath__Strategies", "Recipe_for_Disaster__Full_guide")) {
+                 "Vorkath__Strategies", "Recipe_for_Disaster__Full_guide", "Sailing__Level_up_table", "Farming__Level_up_table", "Herblore__Level_up_table")) {
             WikiPage page = new WikiPage(DocumentTest.document(fixture));
             for (Node node : page.document.semantic.nodes)
                 if (node.table != null)
@@ -29,6 +29,7 @@ public class ReaderLayoutTest {
             assertEquals(source.heading, target.group);
             List<ReaderLayout.Field> fields = new ArrayList<>(target.fields);
             fields.addAll(target.illustrations);
+            fields.addAll(target.metadata);
             if (target.identity != null)
                 fields.add(target.identity);
             assertEquals(source.fields.size(), fields.size());

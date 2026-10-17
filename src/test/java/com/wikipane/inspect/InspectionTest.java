@@ -34,7 +34,7 @@ public class InspectionTest {
         final List<Runnable> dispatch = new ArrayList<>();
         final List<String> opened = new ArrayList<>();
         final AtomicInteger calls = new AtomicInteger();
-        boolean fail;
+        boolean fail, multipleRecipes;
         final WikiClient wiki = new WikiClient(new OkHttpClient.Builder().addInterceptor(chain -> {
             calls.incrementAndGet();
             if (fail) throw new IOException("Offline");
@@ -43,12 +43,21 @@ public class InspectionTest {
             Response.Builder response = new Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
                 .code(200).message("fixture");
             if (url.encodedPath().equals("/w/Special:Lookup")) {
-                String title = "5295".equals(url.queryParameter("id")) ? "Ranarr_seed" : "Bronze_dagger";
+                String title = multipleRecipes ? "Prayer_potion" : "5295".equals(url.queryParameter("id")) ? "Ranarr_seed" : "Bronze_dagger";
                 response.code(302).header("Location", "/w/" + title);
                 body = "";
             } else if (url.encodedPath().startsWith("/w/")) body = "resolved";
             else if (url.encodedPath().startsWith("/images/")) throw new IOException("No image fixture");
-            else body = DocumentTest.fixture(url.queryParameter("page").replace(' ', '_')).toString();
+            else {
+                com.google.gson.JsonObject fixture=DocumentTest.fixture(url.queryParameter("page").replace(' ', '_'));
+                if(multipleRecipes) {
+                    org.jsoup.nodes.Element root=org.jsoup.Jsoup.parseBodyFragment(fixture.getAsJsonObject("parse").get("text").getAsString()).body();
+                    org.jsoup.nodes.Element original=root.selectFirst(".recipe-table"),copy=original.clone();
+                    copy.select("table").get(1).select("tr").get(1).select("td").get(2).text("2");
+                    original.after(copy);fixture.getAsJsonObject("parse").addProperty("text",root.html());
+                }
+                body=fixture.toString();
+            }
             return response.body(ResponseBody.create(MediaType.get("application/json"), body)).build();
         }).build(), new Gson());
         final QuickInspectController controller = new QuickInspectController(new KnowledgeService(wiki),
@@ -56,6 +65,18 @@ public class InspectionTest {
         void inspect(int id) { controller.inspect(GameEntityLookup.url("item", id, "test item", null)); }
         void flush() { List<Runnable> old = List.copyOf(dispatch); dispatch.clear(); old.forEach(Runnable::run); }
         public void close() { controller.stop(); wiki.close(); workers.shutdownNow(); }
+    }
+    @Test public void recipeSwitchingUsesCachedSemanticDataAndCannotSurviveDismissal() {
+        try(Harness h=new Harness()) {
+            h.multipleRecipes=true;h.inspect(5295);h.workers.next();h.flush();
+            assertEquals(2,h.controller.view().inspection.article.recipes.size());
+            int calls=h.calls.get();
+            h.controller.recipe(1);h.workers.next();h.flush();
+            assertEquals(1,h.controller.view().inspection.recipeIndex);
+            assertTrue(h.controller.view().inspection.rows.stream().anyMatch(r->r.label.equals("Ingredient")&&r.value.text.startsWith("2 × Ranarr")));
+            assertEquals(calls,h.calls.get());assertTrue(h.opened.isEmpty());
+            h.controller.recipe(0);h.workers.next();h.controller.dismiss();h.flush();assertNull(h.controller.view());
+        }
     }
     @Test public void staleCompletionCannotReplaceANewerEntity() {
         try (Harness h = new Harness()) {
@@ -112,7 +133,7 @@ public class InspectionTest {
         }
     }
     @Test public void overlayContentIsWrappedPaginatedAndBounded() throws Exception {
-        for (String fixture : new String[]{"Ranarr_seed", "Vorkath", "Recipe_for_Disaster", "Bronze_dagger"}) {
+        for (String fixture : new String[]{"Ranarr_seed", "Vorkath", "Recipe_for_Disaster", "Bronze_dagger", "Prayer_potion", "Bronze_bar"}) {
             Inspection inspection = Inspection.project(new KnowledgeArticle(DocumentTest.document(fixture), "", ""));
             InspectionLayout layout = new InspectionLayout(inspection);
             assertFalse(layout.pages.isEmpty());

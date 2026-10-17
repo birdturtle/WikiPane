@@ -74,7 +74,9 @@ public final class TableRecords {
             for (Cell cell : all) {
                 units.add(cell.source.unit);
                 nested.addAll(cell.nested);
-                if (cell.header || cell.value.text.isBlank())
+                boolean rowKey = cell.header && !cell.label.isBlank() && table.recipeGroup.isEmpty()
+                    && !table.classes.contains("infobox") && !table.classes.contains("questdetails");
+                if (cell.header && !rowKey || cell.value.text.isBlank())
                     continue;
                 String label = cell.label.isBlank() ? "" : cell.label;
                 fields.add(new Field(label, cell.value, cell.source, cell.illustrationTarget, cell.illustration));

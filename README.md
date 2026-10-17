@@ -41,6 +41,8 @@ While reading, the article title and navigation stay above the content. Open the
 
 Use the magnifying glass to open search. Back returns to your previous results or article; Forward restores where you were reading. The arrow-out icon opens the current article in your browser. All four controls have tooltips.
 
+Recognized recipes show ingredients, quantities, output, skill level, and XP. **Costs & source details** keeps the complete recipe tables available.
+
 Short facts use aligned rows; table entries have their own labeled records. **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Separate strategy and full-guide links open inside the reader. Citation markers open reference cards with a return link to the cited passage. Right-click a section heading to open its Wiki source.
 
 ## Quick Inspect
@@ -51,7 +53,23 @@ The small translucent panel leaves your sidebar article in place. Hold Shift and
 
 Settings also offer ordinary right-click access and direct full-article lookups. Contextual lookup works alongside RuneLite's Wiki plugin; replacing its minimap button is separate.
 
+**Replace Wiki button** with **WikiPane sidebar** as its destination also opens the quest list’s existing **Open wiki guide** and **Open wiki quick guide** actions inside WikiPane. Enable **Quest guides in WikiPane** if you want this without replacing the minimap button. Full and quick guides open their respective pages with ordinary Back navigation; Quick Inspect and Shift settings do not affect them.
+
 Compact facts come from the same Wiki data as the reader. Unresolved variants are labeled and their specific stats are hidden. Monster inspections show static statistics, without combat preparation or prayer recommendations.
+
+## Skill Wiki links
+
+With **Replace Wiki button → WikiPane sidebar** active, right-click a skill in the Skills tab and choose **Wiki** to read it in WikiPane. The existing entry is reused when present. **Skill Wiki links in WikiPane** enables this separately without replacing the minimap button.
+
+Supported Wiki actions inside the level-guide window also open in WikiPane when the interface supplies an explicit Wiki destination or item ID. Ordinary guide, experience, category and material-check actions keep their normal behavior.
+
+Skill level-up tables start at your base level when local player state is available. Earlier levels are subtly dimmed and remain readable and clickable. Back/Forward restores your reading position; explicit section links and manual scrolling take priority. This uses **Check your requirements** and sends no character levels to the Wiki.
+
+## Wiki locations on the map
+
+Supported source locations have **Show on map**. It opens the native floating world map when needed, centers the destination, and marks it with the game's red destination flag. Selecting another location replaces the previous WikiPane marker. Other plugins' markers stay untouched.
+
+Only explicit Wiki map links with supported coordinates and a known plane qualify. General map centers, prose locations and unsupported instance maps keep the usual browser fallback. Markers are cleared on logout, world hopping and plugin shutdown.
 
 ## Check your requirements
 
@@ -105,3 +123,5 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Particle="Recipe f
 Right-click the article title, or the WikiPane heading in search, and choose **Composition audit** for local diagnostics. See [presentation validation](docs/PRESENTATION_VALIDATION.md) for the checks and their limits.
 
 See [testing](docs/TESTING.md) for the player test checklist and [implementation notes](docs/IMPLEMENTATION.md) for limits and Plugin Hub preparation.
+
+Article images open in a resizable, non-modal Swing viewer when clicked. Press Escape or close the window to dismiss it. Larger images load on demand with bounded decoding and caching; decorative table icons remain non-interactive.

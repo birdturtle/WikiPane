@@ -9,16 +9,18 @@ public final class ReaderLayout {
     public static final class Field {
         public final String label;
         public final RichText value;
+        public final String displayHtml;
         public final Source source;
         public final boolean inline;
         public final FieldPresentation presentation;
         public String identity() { return FieldPresentation.identity(label, value, source); }
-        Field(String label, RichText value, Source source) {
+        public Field(String label, RichText value, Source source) {
             this(label, value, source, Role.INFORMATION);
         }
         Field(String label, RichText value, Source source, Role role) {
             this.label = label;
             this.value = value;
+            displayHtml = MapPresentation.html(value.html,source);
             this.source = source;
             presentation = FieldPresentation.of(label, value, role);
             inline = !label.isBlank() && label.length() <= 24 && value.text.length() <= 24
@@ -70,8 +72,8 @@ public final class ReaderLayout {
         public final List<FactGroup> facts;
         public final List<ConditionGroup> requirements;
         Section(ArticleViewModel.Component c, Map<String, com.wikipane.semantic.SemanticDocument.Section> sourceSections) {
-            textHtml = c.node.text == null ? "" : !c.node.requirements.isEmpty()
-                ? RequirementPresentation.html(c.node.text.html) : c.node.text.html;
+            textHtml = c.node.text == null ? "" : MapPresentation.html(!c.node.requirements.isEmpty()
+                ? RequirementPresentation.html(c.node.text.html) : c.node.text.html,c.source);
             List<Requirement> textConditions = new ArrayList<>();
             if (c.node.text != null) for (RequirementSet set : c.node.requirements)
                 for (RequirementGroup group : set.groups) textConditions.add(group.expression);
@@ -118,6 +120,8 @@ public final class ReaderLayout {
         public final boolean columnHeader;
         public final Field identity;
         public final List<Field> fields;
+        public final List<Field> metadata;
+        public final boolean keyedIdentity;
         public final List<Table> nested;
         public final List<Field> illustrations;
         public final boolean compact;
@@ -145,12 +149,23 @@ public final class ReaderLayout {
                 else
                     values.add(field);
             }
+            if (specialize && named == null)
+                for (Field field : values)
+                    if (Set.of("level", "tier", "rank", "stage", "wave").contains(field.label.toLowerCase(Locale.ROOT))
+                        && field.presentation.numeric) { named = field; break; }
+            if (named != null) values.remove(named);
             identity = named;
+            keyedIdentity = named != null && named.presentation.numeric;
+            List<Field> meta = new ArrayList<>();
+            if (specialize) for (Field field : values) if (field.presentation.membership) meta.add(field);
+            values.removeAll(meta);
+            metadata = List.copyOf(meta);
             List<Field> captions = new ArrayList<>();
             if (named != null)
                 for (TableRecords.Field field : source.fields) {
+                    Field recordName = named;
                     if (!field.source.unit.equals(named.source.unit) && !field.illustrationTarget.isBlank()
-                        && named.value.links.stream().anyMatch(
+                        && recordName.value.links.stream().anyMatch(
                             link -> link.url.equals(field.illustrationTarget))) {
                         values.removeIf(value -> value.source.unit.equals(field.source.unit));
                         captions.add(new Field(field.label, field.value, field.source));
@@ -181,12 +196,20 @@ public final class ReaderLayout {
         }
     }
     public final List<ReferenceCard> references;
+    private final Map<String,com.wikipane.semantic.Recipe> recipes;
+    public com.wikipane.semantic.Recipe recipe(String unit) { return recipes.get(unit); }
     private final CompositionAudit audit;
     private final Map<String, Section> sections;
     private final Map<String, List<Record>> records;
     private final Map<String, List<Field>> highlights;
     public ReaderLayout(ArticleViewModel view) {
         audit = view.audit;
+        Map<String,com.wikipane.semantic.Recipe> recipeMap=new HashMap<>();
+        for(com.wikipane.semantic.Recipe recipe:view.document.recipes) {
+            recipeMap.put(recipe.requirementsTable.source.unit,recipe);
+            recipeMap.put(recipe.materialsTable.source.unit,recipe);
+        }
+        recipes=Map.copyOf(recipeMap);
         Map<String, String> markers = new LinkedHashMap<>();
         for (Node node : view.document.nodes)
             for (Citation use : PresentationValidator.citations(node))
@@ -206,6 +229,9 @@ public final class ReaderLayout {
                 if (c.node.table != null)
                     adaptTable(c.node.table, recordMap);
             }
+        for(com.wikipane.semantic.Recipe recipe:view.document.recipes) {
+            adaptTable(recipe.requirementsTable,recordMap);adaptTable(recipe.materialsTable,recordMap);
+        }
         Map<String, List<Field>> highlightMap = new HashMap<>();
         Set<String> variants = new LinkedHashSet<>();
         variants.add("");
@@ -273,6 +299,7 @@ public final class ReaderLayout {
     }
     static boolean recordContract(TableRecords.Record source, Record target) {
         List<Field> fields = new ArrayList<>(target.fields);
+        fields.addAll(target.metadata);
         fields.addAll(target.illustrations);
         if (target.identity != null)
             fields.add(target.identity);
@@ -290,6 +317,8 @@ public final class ReaderLayout {
         return highlights.getOrDefault(variant, highlights.getOrDefault("", List.of()));
     }
     public String tableTitle(Table table) {
+        if(!table.recipeVariant.isEmpty()||!table.recipeMethod.isEmpty())return table.title+" / "+table.recipeMethod
+            +(table.recipeMethod.isEmpty()||table.recipeVariant.isEmpty()?"":" / ")+table.recipeVariant;
         if (table.classes.contains("item-drops") && table.title.equals("Drops"))
             return "";
         return table.title.equals(table.source.sectionTitle) ? "" : table.title;

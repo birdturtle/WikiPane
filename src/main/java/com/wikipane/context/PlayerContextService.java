@@ -16,6 +16,7 @@ public final class PlayerContextService {
     private final Map<String, Quest> catalog = new HashMap<>();
     private Set<Quest> requested = Set.of();
     private boolean enabled = true, watching, ready, dirty = true, questsDirty = true, queued, stopped;
+    private boolean requirementWatching, skillWatching;
     private int tick, nextQuestTick;
     private Map<String, PlayerContextSnapshot.QuestState> questStates = Map.of();
     private PlayerContextSnapshot last;
@@ -29,10 +30,17 @@ public final class PlayerContextService {
         Set<Quest> quests = new LinkedHashSet<>();
         int[] budget = {2048};
         for (Requirement requirement : requirements) collect(requirement, quests, budget, 0);
-        watching = !requirements.isEmpty(); requested = Set.copyOf(quests);
+        requirementWatching = !requirements.isEmpty();
+        watching = requirementWatching || skillWatching; requested = Set.copyOf(quests);
         questStates = Map.of(); dirty = questsDirty = true; nextQuestTick = tick;
         if (!watching) emit(PlayerContextSnapshot.unavailable(enabled));
         else queue();
+    }
+    public void watchSkill(String skill) {
+        checkThread(); if (stopped) return;
+        skillWatching = Arrays.stream(Skill.values()).anyMatch(s -> s != Skill.OVERALL && s.getName().equals(skill));
+        watching = requirementWatching || skillWatching; dirty = true;
+        if (!watching) emit(PlayerContextSnapshot.unavailable(enabled)); else queue();
     }
     private void collect(Requirement r, Set<Quest> quests, int[] budget, int depth) {
         if (--budget[0] < 0 || depth > 32 || quests.size() >= 64) return;

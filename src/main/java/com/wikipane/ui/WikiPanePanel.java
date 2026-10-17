@@ -28,11 +28,18 @@ public final class WikiPanePanel extends PluginPanel {
     private java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> contextRequests = requirements -> {};
     private java.util.List<com.wikipane.semantic.SemanticDocument.Requirement> contextRequirements = java.util.List.of();
     private boolean contextVisible;
+    private String contextSkill = "";
+    private java.util.function.Consumer<String> skillRequests = skill -> {};
+    private NavigationHistory.Entry pendingSkillPosition;
+    public void skillRequests(java.util.function.Consumer<String> requests) { skillRequests = requests; }
+    public void mapRequests(java.util.function.Consumer<com.wikipane.semantic.SemanticDocument.Location> show) { renderer.mapRequests(show); }
     public void contextRequests(java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> requests) { contextRequests = requests; }
-    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { if (active) renderer.playerContext(snapshot); }
+    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) {
+        if (active) { renderer.playerContext(snapshot); positionSkillGuide(); }
+    }
     public void skillIcons(java.util.Map<String, javax.swing.Icon> icons) { if (active) renderer.skillIcons(icons); }
-    @Override public void onActivate() { contextVisible = true; contextRequests.accept(contextRequirements); }
-    @Override public void onDeactivate() { contextVisible = false; contextRequests.accept(java.util.List.of()); }
+    @Override public void onActivate() { contextVisible = true; contextRequests.accept(contextRequirements); skillRequests.accept(contextSkill); }
+    @Override public void onDeactivate() { contextVisible = false; contextRequests.accept(java.util.List.of()); skillRequests.accept(""); }
     private final NavigationHistory history = new NavigationHistory();
     private final JTextField search = new JTextField();
     private final JLabel message = new JLabel("Search the OSRS Wiki");
@@ -40,7 +47,14 @@ public final class WikiPanePanel extends PluginPanel {
                           searchToggle = button("", "Search"), browser = button("", "Open in browser"),
                           sectionsButton = button("Overview", "Jump to section");
     private final JPanel content = new ReaderViewport();
-    private final JScrollPane scroll = new JScrollPane(content);
+    private final JScrollPane scroll = new JScrollPane(content) {
+        @Override protected boolean processKeyBinding(KeyStroke stroke, KeyEvent event, int condition, boolean pressed) {
+            if (pressed && java.util.Set.of(KeyEvent.VK_UP, KeyEvent.VK_DOWN, KeyEvent.VK_PAGE_UP,
+                    KeyEvent.VK_PAGE_DOWN, KeyEvent.VK_HOME, KeyEvent.VK_END).contains(event.getKeyCode()))
+                cancelSkillPosition();
+            return super.processKeyBinding(stroke, event, condition, pressed);
+        }
+    };
     private final JComboBox<String> variants = new JComboBox<>();
     private final JPanel readingTools = new JPanel(new BorderLayout(0, 5));
     private final JPanel searchTools = new JPanel(new BorderLayout(0, 5));
@@ -79,6 +93,7 @@ public final class WikiPanePanel extends PluginPanel {
             contextRequirements = requirements;
             contextRequests.accept(contextVisible ? requirements : java.util.List.of());
         });
+        renderer.skillRequests(skill -> { contextSkill = skill; skillRequests.accept(contextVisible ? skill : ""); });
         setLayout(new BorderLayout(0, 6));
         setBackground(ReaderComponents.BACKGROUND);
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -187,6 +202,13 @@ public final class WikiPanePanel extends PluginPanel {
         scroll.getViewport().setBackground(ReaderComponents.BACKGROUND);
         scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.getVerticalScrollBar().setUnitIncrement(18);
+        scroll.addMouseWheelListener(event -> cancelSkillPosition());
+        scroll.getVerticalScrollBar().addMouseListener(new MouseAdapter() {
+            @Override public void mousePressed(MouseEvent event) { cancelSkillPosition(); }
+        });
+        scroll.addKeyListener(new KeyAdapter() {
+            @Override public void keyPressed(KeyEvent event) { cancelSkillPosition(); }
+        });
         scroll.getViewport().addChangeListener(e -> renderer.loadVisibleImages());
         add(scroll, BorderLayout.CENTER);
         debounce = new javax.swing.Timer(300, e -> performSearch(true));
@@ -269,10 +291,12 @@ public final class WikiPanePanel extends PluginPanel {
     }
     public void guidance(String value) {
         status(value);
+        message.putClientProperty("html.disable", false);
         message.setText("<html><body style='width:170px'>"
             + com.wikipane.document.WikiDocumentParser.escape(value) + "</body></html>");
     }
     private void status(String value) {
+        message.putClientProperty("html.disable", true);
         message.setVisible(true);
         progress.setVisible(value.endsWith("…"));
         message.setText(value);
@@ -492,11 +516,15 @@ public final class WikiPanePanel extends PluginPanel {
             show(entry, true);
     }
     private void show(NavigationHistory.Entry entry, boolean restore) {
+        pendingSkillPosition = null;
         if (entry.isSearch()) {
             showSearchEntry(entry, restore);
             return;
         }
         viewingArticle = true;
+        if (restore || !entry.section.isEmpty()) entry.skillPositioned = true;
+        else if (!entry.skillPositioned && !com.wikipane.context.SkillGuideProgress.skill(entry.document.title).isEmpty())
+            pendingSkillPosition = entry;
         ArticleNavigation nav = entry.page.navigation;
         if (entry.area.isEmpty())
             entry.area = nav.areaForAnchor(entry.anchor);
@@ -561,6 +589,22 @@ public final class WikiPanePanel extends PluginPanel {
             } else
                 scroll.getVerticalScrollBar().setValue(0);
             renderer.loadVisibleImages();
+            positionSkillGuide();
+        });
+    }
+    private void cancelSkillPosition() {
+        if (pendingSkillPosition != null) pendingSkillPosition.skillPositioned = true;
+        pendingSkillPosition = null;
+    }
+    private void positionSkillGuide() {
+        NavigationHistory.Entry entry = pendingSkillPosition;
+        if (entry == null || !active || !viewingArticle || history.current() != entry) return;
+        JComponent target = renderer.currentLevelTarget();
+        if (target == null) return;
+        SwingUtilities.invokeLater(() -> {
+            if (!active || !viewingArticle || history.current() != entry || pendingSkillPosition != entry) return;
+            alignSectionHeader(target);
+            entry.skillPositioned = true; pendingSkillPosition = null;
         });
     }
     private void alignSectionHeader(JComponent target) {
@@ -684,6 +728,7 @@ public final class WikiPanePanel extends PluginPanel {
         }
     }
     public void stop() {
+        renderer.closeImageViewer();
         sectionPopup.setVisible(false);
         sectionPopup.removeAll();
         active = false;

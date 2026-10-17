@@ -25,6 +25,8 @@ public final class ContentRenderer {
     private com.wikipane.view.ReaderLayout layout;
     private final ExecutorService workers;
     private final ImageCache images;
+    private ImageViewer imageViewer;
+    public void closeImageViewer() { if (imageViewer != null) imageViewer.close(); }
     private final List<Runnable> imageChecks = new ArrayList<>();
     private final Map<String, JComponent> anchors = new HashMap<>();
     private Map<String, Integer> tableState = new HashMap<>();
@@ -32,6 +34,42 @@ public final class ContentRenderer {
     private JPanel flow;
     private Map<String, String> anchorAliases = Map.of();
     private JPanel rendered;
+    private Consumer<Location> mapRequests = location -> {};
+    private final Map<String, java.util.List<Location>> locationsByUnit = new HashMap<>();
+    public void mapRequests(Consumer<Location> show) { mapRequests=show; }
+    private JComponent mapActions(java.util.List<Location> locations) {
+        JPanel actions=column(); Set<String> seen=new HashSet<>();
+        for(Location location:locations) {
+            if(com.wikipane.integration.WikiMapIntegration.destination(location)==null) continue;
+            String key=location.x+","+location.y+","+location.plane;
+            if(!seen.add(key)) continue;
+            JButton show=linkButton("Show on map");
+            show.setName("wiki.showOnMap"); show.putClientProperty("wiki.location",location);
+            show.setToolTipText("From "+location.source.article+" · "+location.source.sectionTitle);
+            show.addActionListener(event->mapRequests.accept(location));
+            actions.add(show);
+        }
+        return actions;
+    }
+    private String progressionSkill = "";
+    private Consumer<String> skillRequests = skill -> {};
+    private final Map<Integer, java.util.List<JComponent>> levelRows = new TreeMap<>();
+    private final java.util.List<Consumer<Integer>> levelRevealers = new ArrayList<>();
+    public void skillRequests(Consumer<String> requests) { skillRequests = requests; }
+    public JComponent currentLevelTarget() {
+        Integer base = com.wikipane.context.SkillGuideProgress.base(progressionSkill, player);
+        if (base == null) return null;
+        for (Consumer<Integer> reveal : java.util.List.copyOf(levelRevealers)) reveal.accept(base);
+        Integer target = com.wikipane.context.SkillGuideProgress.target(levelRows.keySet(), base);
+        return target == null ? null : levelRows.get(target).get(0);
+    }
+    private void updateLevelRows() {
+        Integer base = com.wikipane.context.SkillGuideProgress.base(progressionSkill, player);
+        levelRows.forEach((level, rows) -> rows.forEach(row -> {
+            row.putClientProperty("wiki.reachedLevel", base != null && level < base);
+            row.repaint();
+        }));
+    }
     private com.wikipane.view.CompositionAudit audit;
     private int auditedWidth = -1, auditedState, auditedBand = -1;
     private boolean auditScheduled;
@@ -57,7 +95,7 @@ public final class ContentRenderer {
         this.images = images;
     }
     public void contextRequests(Consumer<java.util.List<Requirement>> requests) { contextRequests = requests; }
-    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { player = snapshot; evaluateRequirements(); }
+    public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) { player = snapshot; evaluateRequirements(); updateLevelRows(); }
     public void skillIcons(java.util.Map<String, javax.swing.Icon> icons) { skillIcons = java.util.Map.copyOf(icons); evaluateRequirements(); }
     private void cancelEvaluation() {
         if (evaluation != null) {
@@ -97,7 +135,10 @@ public final class ContentRenderer {
     private void clear(boolean notify) {
         generation++;
         cancelEvaluation(); badges.clear();
+        levelRows.clear(); levelRevealers.clear(); progressionSkill = "";
+        locationsByUnit.clear();
         if (notify) contextRequests.accept(java.util.List.of());
+        if (notify) skillRequests.accept("");
         if (selection != null) selection.clear();
         components.pinContext(null);
         components.pinDocument(null); pinDocument = null;
@@ -151,11 +192,17 @@ public final class ContentRenderer {
         audit = page.view.audit;
         components.audit(audit);
         pinDocument = article.semantic;
+        for(Node node:pinDocument.nodes) for(Location location:node.locations)
+            locationsByUnit.computeIfAbsent(location.source.unit,ignored->new ArrayList<>()).add(location);
+        progressionSkill = com.wikipane.context.SkillGuideProgress.skill(article.title);
         components.pinDocument(pinDocument);
         java.util.List<Requirement> requested = new ArrayList<>();
         for (Node node : pinDocument.nodes) for (RequirementSet set : node.requirements)
             for (RequirementGroup group : set.groups) requested.add(group.expression);
+        for(com.wikipane.semantic.Recipe recipe:pinDocument.recipes)
+            for(com.wikipane.semantic.Recipe.Skill skill:recipe.skills) requested.add(skill.requirement);
         contextRequests.accept(java.util.List.copyOf(requested));
+        skillRequests.accept(progressionSkill);
         areaId = area.id;
         anchorAliases = page.navigation.anchors(area.id);
         tableState = new HashMap<>(saved);
@@ -259,6 +306,18 @@ public final class ContentRenderer {
         int stop = Math.min(pending.size(), revealed + count);
         while (revealed < stop) {
             ArticleViewModel.Component component = pending.get(revealed++);
+            com.wikipane.semantic.Recipe recipe=layout.recipe(component.node.source.unit);
+            if(recipe!=null) {
+                boolean entityVariant=pinDocument.nodes.stream().anyMatch(n -> n.table!=null && !n.table.variant.isEmpty() && n.table.variant.equals(recipe.variant));
+                String recipeVariant=selectedVariant;
+                if(recipeVariant.isEmpty())recipeVariant=pinDocument.nodes.stream().filter(n->n.table!=null&&!n.table.variant.isEmpty()).map(n->n.table.variant).findFirst().orElse("");
+                if(entityVariant&&!recipe.variant.equals(recipeVariant)) continue;
+                if(!component.node.source.unit.equals(recipe.requirementsTable.source.unit)) {
+                    JComponent destination=anchors.get(recipe.requirementsTable.source.unit);
+                    if(destination!=null)anchors.put(component.id,destination);
+                    continue;
+                }
+            }
             components.pinContext(new com.wikipane.pin.PinContext(pinDocument, component.node));
             JPanel section = column();
             section.putClientProperty("wiki.source", component.node.id);
@@ -305,7 +364,8 @@ public final class ContentRenderer {
                     renderFacts(component, section);
                     break;
                 case TABLE:
-                    if (component.node.table != null)
+                    if(recipe!=null) section.add(recipe(recipe));
+                    else if (component.node.table != null)
                         section.add(table(component.node.table, component.id));
                     break;
                 case REFERENCES:
@@ -350,6 +410,8 @@ public final class ContentRenderer {
                         section.add(text("This content is available through Open in browser."));
                     break;
             }
+            if(component.node.table==null||!component.node.table.kind.isEmpty())
+                section.add(mapActions(component.node.locations));
             flow.add(section);
             components.pinContext(null);
         }
@@ -435,6 +497,57 @@ public final class ContentRenderer {
         if (table != null)
             for (int i = 1; i < table.images.size(); i++) target.add(image(table.images.get(i)));
     }
+    private JComponent recipe(com.wikipane.semantic.Recipe recipe) {
+        JPanel card=components.card("wiki.recipe");
+        com.wikipane.pin.PinContext original=components.pinContext();
+        if(original!=null&&!recipe.label().isEmpty())original=original.group(recipe.label()+" recipe");
+        components.pinContext(original);
+        if(!recipe.label().isEmpty())card.add(text("<span class='muted tiny'>"+escape(recipe.label())+"</span>"));
+        card.add(text("<b>Produces</b>"));
+        for(com.wikipane.semantic.Recipe.Ingredient output:recipe.outputs) card.add(recipeIngredient(output));
+        for(com.wikipane.semantic.Recipe.Skill skill:recipe.skills) {
+            JPanel row=column();
+            if(original!=null)components.pinContext(original.condition(skill.level.source,skill.name,skill.requirement));
+            JComponent condition=components.condition(escape(skill.name)+" "+skill.level.value.html);
+            RequirementBadge badge=new RequirementBadge(skill.requirement,condition);badges.add(badge);row.add(badge);
+            components.pinContext(original);
+            row.add(components.field(new com.wikipane.view.ReaderLayout.Field("XP",skill.experience.value,skill.experience.source)));
+            card.add(row);
+        }
+        card.add(text("<b>Ingredients</b>"));
+        for(com.wikipane.semantic.Recipe.Ingredient input:recipe.inputs) card.add(recipeIngredient(input));
+        for(String label:java.util.List.of("Tools","Facilities","Members","Ticks")) {
+            Cell value=recipe.conditions.get(label);
+            if(value!=null&&!value.value.text.isBlank())card.add(components.field(new com.wikipane.view.ReaderLayout.Field(label,value.value,value.source)));
+        }
+        JButton details=linkButton("<html>Costs &amp; source details</html>");
+        JPanel source=column();source.setVisible(false);
+        // Reuse the complete source table renderer; no unsupported values are discarded.
+        com.wikipane.pin.PinContext sourceContext=original;
+        details.addActionListener(e -> {
+            if(source.getComponentCount()==0) {
+                components.pinContext(sourceContext);
+                source.add(table(recipe.requirementsTable,recipe.id+".requirements"));
+                source.add(table(recipe.materialsTable,recipe.id+".materials"));
+                components.pinContext(null);
+                if(selection!=null&&rendered!=null)selection.refresh(rendered);
+            }
+            source.setVisible(!source.isVisible());card.revalidate();
+        });
+        card.add(details);card.add(source);components.pinContext(original);
+        return card;
+    }
+    private JComponent recipeIngredient(com.wikipane.semantic.Recipe.Ingredient ingredient) {
+        com.wikipane.pin.PinContext previous=components.pinContext();
+        if(previous!=null)components.pinContext(previous.record(ingredient.name.text));
+        com.wikipane.view.ReaderLayout.Field item=new com.wikipane.view.ReaderLayout.Field("Item",ingredient.name,ingredient.source);
+        com.wikipane.view.ReaderLayout.Field count=new com.wikipane.view.ReaderLayout.Field("Quantity",ingredient.quantity,ingredient.quantitySource);
+        String name=ingredient.name.html;
+        if(ingredient.name.links.isEmpty())name="<a href='"+escape(ingredient.target.url)+"'>"+name+"</a>";
+        JComponent row=components.recipeItem(item,count,name,ingredient.icon==null?null:image(ingredient.icon,false,true));
+        components.pinContext(previous);return row;
+    }
+
     private JComponent table(Table table, String key) {
         JPanel group = column();
         if (!layout.tableTitle(table).isBlank())
@@ -457,12 +570,31 @@ public final class ContentRenderer {
                     && !record.group.equals(table.source.article)) {
                     // A column-header-only row does not need to repeat the labels printed on every record.
                     if (!record.columnHeader
-                        || rows.stream().noneMatch(r -> r.identity != null || !r.fields.isEmpty()))
+                        || rows.stream().noneMatch(r -> r.identity != null || !r.fields.isEmpty() || !r.metadata.isEmpty()))
                         records.add(components.heading(record.group, "", null));
                 }
                 previous[0] = record.group;
-                if (record.identity != null || !record.fields.isEmpty()) {
-                    records.add(components.record(record, record.icon == null ? null : image(record.icon, false, true)));
+                if (record.identity != null || !record.fields.isEmpty() || !record.metadata.isEmpty()) {
+                    JComponent card = components.record(record, record.icon == null ? null : image(record.icon, false, true));
+                    Integer level = progressionSkill.isEmpty() ? null : com.wikipane.context.SkillGuideProgress.level(record);
+                    if (level != null) {
+                        JPanel contextRow = new JPanel(new BorderLayout()) {
+                            @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+                            @Override public void paint(Graphics graphics) {
+                                Graphics2D copy = (Graphics2D) graphics.create();
+                                if (Boolean.TRUE.equals(getClientProperty("wiki.reachedLevel")))
+                                    copy.setComposite(AlphaComposite.SrcOver.derive(.72f));
+                                super.paint(copy); copy.dispose();
+                            }
+                        };
+                        contextRow.setOpaque(false); contextRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        contextRow.putClientProperty("wiki.skillLevel", level);
+                        contextRow.add(card); levelRows.computeIfAbsent(level, ignored -> new ArrayList<>()).add(contextRow); card = contextRow;
+                    }
+                    records.add(card);
+                    java.util.List<Location> locations=new ArrayList<>();
+                    for(String unit:record.units) locations.addAll(locationsByUnit.getOrDefault(unit,java.util.List.of()));
+                    records.add(mapActions(locations));
                     records.add(components.gap(3));
                 }
                 for (int n = 0; n < record.nested.size(); n++)
@@ -478,17 +610,41 @@ public final class ContentRenderer {
             if (selection != null && rendered != null) selection.refresh(rendered);
             group.revalidate();
             group.repaint();
+            updateLevelRows();
             scheduleAudit();
         };
         int wanted = Math.max(20, tableState.getOrDefault(key, 20));
         do {
             next.run();
         } while (shown[0] < Math.min(wanted, rows.size()));
+        if (!progressionSkill.isEmpty()) {
+            long version = generation;
+            levelRevealers.add(base -> {
+                if (version != generation) return;
+                java.util.Map<Integer, Integer> positions = new TreeMap<>();
+                for (int i = 0; i < rows.size(); i++) {
+                    Integer level = com.wikipane.context.SkillGuideProgress.level(rows.get(i));
+                    if (level != null) positions.putIfAbsent(level, i);
+                }
+                Integer target = com.wikipane.context.SkillGuideProgress.target(positions.keySet(), base);
+                if (target != null) while (shown[0] <= positions.get(target)) next.run();
+            });
+        }
         more.addActionListener(e -> next.run());
         return group;
     }
     private JButton linkButton(String title) {
-        JButton button = new JButton(title);
+        JButton button = new JButton(title) {
+            @Override public Dimension getPreferredSize() {
+                javax.swing.text.View html=(javax.swing.text.View)getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey);
+                if(html==null)return super.getPreferredSize();
+                int width=getWidth()>0?getWidth():200;Insets inset=getInsets();
+                html.setSize(Math.max(1,width-inset.left-inset.right),0);
+                return new Dimension(width,Math.max(28,(int)Math.ceil(html.getPreferredSpan(javax.swing.text.View.Y_AXIS))+inset.top+inset.bottom));
+            }
+            @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
+            @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
+        };
         button.setMargin(new Insets(5, 6, 5, 6));
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -508,12 +664,14 @@ public final class ContentRenderer {
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setToolTipText(decoration ? null : image.alt);
         label.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        if (!decoration && !image.link.isBlank()) {
+        if (!decoration) {
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    links.accept(image.link);
+                    if (!SwingUtilities.isLeftMouseButton(e)) return;
+                    if (imageViewer == null) imageViewer = new ImageViewer(workers, images);
+                    imageViewer.open(label, image);
                 }
             });
         }

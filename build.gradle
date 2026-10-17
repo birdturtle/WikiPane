@@ -122,6 +122,9 @@ tasks.register('presentationPreview', JavaExec) {
     args providers.gradleProperty('anchor').getOrElse('Tertiary')
     args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-semantic-presentation.png')
     args providers.gradleProperty('variant').getOrElse('')
+    if (providers.gradleProperty('baseLevel').isPresent()) {
+        args providers.gradleProperty('baseLevel').get()
+    }
 }
 
 tasks.register('playerContextPreview', JavaExec) {

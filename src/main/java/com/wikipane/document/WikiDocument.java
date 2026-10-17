@@ -87,6 +87,7 @@ public final class WikiDocument {
     }
     public static final class Table implements Block {
         public final String caption, anchor, kind, variant;
+        public final String recipeGroup, recipeVariant, recipeMethod;
         public final List<Row> rows;
         public final List<Image> images;
         public final java.util.Set<String> classes;
@@ -102,6 +103,11 @@ public final class WikiDocument {
         }
         public Table(String caption, String anchor, List<Row> rows, String kind, String variant,
             List<Image> images, java.util.Set<String> classes) {
+            this(caption,anchor,rows,kind,variant,images,classes,"","","");
+        }
+        public Table(String caption, String anchor, List<Row> rows, String kind, String variant,
+            List<Image> images, java.util.Set<String> classes, String recipeGroup, String recipeVariant, String recipeMethod) {
+            this.recipeGroup=recipeGroup; this.recipeVariant=recipeVariant; this.recipeMethod=recipeMethod;
             this.classes = java.util.Set.copyOf(classes);
             this.images = List.copyOf(images);
             this.kind = kind;

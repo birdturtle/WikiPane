@@ -238,14 +238,13 @@ public class ContextualNavigationUiTest {
         }
     }
     @Test
-    public void sectionsShareOneReaderAndBackRestoresThePriorReadingPosition() throws Exception {
+    public void sectionsShareOneReaderAndArticleHistoryRestoresTheLatestReadingPosition() throws Exception {
         try(Reader reader=new Reader()) {
             reader.open("Recipe for Disaster/Full guide");
             int saved=edt(() -> {reader.scroller().getVerticalScrollBar().setValue(211);return reader.scroller().getVerticalScrollBar().getValue();});
-            edt(() -> {reader.chooseMode("Walkthrough");reader.size();return null;});
-            await(() -> !reader.sectionLabel().equals("Overview"));
+            reader.open("Rake");
             edt(() -> {reader.action("Back").doClick();reader.size();return null;});
-            await(() -> reader.scroller().getVerticalScrollBar().getValue()==saved);
+            await(() -> reader.article("Recipe for Disaster/Full guide") && reader.scroller().getVerticalScrollBar().getValue()==saved);
         }
     }
     @Test
@@ -281,8 +280,9 @@ public class ContextualNavigationUiTest {
         }
     }
     @Test
-    public void sectionsJumpToTheDestinationAndRemainInBackForwardHistory() throws Exception {
+    public void sectionsUpdateTheArticleWithoutAddingBackForwardStops() throws Exception {
         try (Reader reader = new Reader()) {
+            reader.open("Rake");
             reader.open("Vorkath");
             WikiPage page = new WikiPage(DocumentTest.document("Vorkath"));
             ArticleNavigation.Destination drops = page.navigation.sections.stream()
@@ -302,7 +302,7 @@ public class ContextualNavigationUiTest {
                 reader.action("Back").doClick();
                 return null;
             });
-            await(() -> reader.sectionLabel().equals("Overview"));
+            await(() -> reader.article("Rake"));
             edt(() -> {
                 reader.action("Forward").doClick();
                 return null;

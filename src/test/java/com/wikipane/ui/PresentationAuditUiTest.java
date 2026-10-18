@@ -114,7 +114,8 @@ public class PresentationAuditUiTest {
                     .doClick();
                 return null;
             });
-            await(() -> referencesSelected(panel));
+            await(() -> all(panel).stream().anyMatch(c -> c instanceof JButton
+                && "Back".equals(((JButton)c).getToolTipText()) && !c.isEnabled()));
         } finally {
             edt(() -> {
                 panel.stop();

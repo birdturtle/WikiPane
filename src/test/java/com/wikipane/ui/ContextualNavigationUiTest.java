@@ -238,29 +238,14 @@ public class ContextualNavigationUiTest {
         }
     }
     @Test
-    public void eachReadingModeRestoresItsOwnPosition() throws Exception {
-        try (Reader reader = new Reader()) {
+    public void sectionsShareOneReaderAndBackRestoresThePriorReadingPosition() throws Exception {
+        try(Reader reader=new Reader()) {
             reader.open("Recipe for Disaster/Full guide");
-            edt(() -> {
-                reader.scroller().getVerticalScrollBar().setValue(211);
-                reader.chooseMode("Walkthrough");
-                reader.size();
-                return null;
-            });
+            int saved=edt(() -> {reader.scroller().getVerticalScrollBar().setValue(211);return reader.scroller().getVerticalScrollBar().getValue();});
+            edt(() -> {reader.chooseMode("Walkthrough");reader.size();return null;});
             await(() -> !reader.sectionLabel().equals("Overview"));
-            edt(() -> {
-                reader.scroller().getVerticalScrollBar().setValue(347);
-                reader.chooseMode("Overview");
-                reader.size();
-                return null;
-            });
-            await(() -> reader.scroller().getVerticalScrollBar().getValue() == 211);
-            edt(() -> {
-                reader.chooseMode("Walkthrough");
-                reader.size();
-                return null;
-            });
-            await(() -> reader.scroller().getVerticalScrollBar().getValue() == 347);
+            edt(() -> {reader.action("Back").doClick();reader.size();return null;});
+            await(() -> reader.scroller().getVerticalScrollBar().getValue()==saved);
         }
     }
     @Test
@@ -278,8 +263,8 @@ public class ContextualNavigationUiTest {
             try { await(() -> {
                 reader.size();
                 Component heading = all(reader.panel).stream()
-                    .filter(c -> c instanceof JEditorPane && "wiki.sectionHeading".equals(c.getName())
-                        && org.jsoup.Jsoup.parseBodyFragment(((JEditorPane)c).getText()).text().equals("Wine"))
+                    .filter(c -> c instanceof JButton && "wiki.sectionHeading".equals(c.getName())
+                        && ((com.wikipane.view.ArticleNavigation.Destination)((JComponent)c).getClientProperty("wiki.destination")).label.equals("Wine"))
                     .findFirst().orElse(null);
                 if (heading == null) return false;
                 JViewport viewport = reader.scroller().getViewport();
@@ -288,8 +273,8 @@ public class ContextualNavigationUiTest {
             });
             } catch (TimeoutException ex) {
                 throw new AssertionError(edt(() -> all(reader.panel).stream()
-                    .filter(c -> c instanceof JEditorPane && "wiki.sectionHeading".equals(c.getName()))
-                    .map(c -> org.jsoup.Jsoup.parseBodyFragment(((JEditorPane)c).getText()).text()+"@"+SwingUtilities.convertPoint(c,0,0,reader.scroller().getViewport()).y)
+                    .filter(c -> c instanceof JButton && "wiki.sectionHeading".equals(c.getName()))
+                    .map(c -> ((JButton)c).getText()+"@"+SwingUtilities.convertPoint(c,0,0,reader.scroller().getViewport()).y)
                     .collect(java.util.stream.Collectors.joining(",")) + " scroll=" + reader.scroller().getViewport().getViewPosition()),ex);
             }
             assertEquals("Wine",edt(reader::sectionLabel));
@@ -308,12 +293,11 @@ public class ContextualNavigationUiTest {
                 reader.panel.navigateSection(drops);
                 return null;
             });
-            await(()
-                      -> all(reader.panel)
+            await(() -> { reader.size(); return all(reader.panel)
                           .stream()
                           .anyMatch(c
                               -> c instanceof JButton && "wiki.currentSection".equals(c.getName())
-                                  && ((JButton) c).getText().equals("Drops")));
+                                  && ((JButton) c).getText().equals("Drops")); });
             edt(() -> {
                 reader.action("Back").doClick();
                 return null;
@@ -323,12 +307,11 @@ public class ContextualNavigationUiTest {
                 reader.action("Forward").doClick();
                 return null;
             });
-            await(()
-                      -> all(reader.panel)
+            await(() -> { reader.size(); return all(reader.panel)
                           .stream()
                           .anyMatch(c
                               -> c instanceof JButton && "wiki.currentSection".equals(c.getName())
-                                  && ((JButton) c).getText().equals("Drops")));
+                                  && ((JButton) c).getText().equals("Drops")); });
         }
     }
     @Test
@@ -384,6 +367,12 @@ public class ContextualNavigationUiTest {
         try (Reader reader = new Reader(pinned::add)) {
             reader.open("Recipe for Disaster");
             edt(() -> {
+                ArticleNavigation.Destination requirements=reader.opened.navigation.sections.stream().filter(d -> d.label.equals("Requirements")).findFirst().orElseThrow();
+                reader.panel.navigateSection(requirements);reader.size();return null;
+            });
+            await(() -> all(reader.panel).stream().anyMatch(c -> c instanceof JEditorPane && ((JEditorPane)c).getClientProperty("wiki.pin.context") instanceof com.wikipane.pin.PinContext
+                && ((com.wikipane.pin.PinContext)((JEditorPane)c).getClientProperty("wiki.pin.context")).condition!=null));
+            edt(() -> {
                 reader.scroller().getVerticalScrollBar().setValue(211);
                 JEditorPane passage = (JEditorPane)all(reader.panel).stream().filter(component -> {
                     if (!(component instanceof JEditorPane)) return false;
@@ -437,7 +426,14 @@ public class ContextualNavigationUiTest {
                 reader.panel.navigateSection(chapter);
                 return null;
             });
-            await(() -> !reader.sectionLabel().equals("Overview"));
+            await(() -> {
+                reader.size();
+                Component header=all(reader.panel).stream().filter(c -> c instanceof JButton&&"wiki.sectionHeading".equals(c.getName()))
+                    .filter(c -> {Object value=((JComponent)c).getClientProperty("wiki.destination");return value instanceof ArticleNavigation.Destination&&((ArticleNavigation.Destination)value).anchor.equals(chapter.anchor);})
+                    .findFirst().orElse(null);
+                return header!=null&&Math.abs(SwingUtilities.convertPoint(header,0,0,reader.scroller().getViewport()).y)<=2
+                    &&reader.sectionLabel().toLowerCase(Locale.ROOT).contains("mountain dwarf");
+            });
             edt(() -> {
                 assertTrue(all(reader.panel)
                         .stream()
@@ -457,16 +453,16 @@ public class ContextualNavigationUiTest {
         edt(() -> {
             List<ArticleNavigation.Destination> chosen = new ArrayList<>();
             SectionNavigator navigator =
-                new SectionNavigator(page.navigation.sections, "walkthrough", "", chosen::add);
+                new SectionNavigator(page.navigation.roots, Set.of("overview\0"), "walkthrough", "", chosen::add);
             JTextField filter = (JTextField) all(navigator)
                                     .stream()
                                     .filter(c -> c instanceof JTextField)
                                     .findFirst()
                                     .orElseThrow();
             filter.setText("mountain dwarf");
-            JList<?> list =
-                (JList<?>) all(navigator).stream().filter(c -> c instanceof JList).findFirst().orElseThrow();
-            assertTrue(list.getModel().getSize() > 0);
+            JTree list =
+                (JTree) all(navigator).stream().filter(c -> c instanceof JTree).findFirst().orElseThrow();
+            assertTrue(list.getRowCount() > 0);
             list.getActionMap().get("choose").actionPerformed(
                 new java.awt.event.ActionEvent(list, 0, "choose"));
             assertEquals(1, chosen.size());

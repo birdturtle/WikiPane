@@ -24,7 +24,7 @@ public final class WikiPanePanel extends PluginPanel {
     private static final Logger log = LoggerFactory.getLogger(WikiPanePanel.class);
     private final WikiClient wiki;
     private final ExecutorService workers;
-    private final ContentRenderer renderer;
+    private final ArticleReader renderer;
     private java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> contextRequests = requirements -> {};
     private java.util.List<com.wikipane.semantic.SemanticDocument.Requirement> contextRequirements = java.util.List.of();
     private boolean contextVisible;
@@ -97,7 +97,8 @@ public final class WikiPanePanel extends PluginPanel {
         super(false);
         this.wiki = wiki;
         this.workers = workers;
-        renderer = new ContentRenderer(this::openLink, workers, new ImageCache(wiki), pin, this::guidance);
+        renderer = new ArticleReader(this::openLink, workers, new ImageCache(wiki), pin, this::guidance);
+        renderer.changed(this::scheduleSectionLabel);
         renderer.contextRequests(requirements -> {
             contextRequirements = requirements;
             contextRequests.accept(contextVisible ? requirements : java.util.List.of());
@@ -277,6 +278,12 @@ public final class WikiPanePanel extends PluginPanel {
             super(new BorderLayout());
             setBackground(ReaderComponents.BACKGROUND);
         }
+        @Override public Dimension getPreferredSize() {
+            Dimension size=super.getPreferredSize();
+            Object minimum=getClientProperty("wiki.anchorHeight");
+            if(minimum instanceof Integer)size.height=Math.max(size.height,(Integer)minimum);
+            return size;
+        }
         public Dimension getPreferredScrollableViewportSize() {
             return new Dimension(205, 600);
         }
@@ -336,29 +343,19 @@ public final class WikiPanePanel extends PluginPanel {
             sectionUpdateQueued = false;
             if (!active || !viewingArticle || history.current() == null) return;
             NavigationHistory.Entry entry = history.current();
-            int y = scroll.getViewport().getViewPosition().y + 8, nearest = -1;
-            String anchor = "";
-            for (ArticleNavigation.Destination destination : entry.page.navigation.sections) {
-                if (!destination.area.equals(entry.area) || destination.anchor.isEmpty()) continue;
-                JComponent heading = renderer.anchor(destination.anchor);
-                if (heading == null || !"wiki.sectionHeading".equals(heading.getName()) || !visibleInContent(heading)) continue;
-                int top = SwingUtilities.convertPoint(heading, 0, 0, content).y;
-                if (top <= y && top > nearest) { nearest = top; anchor = destination.anchor; }
-            }
-            displayedSection = anchor;
-            String label = anchor.isEmpty() ? entry.page.navigation.area(entry.area).label : entry.page.navigation.section(anchor).label;
+            ArticleNavigation.Destination visible=renderer.visibleDestination(content,scroll.getViewport().getViewPosition().y+8);
+            if(visible==null)return;
+            String anchor=visible.anchor;
+            displayedSection=anchor;entry.area=visible.area;
+            String label=visible.label;
             sectionsButton.setText(label);
             sectionsButton.getAccessibleContext().setAccessibleName(label + ", choose article section");
-            fallbackUrl = entry.document.url + (anchor.isEmpty() ? "" : "#" + anchor);
+            fallbackUrl = entry.page.navigation.sourceUrl(visible.area,anchor);
             browser.setActionCommand(fallbackUrl);
         });
     }
-    private boolean visibleInContent(Component child) {
-        for (Component current = child; current != content; current = current.getParent())
-            if (current == null || !current.isVisible()) return false;
-        return true;
-    }
     private void display(JComponent component) {
+        content.putClientProperty("wiki.anchorHeight",0);
         content.removeAll();
         content.add(component, BorderLayout.NORTH);
         content.revalidate();
@@ -370,7 +367,6 @@ public final class WikiPanePanel extends PluginPanel {
             return;
         history.saveScroll(scroll.getVerticalScrollBar().getValue());
         if (viewingArticle && !entry.isSearch()) {
-            entry.areaScroll.put(entry.area, entry.scroll);
             entry.tables.clear();
             entry.tables.putAll(renderer.tableState());
         }
@@ -623,7 +619,7 @@ public final class WikiPanePanel extends PluginPanel {
         ArticleViewModel.Area area = nav.area(entry.area);
         entry.area = area.id;
         String browserAnchor = entry.section;
-        fallbackUrl = entry.document.url + (browserAnchor.isEmpty() ? "" : "#" + browserAnchor);
+        fallbackUrl = nav.sourceUrl(entry.area,browserAnchor);
         sectionPopup.setVisible(false);
         settingSections = true;
         variants.removeAllItems();
@@ -654,33 +650,33 @@ public final class WikiPanePanel extends PluginPanel {
         sectionsButton.setForeground(ReaderComponents.ACCENT);
         sectionsButton.getAccessibleContext().setAccessibleName(location + ", choose article section");
         ((CardLayout) statePanel.getLayout()).show(statePanel, "article");
-        display(renderer.renderArea(entry.page, area, entry.tables, entry.variant));
+        display(renderer.render(entry.page, entry.tables, entry.variant));
         controls();
         status(entry.document.title);
         message.setVisible(false);
+        String requestedArea=entry.area, requestedAnchor=entry.section;
         SwingUtilities.invokeLater(() -> {
             if (!active || history.current() != entry || !viewingArticle)
                 return;
-            if (restore)
+            if (restore) {
+                content.putClientProperty("wiki.anchorHeight",entry.scroll+scroll.getViewport().getExtentSize().height);
+                scroll.getViewport().setViewSize(new Dimension(scroll.getViewport().getExtentSize().width,content.getPreferredSize().height));
                 scroll.getVerticalScrollBar().setValue(entry.scroll);
-            else if (!entry.section.isEmpty()) {
-                String anchor = entry.section;
-                renderer.revealAnchor(anchor);
+            }
+            else if(requestedArea.equals("overview")&&requestedAnchor.isEmpty())scroll.getVerticalScrollBar().setValue(0);
+            else {
+                String destinationArea=requestedArea, destinationAnchor=requestedAnchor;
+                renderer.revealDestination(destinationArea,destinationAnchor);
                 SwingUtilities.invokeLater(() -> {
-                    if (!active || history.current() != entry)
-                        return;
-                    JComponent target = renderer.anchor(anchor);
-                    if (target != null) {
-                        alignSectionHeader(target);
-                        // The native scroll pane can publish its final width/extent one event turn later.
-                        SwingUtilities.invokeLater(() -> {
-                            if (active && viewingArticle && history.current() == entry && renderer.anchor(anchor) == target)
-                                alignSectionHeader(target);
-                        });
-                    } else scroll.getVerticalScrollBar().setValue(0);
+                    if(!active || history.current()!=entry || !viewingArticle)return;
+                    JComponent target=renderer.destination(destinationArea,destinationAnchor);
+                    if(target==null){scroll.getVerticalScrollBar().setValue(0);return;}
+                    alignSectionHeader(target);
+                    SwingUtilities.invokeLater(() -> {
+                        if(active&&viewingArticle&&history.current()==entry)alignSectionHeader(target);
+                    });
                 });
-            } else
-                scroll.getVerticalScrollBar().setValue(0);
+            }
             renderer.loadVisibleImages();
             positionSkillGuide();
         });
@@ -719,6 +715,8 @@ public final class WikiPanePanel extends PluginPanel {
             scroll.validate();
         }
         Point position = SwingUtilities.convertPoint(target, 0, 0, content);
+        content.putClientProperty("wiki.anchorHeight",position.y+viewport.getExtentSize().height);
+        viewport.setViewSize(new Dimension(Math.max(1,viewport.getExtentSize().width),content.getPreferredSize().height));
         int maximum = Math.max(0,content.getHeight()-viewport.getExtentSize().height);
         viewport.setViewPosition(new Point(0,Math.max(0,Math.min(position.y,maximum))));
     }
@@ -728,10 +726,11 @@ public final class WikiPanePanel extends PluginPanel {
             return;
         sectionPopup.removeAll();
         SectionNavigator navigator =
-            new SectionNavigator(entry.page.navigation.sections, entry.area, displayedSection, destination -> {
+            new SectionNavigator(entry.page.navigation.roots, renderer.expanded(), entry.area, displayedSection, destination -> {
                 sectionPopup.setVisible(false);
                 navigateSection(destination);
             });
+        navigator.setPreferredSize(new Dimension(Math.max(160,sectionsButton.getWidth()),navigator.getPreferredSize().height));
         sectionPopup.add(navigator);
         if (sectionsButton.isShowing()) {
             sectionPopup.show(sectionsButton, 0, sectionsButton.getHeight());
@@ -745,21 +744,7 @@ public final class WikiPanePanel extends PluginPanel {
         NavigationHistory.Entry entry = history.current();
         if (entry == null || entry.isSearch())
             return;
-        if (destination.anchor.isEmpty()) {
-            request++;
-            searchRequest++;
-            debounce.stop();
-            saveScroll();
-            history.pushDestination(entry.page, destination.area, "");
-            NavigationHistory.Entry target = history.current();
-            target.variant = entry.variant;
-            target.tables.putAll(entry.tables);
-            target.areaScroll.putAll(entry.areaScroll);
-            target.scroll = target.areaScroll.getOrDefault(destination.area, 0);
-            show(target, true);
-            return;
-        }
-        anchor(destination.anchor, true, destination.area);
+        anchor(destination.anchor,true,destination.area);
     }
     private void anchor(String id, boolean push) {
         NavigationHistory.Entry entry = history.current();
@@ -792,8 +777,8 @@ public final class WikiPanePanel extends PluginPanel {
         entry.tables.putAll(old.tables);
         entry.area = destinationArea;
         entry.section = id;
-        entry.areaScroll.putAll(old.areaScroll);
         entry.variant = old.variant;
+        entry.skillPositioned = true;
         show(entry, false);
     }
     private <T> void submit(Callable<T> work, java.util.function.Consumer<T> success,

@@ -26,6 +26,16 @@ public final class ContentRenderer {
     private final ExecutorService workers;
     private final ImageCache images;
     private ImageViewer imageViewer;
+    private boolean fragment, fragmentHighlights;
+    private String fragmentScope="";
+    void fragmentScope(String scope){fragmentScope=scope;}
+    private Runnable contentChanged=() -> {};
+    void contentChanged(Runnable changed) {contentChanged=changed;}
+    void imageViewer(ImageViewer viewer) {imageViewer=viewer;}
+    JPanel renderFragment(WikiPage page,ArticleViewModel.Area area,Map<String,Integer> saved,String variant,boolean highlights) {
+        fragment=true; fragmentHighlights=highlights;
+        return renderArea(page,area,saved,variant);
+    }
     public void closeImageViewer() { if (imageViewer != null) imageViewer.close(); }
     private final List<Runnable> imageChecks = new ArrayList<>();
     private final Map<String, JComponent> anchors = new HashMap<>();
@@ -210,14 +220,14 @@ public final class ContentRenderer {
             for(com.wikipane.semantic.Recipe.Skill skill:recipe.skills) requested.add(skill.requirement);
         contextRequests.accept(java.util.List.copyOf(requested));
         skillRequests.accept(progressionSkill);
-        areaId = area.id;
+        areaId = fragment?fragmentScope:area.id;
         anchorAliases = page.navigation.anchors(area.id);
         tableState = new HashMap<>(saved);
         selectedVariant = variant;
         JPanel body = column();
         rendered = body;
 
-        if ((area.id.equals("info") || area.id.equals("overview")) && !layout.highlights(variant).isEmpty()) {
+        if ((!fragment || fragmentHighlights) && (area.id.equals("info") || area.id.equals("overview")) && !layout.highlights(variant).isEmpty()) {
             body.add(components.highlights(layout.highlights(variant)));
             for (com.wikipane.view.ReaderLayout.Field field : layout.highlights(variant)) presentedFacts.add(field.identity());
             body.add(components.gap(8));
@@ -266,10 +276,10 @@ public final class ContentRenderer {
         supporting.setVisible(false); technical.setVisible(false);
         body.add(supporting); body.add(technical);
         revealed = 0;
-        appendNext(Math.max(6, tableState.getOrDefault("@shown:" + area.id, 6)));
-        if (pending.isEmpty() && area.related.isEmpty())
+        appendNext(Math.max(6, tableState.getOrDefault("@shown:" + areaId, 6)));
+        if (!fragment && pending.isEmpty() && area.related.isEmpty())
             body.add(text("No readable content was returned for this area."));
-        body.add(text("<p class='source'>Content: <a href='" + escape(article.url)
+        if (!fragment) body.add(text("<p class='source'>Content: <a href='" + escape(article.url)
             + ("'>OSRS Wiki</a> · <a href='https://oldschool.runescape.wiki/w/RuneScape:Copyrights'>CC "
                 + "BY-NC-SA</a></p>")));
         if (selection != null) selection.refresh(body);
@@ -333,7 +343,7 @@ public final class ContentRenderer {
             String sourceSection = component.source.section;
             JComponent anchorDestination = section;
             if (!sourceSection.isBlank() && !anchors.containsKey(sourceSection)) {
-                if (!component.source.sectionTitle.equals(component.source.article)
+                if (!fragment && !component.source.sectionTitle.equals(component.source.article)
                     && !(component.source.sectionTitle.equals("Details")
                         && (component.type == ArticleViewModel.ComponentType.FACTS
                             || component.type == ArticleViewModel.ComponentType.REQUIREMENTS))) {
@@ -425,6 +435,7 @@ public final class ContentRenderer {
             components.pinContext(null);
         }
         if (selection != null && rendered != null) selection.refresh(rendered);
+        contentChanged.run();
         evaluateRequirements();
         tableState.put("@shown:" + areaId, revealed);
         flow.revalidate();
@@ -567,6 +578,7 @@ public final class ContentRenderer {
                 source.add(table(recipe.materialsTable,recipe.id+".materials"));
                 components.pinContext(null);
                 if(selection!=null&&rendered!=null)selection.refresh(rendered);
+                contentChanged.run();
             }
             card.revalidate();
         });
@@ -646,6 +658,7 @@ public final class ContentRenderer {
             if (end > 20) records.add(collapse);
             components.pinContext(previousContext);
             if (selection != null && rendered != null) selection.refresh(rendered);
+            contentChanged.run();
             group.revalidate();
             group.repaint();
             updateLevelRows();

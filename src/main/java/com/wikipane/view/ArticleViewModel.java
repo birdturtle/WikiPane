@@ -48,7 +48,7 @@ public final class ArticleViewModel {
         public final String id, label;
         public final List<Component> components;
         public final List<Relationship> related;
-        Area(String id, String label, List<Component> components, List<Relationship> related) {
+        public Area(String id, String label, List<Component> components, List<Relationship> related) {
             this.id = id;
             this.label = label;
             this.components = List.copyOf(components);
@@ -227,7 +227,7 @@ public final class ArticleViewModel {
         if (type == PageType.MONSTER) {
             if (role == Role.LOCATIONS || role == Role.REQUIREMENTS)
                 return "access";
-            if (role == Role.METHODS || role == Role.REWARDS)
+            if (role == Role.REWARDS)
                 return "drops";
         }
         if (type == PageType.ITEM && (role == Role.DROPS || role == Role.LOCATIONS))

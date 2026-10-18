@@ -163,3 +163,17 @@ tasks.register('verifyDeveloperPluginJar') {
         assert entries.matching { include 'net/runelite/**', 'org/junit/**', 'org/mockito/**', '**/*Test.class' }.isEmpty()
     }
 }
+
+tasks.register('sectionReport', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.SectionReport'
+    args providers.gradleProperty('article').getOrElse('Vorkath')
+}
+
+tasks.register('sectionPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.ui.UnifiedSectionPreview'
+    args providers.gradleProperty('article').getOrElse('Vorkath')
+    args providers.gradleProperty('anchor').getOrElse('Weapons_and_armour')
+    args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-unified-sections.png')
+}

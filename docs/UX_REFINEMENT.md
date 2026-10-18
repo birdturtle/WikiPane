@@ -58,3 +58,12 @@ Player acceptance checklist:
 8. Toggle Jump to your skill level separately from Show character checks. Existing Wiki button, quest Wiki actions and skill Wiki actions must still route correctly.
 
 No Plugin Hub submission or publication is performed here. Config-dependent visual disabling remains an upstream API limitation, not a custom UI workaround.
+
+
+## Unified section navigation follow-up
+
+The reader and dropdown now consume one immutable `ArticleNavigation.ReadingSection` tree. Section headers are collapsible in the reader, with Overview initially expanded and other branches closed. Selecting a destination opens its ancestor chain and aligns that exact header. History stores the open branches and the single article scroll position. Existing deep links and skill-level positioning can open their relevant branch explicitly.
+
+The category audit moved monster methods out of Drops, excluded citation-definition origins from navigation, and kept a guide chapter's requirements, instructions and rewards together instead of duplicating its chapter across categories. The dropdown supports nested expansion, filtering, keyboard arrows/Enter, wrapped labels and vertical-only scrolling. It never launches a browser when choosing a section.
+
+Automated parity tests verify that the flattened dropdown destinations are the exact objects owned by the reader tree and that every composed source component has one owner. Additional tests cover collapsed defaults, lazy content, restored expansion, nested filtering, and existing section alignment, citations, pinning and player progress. Use `./gradlew sectionReport -Particle=Recipe_for_Disaster__Full_guide` to inspect ownership, or `./gradlew sectionPreview` for an isolated side-by-side preview without a game client.

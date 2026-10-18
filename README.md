@@ -37,7 +37,7 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew run -PdevHome="$PWD/.dev/ho
 
 Type a title or search term. Suggestions appear after a short pause. Press Enter for broader results; click a result to open it. Down Arrow moves from the search field to the results; Up/Down and Enter navigate the result buttons.
 
-While reading, the article title and navigation stay above the content. Open the **Overview** dropdown to choose a view or section, including walkthroughs, stats, training, drops, and requirements. Its label follows your selection. Filter the list or select a heading to jump to it. Reading positions are preserved, and section jumps work with Back and Forward.
+While reading, the article title and navigation stay above the content. The **Overview** dropdown and the scrollable article show the same section hierarchy. Overview starts open; other sections start collapsed. Click a section header to expand/collapse it. In the dropdown, use the arrows to browse branches or click a label to open that section and jump to its header. Filtering finds nested sections directly. The selector follows your reading position; Back and Forward preserve both expansion state and position.
 
 Use the magnifying glass to open search. Back returns to your previous results or article; Forward restores where you were reading. The arrow-out icon opens the current article in your browser. All four controls have tooltips.
 

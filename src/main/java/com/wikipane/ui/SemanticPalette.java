@@ -8,7 +8,7 @@ import java.awt.Color;
 public final class SemanticPalette {
     private SemanticPalette() {}
     public static final Color TEXT = new Color(222, 222, 222), MUTED = new Color(160, 165, 171),
-        LINK = new Color(255, 183, 77), NUMBER = new Color(166, 211, 225),
+        LINK = net.runelite.client.ui.ColorScheme.BRAND_ORANGE, NUMBER = new Color(166, 211, 225),
         REQUIREMENT = new Color(194, 207, 230), INPUT = new Color(194, 207, 230),
         OUTPUT = new Color(152, 207, 170), WARNING = new Color(244, 198, 111),
         MET = new Color(143, 208, 156), UNMET = new Color(240, 155, 149),

@@ -73,6 +73,7 @@ public final class ReaderComponents {
         JPanel group = column();
         JButton toggle = new JButton();
         toggle.setName("wiki.disclosure");
+        toggle.setForeground(ACCENT);
         toggle.setHorizontalAlignment(SwingConstants.LEFT);
         toggle.setAlignmentX(Component.LEFT_ALIGNMENT);
         toggle.setMargin(new Insets(4, 6, 4, 6));
@@ -218,8 +219,6 @@ public final class ReaderComponents {
             ? field.value.text.equals("Members") ? net.runelite.client.ui.ColorScheme.BRAND_ORANGE : SemanticPalette.MUTED
             : SemanticPalette.field(display);
         String valueHtml = field.displayHtml;
-        if (display.membership)
-            valueHtml = valueHtml.replace("<a ", "<a style='color:" + SemanticPalette.hex(color) + "' ");
         String html = "<span style='color:" + SemanticPalette.hex(color) + "'>" + valueHtml + "</span>";
         if (!alignNumbers && (display.numeric || display.probability != null)) html = "<b>" + html + "</b>";
         if (alignNumbers && (display.numeric || display.probability != null && display.probability.form != com.wikipane.view.Probability.Form.UNPARSED))
@@ -467,6 +466,12 @@ public final class ReaderComponents {
                         View view = super.create(element);
                         if (view instanceof InlineView && !"br".equals(element.getName()))
                             return new InlineView(element) {
+                                @Override
+                                public Color getForeground() {
+                                    // Source formatting and semantic field colors must not hide a live link.
+                                    return getElement().getAttributes().isDefined(HTML.Tag.A)
+                                        ? ACCENT : super.getForeground();
+                                }
                                 @Override
                                 public float getMinimumSpan(int axis) {
                                     return axis == View.X_AXIS ? 0 : super.getMinimumSpan(axis);

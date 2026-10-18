@@ -43,6 +43,7 @@ public final class SectionNavigator extends JPanel {
                 JLabel label=(JLabel)super.getTreeCellRendererComponent(owner,value,selected,expanded,leaf,row,focus);
                 ArticleNavigation.ReadingSection section=section(value);label.setIcon(null);
                 if(section==null)return label;
+                label.setForeground(ReaderComponents.ACCENT);
                 if(!leaf)label.setIcon(new Icon(){
                     public int getIconWidth(){return 10;}public int getIconHeight(){return 10;}
                     public void paintIcon(Component c,Graphics g,int x,int y){

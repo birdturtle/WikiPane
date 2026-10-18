@@ -702,6 +702,7 @@ public final class ContentRenderer {
             @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
             @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
         };
+        button.setForeground(ReaderComponents.ACCENT);
         button.setMargin(new Insets(5, 6, 5, 6));
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.setAlignmentX(Component.LEFT_ALIGNMENT);

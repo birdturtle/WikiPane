@@ -123,6 +123,7 @@ public final class WikiPanePanel extends PluginPanel {
         top.add(toolbar, BorderLayout.NORTH);
         JLabel brand = new JLabel("WikiPane");
         brand.setForeground(ColorScheme.BRAND_ORANGE);
+        failedBrowser.setForeground(ReaderComponents.ACCENT);
         brand.setFont(brand.getFont().deriveFont(Font.BOLD, 12f));
         searchTools.setOpaque(false);
         searchTools.add(brand, BorderLayout.NORTH);
@@ -412,6 +413,7 @@ public final class WikiPanePanel extends PluginPanel {
         for (String title : entry.results) {
             JButton result =
                 new JButton("<html>" + com.wikipane.document.WikiDocumentParser.escape(title) + "</html>");
+            result.setForeground(ReaderComponents.ACCENT);
             result.setHorizontalAlignment(SwingConstants.LEFT);
             result.setAlignmentX(Component.LEFT_ALIGNMENT);
             result.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));

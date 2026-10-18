@@ -38,6 +38,7 @@ final class ImageViewer {
         JButton fit = new JButton("Fit"), actual = new JButton("100%"), minus = new JButton("−"), plus = new JButton("+"),
             retry = new JButton("Retry"), browser = new JButton("Open in browser");
         minus.setToolTipText("Zoom out"); plus.setToolTipText("Zoom in");
+        browser.setForeground(ReaderComponents.ACCENT);
         JLabel amount = new JLabel(); amount.setForeground(ReaderComponents.MUTED);
         for (Component control : new Component[]{fit, actual, minus, plus, amount}) zoomTools.add(control);
         actions.add(retry); actions.add(browser);

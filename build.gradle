@@ -132,3 +132,34 @@ tasks.register('playerContextPreview', JavaExec) {
     mainClass = 'com.wikipane.context.PlayerContextPreview'
     args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-player-context.png')
 }
+
+// A local developer plugin, not a client distribution. Include only runtime dependencies.
+tasks.register('developerPluginJar', Jar) {
+    dependsOn classes
+    archiveClassifier.set('developer-plugin')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from sourceSets.main.output
+    from('runelite-plugin.properties')
+    from('LICENSE')
+    from('THIRD_PARTY.md')
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/versions/**', '**/module-info.class'
+    doFirst {
+        def client = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
+            it.moduleVersion.id.group == 'net.runelite' && it.name == 'client'
+        }
+        manifest.attributes('WikiPane-Distribution': 'local-developer-plugin',
+            'Cabbage-RuneLite-Version': client.moduleVersion.id.version)
+    }
+}
+
+tasks.register('verifyDeveloperPluginJar') {
+    dependsOn developerPluginJar
+    doLast {
+        def entries = zipTree(tasks.developerPluginJar.archiveFile.get().asFile)
+        assert !entries.matching { include 'com/wikipane/WikiPanePlugin.class' }.isEmpty()
+        assert !entries.matching { include 'org/jsoup/Jsoup.class' }.isEmpty()
+        assert !entries.matching { include 'runelite-plugin.properties' }.isEmpty()
+        assert entries.matching { include 'net/runelite/**', 'org/junit/**', 'org/mockito/**', '**/*Test.class' }.isEmpty()
+    }
+}

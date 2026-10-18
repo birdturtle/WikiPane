@@ -46,5 +46,6 @@ public final class RequirementBadge extends JPanel {
         status.getAccessibleContext().setAccessibleName(result.status + ": " + result.summary);
         status.setIcon(icon); status.putClientProperty("wiki.requirement.result", result);
         status.setVisible(enabled);
+        revalidate(); repaint();
     }
 }

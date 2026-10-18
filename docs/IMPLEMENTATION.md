@@ -122,3 +122,7 @@ The renderer accounts for already-visible source facts by URL, revision, unit, l
 ## Player-aware requirements
 
 `context/PlayerContextSnapshot`, `PlayerContextService` and `RequirementEvaluator` add immutable local game state and pure three-state evaluation. Sidebar activation requests only current-article quests, updates are event-coalesced, and account state is cleared on logout and lifecycle changes. `ui/RequirementBadge` annotates existing source rows without replacing their text or adding player state to pins. See [local player context](PLAYER_CONTEXT.md) for bounds, supported cases and manual acceptance.
+
+## Unified Wiki integration revision
+
+The current reader uses one Open Wiki links in WikiPane switch for minimap/quest/skill routing. Core Wiki may remain enabled: WikiPane temporarily presents its own button while retaining the exact core widget for restoration and forwarding its DPS callback. No core configuration is mutated. Older replacement-only/manual-disable descriptions above describe the initial implementation. Current settings and migration are documented in README.

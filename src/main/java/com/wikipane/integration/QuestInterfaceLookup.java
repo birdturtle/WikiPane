@@ -28,8 +28,7 @@ public final class QuestInterfaceLookup {
     private QuestInterfaceLookup() {}
 
     public static boolean enabled(WikiPaneConfig config) {
-        return config.questLookups() || config.replacement()
-            && config.destination() == WikiPaneConfig.Destination.SIDEBAR;
+        return config.replacement();
     }
 
     /** Only the game's two informational guide actions are consumed, before their widget script runs. */

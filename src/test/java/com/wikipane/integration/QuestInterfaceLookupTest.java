@@ -48,8 +48,8 @@ public class QuestInterfaceLookupTest {
         assertNull(QuestInterfaceLookup.resolve(client, entry));
     }
     @Test public void existingGuideActionsOpenMatchingPagesWithoutAddingMenuEntries() {
-        assertFalse(new WikiPaneConfig() {}.questLookups());
-        WikiPaneConfig config = new WikiPaneConfig() { public boolean questLookups() { return true; } };
+        assertFalse(new WikiPaneConfig() {}.replacement());
+        WikiPaneConfig config = new WikiPaneConfig() { public boolean replacement() { return true; } };
         when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
         for (String option : List.of("Open wiki guide", "Open wiki quick guide",
                 "Open wiki guide:", "Open wiki quick guide:",
@@ -69,7 +69,7 @@ public class QuestInterfaceLookupTest {
         }
     }
     @Test public void journalMapAndUnrelatedBrowserActionsRemainUntouched() {
-        WikiPaneConfig config = new WikiPaneConfig() { public boolean questLookups() { return true; } };
+        WikiPaneConfig config = new WikiPaneConfig() { public boolean replacement() { return true; } };
         when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
         for (String option : List.of("Read journal", "Show on map", "Read journal:", "Show on map:",
                 "Open wiki", "Wiki", "Cancel", "Open wiki guide: unexpected")) {
@@ -86,7 +86,7 @@ public class QuestInterfaceLookupTest {
     }
     @Test public void disabledLoggedOutAndTargetSelectionKeepBrowserBehavior() {
         boolean[] enabled = {false};
-        WikiPaneConfig config = new WikiPaneConfig() { public boolean questLookups() { return enabled[0]; } };
+        WikiPaneConfig config = new WikiPaneConfig() { public boolean replacement() { return enabled[0]; } };
         MenuEntry original = entry("Recipe for Disaster"); when(original.getOption()).thenReturn("Open wiki guide");
         net.runelite.api.events.MenuOptionClicked event = new net.runelite.api.events.MenuOptionClicked(original);
         when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
@@ -97,32 +97,19 @@ public class QuestInterfaceLookupTest {
         assertFalse(QuestInterfaceLookup.clicked(client, config, event, u -> fail()));
         assertFalse(event.isConsumed());
     }
-    @Test public void replacementSidebarRoutesRealQuestClicksWithoutSeparateQuestOptIn() {
+    @Test public void unifiedIntegrationRoutesBothQuestGuideActionsAndOptOutLeavesThemAlone() {
         when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
-        for (boolean replacement : new boolean[]{false, true}) {
-            for (boolean separate : new boolean[]{false, true}) {
-                for (WikiPaneConfig.Destination destination : WikiPaneConfig.Destination.values()) {
-                    WikiPaneConfig config = new WikiPaneConfig() {
-                        public boolean replacement() { return replacement; }
-                        public boolean questLookups() { return separate; }
-                        public Destination destination() { return destination; }
-                    };
-                    boolean expected = separate || replacement && destination == WikiPaneConfig.Destination.SIDEBAR;
-                    for (String option : List.of("Open wiki guide:", "Open wiki quick guide:")) {
-                        MenuEntry original = entry("Cook's Assistant");
-                        // Child 11 and the LIST component match the player's observed event trace.
-                        when(original.getParam0()).thenReturn(11);
-                        when(container.getChild(11)).thenReturn(row);
-                        when(original.getOption()).thenReturn(option);
-                        net.runelite.api.events.MenuOptionClicked event = new net.runelite.api.events.MenuOptionClicked(original);
-                        List<HttpUrl> opened = new ArrayList<>();
-                        assertEquals(expected, QuestInterfaceLookup.clicked(client, config, event, opened::add));
-                        assertEquals(expected, event.isConsumed());
-                        assertEquals(expected ? 1 : 0, opened.size());
-                        if (expected) assertEquals("Cook's Assistant" + (option.contains("quick") ? "/Quick guide" : ""),
-                            WikiUrls.title(opened.get(0)));
-                    }
-                }
+        for (boolean enabled : new boolean[]{false, true}) {
+            WikiPaneConfig config = new WikiPaneConfig() { public boolean replacement() { return enabled; } };
+            for (String option : List.of("Open wiki guide:", "Open wiki quick guide:")) {
+                MenuEntry original = entry("Cook's Assistant");
+                when(original.getParam0()).thenReturn(11); when(container.getChild(11)).thenReturn(row);
+                when(original.getOption()).thenReturn(option);
+                net.runelite.api.events.MenuOptionClicked event = new net.runelite.api.events.MenuOptionClicked(original);
+                List<HttpUrl> opened = new ArrayList<>();
+                assertEquals(enabled, QuestInterfaceLookup.clicked(client, config, event, opened::add));
+                assertEquals(enabled, event.isConsumed()); assertEquals(enabled ? 1 : 0, opened.size());
+                if (enabled) assertEquals("Cook's Assistant" + (option.contains("quick") ? "/Quick guide" : ""), WikiUrls.title(opened.get(0)));
             }
         }
     }

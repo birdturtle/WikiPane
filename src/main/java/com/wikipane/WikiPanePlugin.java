@@ -55,6 +55,7 @@ public class WikiPanePlugin extends Plugin {
     private ExecutorService workers, pinWorkers;
     private WikiPanePanel panel;
     private NavigationButton navigation;
+    private InspectMouseListener inspectMouse;
     private WikiButtonIntegration integration;
     private ContextMenuIntegration contextMenus;
     private com.wikipane.integration.SkillInterfaceIntegration skillMenus;
@@ -131,6 +132,7 @@ public class WikiPanePlugin extends Plugin {
                 if (active && version == lifecycle) currentPins.pin(selection);
             }));
             panel.playerContext(playerSnapshot);
+            panel.autoPositionSkills(config.autoPositionSkills());
             panel.mapRequests(location -> clientThread.invokeLater(() -> {
                 if(active&&version==lifecycle)currentMap.show(location);
             }));
@@ -162,6 +164,17 @@ public class WikiPanePlugin extends Plugin {
             currentWorkers, task -> clientThread.invokeLater(task), url -> openReference(url, version));
         inspectOverlay = new QuickInspectOverlay(this, client, inspections);
         overlays.add(inspectOverlay);
+        QuickInspectOverlay currentInspect = inspectOverlay;
+        inspectMouse = new InspectMouseListener(() -> active && version == lifecycle
+            && client.getGameState() == net.runelite.api.GameState.LOGGED_IN && !client.isMenuOpen()
+            && inspections.view() != null,
+            action -> {
+                QuickInspectController.View selected = inspections.view();
+                clientThread.invokeLater(() -> {
+                    if (active && version == lifecycle && inspections.view() == selected) currentInspect.control(action);
+                });
+            });
+        inspectOverlay.mouse(inspectMouse); mouseManager.registerMouseListener(inspectMouse);
         contextMenus = new ContextMenuIntegration(client, items, config, url -> {
             if (!active || version != lifecycle) return;
             if (config.contextDestination() == WikiPaneConfig.ContextDestination.FULL_ARTICLE)
@@ -209,6 +222,7 @@ public class WikiPanePlugin extends Plugin {
         QuickInspectController oldInspections = inspections;
         if (oldInspections != null) clientThread.invokeLater(oldInspections::stop);
         if (inspectOverlay != null) overlays.remove(inspectOverlay);
+        if (inspectMouse != null) { mouseManager.unregisterMouseListener(inspectMouse); inspectMouse = null; }
         PinnedReferences oldPins = pinned;
         if (oldPins != null) clientThread.invokeLater(oldPins::stop);
         if (wiki != null)
@@ -304,6 +318,11 @@ public class WikiPanePlugin extends Plugin {
             && event.getKey().startsWith("context");
         clientThread.invokeLater(() -> {
             if (!active || version != lifecycle) return;
+            if (event.getGroup().equals(WikiPaneConfig.GROUP) && event.getKey().equals("autoPositionSkills")) {
+                boolean enabled = config.autoPositionSkills();
+                SwingUtilities.invokeLater(() -> { if (active && version == lifecycle && panel != null) panel.autoPositionSkills(enabled); });
+                return;
+            }
             if (event.getGroup().equals(WikiPaneConfig.GROUP) && event.getKey().equals("playerRequirements")) {
                 if (playerContext != null) playerContext.enabled(config.playerRequirements());
                 return;
@@ -319,6 +338,8 @@ public class WikiPanePlugin extends Plugin {
         clientThread.invokeLater(() -> {
             if (active && version == lifecycle) {
                 integration.refresh();
+                boolean autoPosition = config.autoPositionSkills();
+                SwingUtilities.invokeLater(() -> { if (active && version == lifecycle && panel != null) panel.autoPositionSkills(autoPosition); });
                 if (playerContext != null) playerContext.enabled(config.playerRequirements());
             }
         });

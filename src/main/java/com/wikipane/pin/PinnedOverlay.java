@@ -38,6 +38,10 @@ public final class PinnedOverlay extends Overlay {
         if (!owner.active(pin) || client.getGameState() != GameState.LOGGED_IN) return null;
         menus();
         Dimension size = paint(graphics, pin.layout, pin.page);
+        if (System.nanoTime() < pin.emphasizeUntil) {
+            Color previous = graphics.getColor(); graphics.setColor(new Color(255,183,77));
+            graphics.drawRect(0,0,size.width-1,size.height-1); graphics.setColor(previous);
+        }
         if (mouse != null) {
             Rectangle previous = button(size.height, false), next = button(size.height, true);
             previous.translate(getBounds().x, getBounds().y); next.translate(getBounds().x, getBounds().y);

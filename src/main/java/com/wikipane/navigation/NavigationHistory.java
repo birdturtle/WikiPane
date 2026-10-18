@@ -13,6 +13,8 @@ public final class NavigationHistory {
         public final List<String> results;
         public int scroll;
         public boolean skillPositioned;
+        public Integer nextSearchOffset;
+        public boolean suggestions;
         public String area = "", variant = "", section = "";
         public final Map<String, Integer> areaScroll = new HashMap<>();
         public final Map<String, Integer> tables = new HashMap<>();

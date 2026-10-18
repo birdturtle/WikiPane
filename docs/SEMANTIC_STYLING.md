@@ -15,7 +15,7 @@ For a single fraction or percentage with probability p strictly between zero and
 | 1/1,000 ≤ p < 1/100 | Rare | Purple |
 | 0 < p < 1/1,000 | Very rare | Amber |
 
-These are WikiPane display thresholds, not the Wiki's rarity classifications. Exact decimal arithmetic determines boundaries. An approximate percentage is available in the tooltip; it does not replace the exact fraction. Each colored numeric rate has a visible text label. Labels and percentages added by the presentation layer are not included in highlighted source text or pins.
+These are WikiPane display thresholds, not the Wiki's rarity classifications. Exact decimal arithmetic determines boundaries. An approximate percentage is available in the tooltip; it does not replace the exact fraction. Numeric rates retain their exact source text and use a restrained accent. Derived categories and approximate percentages are explained only in the tooltip; they are not printed as if supplied by the Wiki and are not included in highlighted source text or pins.
 
 Source labels such as Common, Rare and Always remain the original visible text. A source-supplied rarity label is not used to infer numeric odds. Always, zero and certain probabilities are neutral rather than assigned a rarity category.
 
@@ -23,7 +23,7 @@ Multiple rolls (such as `2 × 5/150`), conditional rates, ranges, formulas, cita
 
 ## Shared visual language
 
-`SemanticPalette` centralizes text, muted attribution, gold links, cyan numeric values, requirement text, input/output distinctions and rarity accents. The sidebar, Quick Inspect and pins reuse this palette, with their existing independent density and layout rules. Compact views do not acquire sidebar cards or additional controls.
+`SemanticPalette` centralizes text, muted attribution, gold links, cyan numeric values, requirement text, input/output distinctions and rarity accents. The sidebar, Quick Inspect and pins reuse this palette, with their existing independent density and layout rules. Compact views keep their own density and native overlay controls; they do not acquire full sidebar cards.
 
 Numeric source values align to the right within their existing label/value row. Negative combat values are not colored as success or failure. The label and the Wiki's signed number stay intact. Recipe inputs and outputs keep explicit source labels; colors never invent a recipe relationship. Arbitrary prose is not classified as a warning by keyword guessing.
 

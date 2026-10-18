@@ -16,6 +16,7 @@ public final class WikiClient implements AutoCloseable {
     private final Gson gson;
     private final Set<Call> calls = ConcurrentHashMap.newKeySet();
     private volatile boolean closed;
+    private final WikiCache<String, SearchPage> searchPages = new WikiCache<>(80, 120_000);
     private final WikiCache<String, List<String>> searches = new WikiCache<>(80, 120_000);
     private final WikiCache<String, com.wikipane.view.WikiPage> pages=new WikiCache<>(12,600_000);
     private final WikiCache<String, WikiDocument> articles = new WikiCache<>(12, 600_000);
@@ -84,7 +85,38 @@ public final class WikiClient implements AutoCloseable {
             throw new IOException("The Wiki returned an unreadable response. Try again.", ex);
         }
     }
+    public static final class SearchPage {
+        public final List<String> titles;
+        public final Integer nextOffset;
+        public SearchPage(List<String> titles, Integer nextOffset) {
+            this.titles = List.copyOf(titles); this.nextOffset = nextOffset;
+        }
+    }
+    public SearchPage searchPage(String query, int offset) throws IOException {
+        query = query.trim();
+        if (query.isEmpty()) return new SearchPage(List.of(), null);
+        if (offset < 0) throw new IllegalArgumentException("Invalid search offset");
+        String key = query.toLowerCase(Locale.ROOT) + "\0" + offset;
+        SearchPage cached = searchPages.get(key);
+        if (cached != null) return cached;
+        HttpUrl url = WikiUrls.API.newBuilder().addQueryParameter("format", "json")
+            .addQueryParameter("formatversion", "2").addQueryParameter("action", "query")
+            .addQueryParameter("list", "search").addQueryParameter("srsearch", query)
+            .addQueryParameter("srnamespace", "0").addQueryParameter("srlimit", "20")
+            .addQueryParameter("srprop", "").addQueryParameter("sroffset", Integer.toString(offset)).build();
+        try {
+            JsonObject response = json(url);
+            List<String> titles = new ArrayList<>();
+            for (JsonElement entry : response.getAsJsonObject("query").getAsJsonArray("search"))
+                titles.add(entry.getAsJsonObject().get("title").getAsString());
+            Integer next = response.has("continue") && response.getAsJsonObject("continue").has("sroffset")
+                ? response.getAsJsonObject("continue").get("sroffset").getAsInt() : null;
+            if (next != null && next <= offset) next = null;
+            SearchPage page = new SearchPage(titles, next); searchPages.put(key, page); return page;
+        } catch (RuntimeException ex) { throw new IOException("The Wiki returned unreadable search results.", ex); }
+    }
     public List<String> search(String query, boolean suggestions) throws IOException {
+        if (!suggestions) return searchPage(query, 0).titles;
         query = query.trim();
         if (query.isEmpty())
             return List.of();
@@ -95,27 +127,12 @@ public final class WikiClient implements AutoCloseable {
         HttpUrl.Builder url = WikiUrls.API.newBuilder().addQueryParameter("format", "json");
         List<String> result = new ArrayList<>();
         try {
-            if (suggestions) {
-                url.addQueryParameter("action", "opensearch")
-                    .addQueryParameter("search", query)
-                    .addQueryParameter("redirects", "resolve")
-                    .addQueryParameter("limit", "8")
-                    .addQueryParameter("namespace", "0");
-                JsonArray array = gson.fromJson(
-                    new String(get(url.build(), 256_000), java.nio.charset.StandardCharsets.UTF_8),
-                    JsonArray.class);
-                for (JsonElement e : array.get(1).getAsJsonArray()) result.add(e.getAsString());
-            } else {
-                url.addQueryParameter("action", "query")
-                    .addQueryParameter("list", "search")
-                    .addQueryParameter("srsearch", query)
-                    .addQueryParameter("srnamespace", "0")
-                    .addQueryParameter("srlimit", "20")
-                    .addQueryParameter("srprop", "")
-                    .addQueryParameter("formatversion", "2");
-                for (JsonElement e : json(url.build()).getAsJsonObject("query").getAsJsonArray("search"))
-                    result.add(e.getAsJsonObject().get("title").getAsString());
-            }
+            url.addQueryParameter("action", "opensearch")
+                .addQueryParameter("search", query).addQueryParameter("redirects", "resolve")
+                .addQueryParameter("limit", "8").addQueryParameter("namespace", "0");
+            JsonArray array = gson.fromJson(
+                new String(get(url.build(), 256_000), java.nio.charset.StandardCharsets.UTF_8), JsonArray.class);
+            for (JsonElement e : array.get(1).getAsJsonArray()) result.add(e.getAsString());
         } catch (RuntimeException ex) {
             throw new IOException("The Wiki returned unreadable search results.", ex);
         }
@@ -213,7 +230,7 @@ public final class WikiClient implements AutoCloseable {
         for (Call call : calls) call.cancel();
         calls.clear();
         articles.clear();pages.clear();
-        searches.clear();
+        searches.clear(); searchPages.clear();
         entities.clear();
     }
 }

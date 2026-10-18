@@ -41,12 +41,13 @@ public final class SectionNavigator extends JPanel {
                 JList<?> owner, Object value, int index, boolean selected, boolean focus) {
                 JLabel label = (JLabel) super.getListCellRendererComponent(owner, "", index, selected, focus);
                 ArticleNavigation.Destination destination = (ArticleNavigation.Destination) value;
-                label.putClientProperty("html.disable", true);
-                label.setText(destination.label);
+                label.putClientProperty("html.disable", false);
+                int width = Math.max(100, (owner.getWidth() > 0 ? owner.getWidth() : 200) - 16 - destination.depth * 9);
+                String text = com.wikipane.document.WikiDocumentParser.escape(destination.label);
+                label.setText("<html><body style='width:" + width + "px'>" + (destination.depth == 0 ? "<b>" + text + "</b>" : text) + "</body></html>");
                 label.setBorder(BorderFactory.createEmptyBorder(5, 4 + destination.depth * 9, 5, 4));
                 label.setToolTipText(destination.label);
-                if (!selected && destination.depth == 0)
-                    label.setFont(label.getFont().deriveFont(Font.BOLD));
+                label.getAccessibleContext().setAccessibleName((destination.depth == 0 ? "Category: " : "Section: ") + destination.label);
                 return label;
             }
         });

@@ -69,6 +69,25 @@ public final class ReaderComponents {
             BorderFactory.createEmptyBorder(7, 8, 7, 8)));
         return card;
     }
+    public JComponent disclosure(String title, JComponent body) {
+        JPanel group = column();
+        JButton toggle = new JButton();
+        toggle.setName("wiki.disclosure");
+        toggle.setHorizontalAlignment(SwingConstants.LEFT);
+        toggle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        toggle.setMargin(new Insets(4, 6, 4, 6));
+        toggle.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        body.setVisible(false);
+        Runnable update = () -> {
+            toggle.setText((body.isVisible() ? "▾ " : "▸ ") + title);
+            toggle.getAccessibleContext().setAccessibleName(title + (body.isVisible() ? ", expanded" : ", collapsed"));
+        };
+        update.run();
+        toggle.addActionListener(event -> {
+            body.setVisible(!body.isVisible()); update.run(); group.revalidate(); group.repaint();
+        });
+        group.add(toggle); group.add(body); return group;
+    }
     public JComponent gap(int height) {
         return (JComponent) Box.createRigidArea(new Dimension(0, height));
     }
@@ -209,16 +228,9 @@ public final class ReaderComponents {
         text.putClientProperty("wiki.field.presentation", display);
         if (display.probability == null) return text;
         text.setToolTipText(display.probability.explanation);
-        if (display.probability.label.isEmpty()) return text;
-        // Derived labels are separate from selectable source text, so pinning retains only Wiki facts.
-        JPanel value = column(); value.add(text);
-        JLabel rarity = new JLabel(display.probability.label) {
-            @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
-        };
-        rarity.setName("wiki.rarity"); rarity.setAlignmentX(Component.LEFT_ALIGNMENT); rarity.setForeground(color);
-        rarity.setFont(rarity.getFont().deriveFont(10f)); rarity.setHorizontalAlignment(SwingConstants.RIGHT);
-        rarity.setToolTipText(display.probability.explanation); value.add(rarity);
-        return value;
+        // Exact source odds remain primary; derived rarity is conveyed by a restrained accent
+        // and explicitly identified in the tooltip, never printed as a Wiki-supplied label.
+        return text;
     }
     public JComponent condition(String html) {
         JPanel row = column();
@@ -271,7 +283,9 @@ public final class ReaderComponents {
         if (record.keyedIdentity && record.metadata.isEmpty() && record.nested.isEmpty()
             && record.fields.size() == 1 && record.fields.get(0).value.text.length() <= 64
             && !record.fields.get(0).value.html.matches("(?is).*</?(ul|ol|li|p|br).*?")
-            && record.fields.get(0).label.equals(record.group)) {
+            && record.fields.get(0).label.equals(record.group)
+            && com.wikipane.view.FactPolicy.importance(record.fields.get(0).label, record.fields.get(0).value.text)
+                == com.wikipane.view.FactPolicy.Importance.PRIMARY) {
             JComponent key = compactMetric(record.identity, true);
             JComponent detail = fieldValue(record.fields.get(0), false);
             detail.putClientProperty("reader.column", Boolean.TRUE);
@@ -342,22 +356,32 @@ public final class ReaderComponents {
             for (ReaderLayout.Field field : record.metadata) metadata.add(fieldValue(field, false));
             card.add(metadata);
         }
+        java.util.List<ReaderLayout.Field> primary = new java.util.ArrayList<>();
+        JPanel technical = column(), supporting = column();
+        for (ReaderLayout.Field field : record.fields) {
+            com.wikipane.view.FactPolicy.Importance importance = com.wikipane.view.FactPolicy.importance(field.label, field.value.text);
+            if (importance == com.wikipane.view.FactPolicy.Importance.TECHNICAL) technical.add(field(field));
+            else if (importance == com.wikipane.view.FactPolicy.Importance.SUPPORTING) supporting.add(field(field));
+            else primary.add(field);
+        }
         if (record.compact) {
             JPanel metrics = column();
             metrics.setName("wiki.record.metrics");
-            boolean fullRows = record.fields.stream().anyMatch(f -> f.presentation.probability != null);
+            boolean fullRows = primary.stream().anyMatch(f -> f.presentation.probability != null);
             metrics.setLayout(new CompactRecordLayout(fullRows));
-            for (ReaderLayout.Field field : record.fields) {
+            for (ReaderLayout.Field field : primary) {
                 metrics.add(compactMetric(field));
             }
             if (!record.keyedIdentity)
                 for (ReaderLayout.Field field : record.metadata) metrics.add(compactMetric(field));
             card.add(metrics);
-        } else for (ReaderLayout.Field field : record.fields) {
+        } else for (ReaderLayout.Field field : primary) {
             if (record.keyedIdentity && record.fields.size() == 1 && field.label.equals(record.group))
                 card.add(fieldValue(field, false));
             else card.add(field(field));
         }
+        if (supporting.getComponentCount() > 0) card.add(disclosure("Article details", supporting));
+        if (technical.getComponentCount() > 0) card.add(disclosure("Technical details", technical));
         pinContext = previous;
         return card;
     }

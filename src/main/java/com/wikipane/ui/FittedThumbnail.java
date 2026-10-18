@@ -11,6 +11,10 @@ final class FittedThumbnail extends JLabel {
     private final CompositionAudit audit;
     private final boolean fixedSlot;
     private BufferedImage image;
+    private boolean unavailable;
+    void unavailable() {
+        unavailable = true; setText("No image"); revalidate(); repaint();
+    }
     private int auditedWidth = -1;
     FittedThumbnail(int maxWidth, int maxHeight, int width, int height, CompositionAudit audit) {
         this(maxWidth,maxHeight,width,height,audit,false);
@@ -24,7 +28,7 @@ final class FittedThumbnail extends JLabel {
         this.audit = audit;
     }
     void image(BufferedImage image) {
-        this.image = image;
+        this.image = image; unavailable = false;
         setText("");
         revalidate();
         repaint();
@@ -47,8 +51,9 @@ final class FittedThumbnail extends JLabel {
         if (getParent() != null && getParent().getWidth() > 0)
             width = Math.min(
                 width, getParent().getWidth() - getParent().getInsets().left - getParent().getInsets().right);
+        if (unavailable) return new Dimension(Math.max(1, width), 26);
         Dimension fit = reserved(width);
-        return new Dimension(fit.width, fit.height + 8);
+        return new Dimension(fit.width, fit.height + (fixedSlot ? 0 : 8));
     }
     @Override
     public Dimension getMaximumSize() {
@@ -68,7 +73,7 @@ final class FittedThumbnail extends JLabel {
         Graphics2D g = (Graphics2D) graphics.create();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         Dimension slot = reserved(getWidth());
-        g.drawImage(image, (slot.width-fit.width)/2, 4+(slot.height-fit.height)/2, fit.width, fit.height, null);
+        g.drawImage(image, (slot.width-fit.width)/2, (fixedSlot ? 0 : 4)+(slot.height-fit.height)/2, fit.width, fit.height, null);
         g.dispose();
         if (getWidth() < maxWidth && audit != null && auditedWidth != getWidth()) {
             auditedWidth = getWidth();

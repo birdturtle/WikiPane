@@ -13,6 +13,7 @@ public final class PinnedReferences {
         public final int slot;
         public final PinLayout layout;
         public volatile int page;
+        public volatile long emphasizeUntil;
         private Pin(int slot, PinLayout layout) { this.slot = slot; this.layout = layout; }
     }
     private static final class Pending {
@@ -33,7 +34,10 @@ public final class PinnedReferences {
         this.source = source; this.error = error;
     }
     public void pin(PinSelection selection) {
-        if (stopped || pins.containsKey(selection.id) || pending.containsKey(selection.id)) return;
+        if (stopped) return;
+        Pin existing = pins.get(selection.id);
+        if (existing != null) { existing.emphasizeUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(2); existing.page = 0; return; }
+        if (pending.containsKey(selection.id)) { error.accept("That reference is already being prepared."); return; }
         if (pins.size() + pending.size() >= LIMIT) {
             error.accept("You have five pinned references. Unpin one before adding another."); return;
         }
@@ -71,7 +75,12 @@ public final class PinnedReferences {
         if (active(pin)) pin.page = Math.max(0, Math.min(pin.layout.pages.size() - 1, pin.page + delta));
     }
     public void openSource(Pin pin) {
-        if (active(pin)) source.accept(pin.layout.selection.sources.get(0).link());
+        if (active(pin)) {
+            java.util.List<PinLayout.Line> page = pin.layout.pages.get(pin.page);
+            com.wikipane.semantic.SemanticDocument.Source destination = page.stream().filter(line -> !line.heading)
+                .map(line -> line.source).findFirst().orElse(page.get(0).source);
+            source.accept(destination.link());
+        }
     }
     public void unpin(Pin pin) {
         if (!active(pin)) return;

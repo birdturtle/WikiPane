@@ -43,13 +43,13 @@ Use the magnifying glass to open search. Back returns to your previous results o
 
 Recognized recipes show ingredients, quantities, output, skill level, and XP. **Costs & source details** keeps the complete recipe tables available.
 
-Short facts use aligned rows; table entries have their own labeled records. **Show more** reveals additional entries. The variant selector switches between source item or monster variants. Separate strategy and full-guide links open inside the reader. Citation markers open reference cards with a return link to the cited passage. Right-click a section heading to open its Wiki source.
+Short facts use aligned rows; table entries have their own labeled records. **Show more** reveals additional entries; **Show fewer entries** compacts an expanded table. Technical IDs and MOID links stay under **Technical details**, while release/editorial metadata stays under **Article details**. The variant selector switches between source item or monster variants. Separate strategy and full-guide links open inside the reader. Citation markers open reference cards with a return link to the cited passage. Right-click a section heading to open its Wiki source.
 
 ## Quick Inspect
 
-Enable **Right-click lookup → Add WikiPane to entity menus** in WikiPane settings. Choose **Quick Inspect** under **Open lookup in** for a temporary overlay; the default opens the full article. Hold Shift and right-click an item, NPC, or object, then choose **WikiPane**. Bank and equipment item menus are supported where RuneLite exposes the item ID.
+Enable **Right-click lookup → Add WikiPane to entity menus** in WikiPane settings. Choose **Quick Inspect** under **Entity menus: open in** for a temporary overlay; the default opens the full article. Hold Shift and right-click an item, NPC, or object, then choose **WikiPane**. Bank and equipment item menus are supported where RuneLite exposes the item ID.
 
-The small translucent panel leaves your sidebar article in place. Hold Shift and right-click the panel for **Open full article**, related articles, page navigation, retry, or **Dismiss**. Hold Alt to drag it. Choosing the full article adds it to ordinary sidebar history, so Back returns to your previous reading position.
+The small translucent panel leaves your sidebar article in place. Its footer has **Read article**, paging arrows, and **×** to dismiss. Hold Shift and right-click the panel for **Open full article**, related articles, page navigation, retry, or **Dismiss**. Hold Alt to drag it. Choosing the full article adds it to ordinary sidebar history, so Back returns to your previous reading position.
 
 Settings also offer ordinary right-click access and direct full-article lookups. Contextual lookup works alongside RuneLite's Wiki plugin; replacing its minimap button is separate.
 
@@ -63,7 +63,7 @@ With **Open Wiki links in WikiPane** active, right-click a skill in the Skills t
 
 Supported Wiki actions inside the level-guide window also open in WikiPane when the interface supplies an explicit Wiki destination or item ID. Ordinary guide, experience, category and material-check actions keep their normal behavior.
 
-Skill level-up tables start at your base level when local player state is available. Earlier levels are subtly dimmed and remain readable and clickable. Back/Forward restores your reading position; explicit section links and manual scrolling take priority. This uses **Show character checks** and sends no character levels to the Wiki.
+Skill level-up tables start at your base level when local player state is available. Earlier levels are subtly dimmed and remain readable and clickable. Back/Forward restores your reading position; explicit section links and manual scrolling take priority. This uses **Show character checks** and sends no character levels to the Wiki. Turn **Jump to your skill level** off to retain dimming and checks without automatic positioning.
 
 ## Wiki locations on the map
 
@@ -81,7 +81,7 @@ Turn **Show character checks** off in WikiPane settings if you prefer the plain 
 
 Highlight text in an article, right-click, and choose **Pin selection**. The selection becomes a compact, translucent overlay immediately. Lists, numbering, emphasis, and field labels are kept.
 
-Click the footer arrows to turn pages. Hold Alt to move a pin. Shift-right-click it for **Open source** or **Unpin**. Pins stay visible when the sidebar closes. Up to five pins can be kept for the session; disabling WikiPane or restarting RuneLite clears them.
+Click the footer arrows to turn pages. Hold Alt to move a pin. Shift-right-click it for **Open source** or **Unpin**. **Open source** returns to the source of the currently displayed page. Pinning the same selection again highlights the existing pin. Pins stay visible when the sidebar closes. Up to five pins can be kept for the session; disabling WikiPane or restarting RuneLite clears them.
 
 ## Wiki integration
 
@@ -89,7 +89,7 @@ Enable **Wiki integration → Open Wiki links in WikiPane** to route the minimap
 
 RuneLite's core **Wiki** plugin can stay enabled. WikiPane temporarily supplies the visible lookup/search button while keeping the core widget intact; its DPS action is forwarded to the original core callback. Turning integration off or disabling WikiPane restores the core widget without changing the core plugin's settings. If core Wiki hides its minimap button, that preference is respected. With core Wiki disabled, WikiPane supplies its own button; DPS is available only through the enabled core plugin.
 
-By default, left-click selects an entity. **Search on left-click** makes it open sidebar search instead. Right-click lookup is an independent optional entry point, with Shift-right-click and full-article defaults. **Show character checks** controls requirement indicators and skill-guide progression locally.
+By default, left-click selects an entity. **Wiki button: left-click search** makes it open sidebar search instead. Right-click lookup is an independent optional entry point, with Shift-right-click and full-article defaults. **Show character checks** controls requirement indicators and skill-guide progression locally.
 
 Existing quest/skill opt-ins migrate into the unified routing switch. Existing right-click destination and player-check preferences are retained.
 
@@ -119,8 +119,10 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew preview -Particle="Recipe f
 
 Right-click the article title, or the WikiPane heading in search, and choose **Composition audit** for local diagnostics. See [presentation validation](docs/PRESENTATION_VALIDATION.md) for the checks and their limits.
 
+See the [UX refinement notes](docs/UX_REFINEMENT.md) for presentation decisions and the manual acceptance checklist.
+
 See [testing](docs/TESTING.md) for the player test checklist and [implementation notes](docs/IMPLEMENTATION.md) for limits and Plugin Hub preparation.
 
-Article images open in a resizable, non-modal Swing viewer when clicked. Press Escape or close the window to dismiss it. Larger images load on demand with bounded decoding and caching; decorative table icons remain non-interactive.
+Article images open in a resizable, non-modal Swing viewer when clicked. Press Escape or close the window to dismiss it. Use **Fit**, **100%**, or **−/+** to zoom; drag to pan, or Ctrl-scroll to zoom. Failed downloads offer Retry and Open in browser. Larger images load on demand with bounded decoding and caching; decorative table icons remain non-interactive.
 
 For private testing through Cabbage's developer-plugin mode, run `./gradlew verifyDeveloperPluginJar` and send testers `build/libs/wikipane-0.1.0-developer-plugin.jar`. This includes jsoup but excludes RuneLite and test code. The manifest records the RuneLite version used to compile it, so incompatible client updates require rebuilding the package. Testers select the JAR under Cabbage's **Settings → Advanced → Developer plugins**, enable the mode, then launch their character normally. This local package has not been reviewed by the Plugin Hub.

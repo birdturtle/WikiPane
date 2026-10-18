@@ -38,7 +38,13 @@ public final class ReaderSelection {
             menu.add(action); menu.add(copy);
             if (original != null) {
                 menu.addSeparator();
-                for (Component component : original.getComponents()) menu.add(component);
+                for (Component component : original.getComponents()) {
+                    if (component instanceof JMenuItem) {
+                        JMenuItem source = (JMenuItem) component;
+                        JMenuItem item = new JMenuItem(source.getText());
+                        item.addActionListener(event -> source.doClick()); menu.add(item);
+                    } else if (component instanceof JSeparator) menu.addSeparator();
+                }
             }
             menu.addPopupMenuListener(new PopupMenuListener() {
                 public void popupMenuWillBecomeVisible(PopupMenuEvent event) {
@@ -61,16 +67,9 @@ public final class ReaderSelection {
             action.addActionListener(event -> { if (selection != null) pin.accept(selection); });
             copy.addActionListener(event -> {
                 try {
-                    PinSelection selected = capture(pane);
-                    StringBuilder text = new StringBuilder();
-                    for (PinSelection.Fragment fragment : selected.fragments)
-                        for (PinSelection.Paragraph paragraph : fragment.paragraphs) {
-                            if (text.length() > 0) text.append('\n');
-                            if (!paragraph.marker.isEmpty()) text.append(paragraph.marker).append(' ');
-                            text.append(paragraph.text());
-                        }
-                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text.toString()), null);
-                } catch (IllegalArgumentException | IllegalStateException ex) { error.accept("The selection could not be copied."); }
+                    String text = selectedText(pane);
+                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
+                } catch (javax.swing.text.BadLocationException | IllegalArgumentException | IllegalStateException ex) { error.accept("The selection could not be copied."); }
             });
             pane.setComponentPopupMenu(menu);
             caret = event -> {
@@ -115,6 +114,14 @@ public final class ReaderSelection {
     public void refresh(Container root) {
         this.root = root;
         panes.clear(); scan(root);
+        for (JEditorPane pane : new ArrayList<>(registered.keySet())) if (!panes.contains(pane)) {
+            registered.remove(pane).remove(); ranges.remove(pane);
+        }
+    }
+    private boolean visible(Component child) {
+        for (Component current = child; current != root; current = current.getParent())
+            if (current == null || !current.isVisible()) return false;
+        return root != null;
     }
     private void scan(Container root) {
         for (Component component : root.getComponents()) {
@@ -137,6 +144,7 @@ public final class ReaderSelection {
         JEditorPane closest = null;
         long best = Long.MAX_VALUE;
         for (JEditorPane pane : panes) {
+            if (!visible(pane)) continue;
             Rectangle bounds = SwingUtilities.convertRectangle(pane.getParent(), pane.getBounds(), root);
             int dx = Math.max(0, Math.max(bounds.x - point.x, point.x - bounds.x - bounds.width));
             int dy = Math.max(0, Math.max(bounds.y - point.y, point.y - bounds.y - bounds.height));
@@ -156,7 +164,7 @@ public final class ReaderSelection {
             for (int i = 0; i < panes.size(); i++) {
                 JEditorPane pane = panes.get(i);
                 int low = i == a ? start : 0, high = i == b ? end : pane.getDocument().getLength();
-                if (i < a || i > b) low = high = 0;
+                if (i < a || i > b || !visible(pane)) low = high = 0;
                 low = Math.max(0, Math.min(low, pane.getDocument().getLength()));
                 high = Math.max(low, Math.min(high, pane.getDocument().getLength()));
                 pane.select(low, high); pane.getCaret().setSelectionVisible(true);
@@ -165,7 +173,21 @@ public final class ReaderSelection {
             }
         } finally { adjusting = false; }
     }
+    String selectedText(JEditorPane invoker) throws javax.swing.text.BadLocationException {
+        StringBuilder text = new StringBuilder();
+        for (JEditorPane pane : panes) {
+            int[] range = ranges.get(pane);
+            if (range == null && pane == invoker && pane.getSelectionEnd() > pane.getSelectionStart())
+                range = new int[]{pane.getSelectionStart(), pane.getSelectionEnd()};
+            if (range == null || !visible(pane)) continue;
+            String part = pane.getDocument().getText(range[0], range[1]-range[0]).strip();
+            if (!part.isEmpty()) { if (text.length() > 0) text.append('\n'); text.append(part); }
+        }
+        return text.toString();
+    }
     public PinSelection capture(JEditorPane invoker) {
+        ranges.keySet().removeIf(pane -> !visible(pane));
+        if (!visible(invoker)) throw new IllegalArgumentException("Select visible article text to pin.");
         List<PinSelection.Fragment> fragments = new ArrayList<>();
         if (ranges.size() > 1 && ranges.containsKey(invoker)) {
             int characters = 0;

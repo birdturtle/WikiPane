@@ -12,6 +12,24 @@ public final class QuickInspectOverlay extends Overlay {
     private final Client client;
     private final QuickInspectController controller;
     private QuickInspectController.View installed;
+    private InspectMouseListener mouse;
+    public void mouse(InspectMouseListener value) { mouse = value; }
+    public void control(InspectMouseListener.Action action) {
+        switch (action) {
+            case READ: controller.explore(); break;
+            case PREVIOUS: controller.page(-1); break;
+            case NEXT: controller.page(1); break;
+            case DISMISS: controller.dismiss(); break;
+        }
+    }
+    static Rectangle button(int height, InspectMouseListener.Action action) {
+        switch (action) {
+            case READ: return new Rectangle(6, height-19, 68, 17);
+            case PREVIOUS: return new Rectangle(80, height-19, 20, 17);
+            case NEXT: return new Rectangle(146, height-19, 20, 17);
+            default: return new Rectangle(184, height-19, 20, 17);
+        }
+    }
     public QuickInspectOverlay(Plugin plugin, Client client, QuickInspectController controller) {
         super(plugin);
         this.client = client; this.controller = controller;
@@ -78,8 +96,21 @@ public final class QuickInspectOverlay extends Overlay {
     @Override public Dimension render(Graphics2D graphics) {
         QuickInspectController.View view = controller.view();
         menus(view);
-        if (view == null || client.getGameState() != GameState.LOGGED_IN) return null;
-        return paint(graphics, view);
+        if (view == null || client.getGameState() != GameState.LOGGED_IN) {
+            if (mouse != null) mouse.bounds(java.util.Map.of()); return null;
+        }
+        Dimension size = paint(graphics, view);
+        if (mouse != null) {
+            java.util.Map<InspectMouseListener.Action, Rectangle> targets = new java.util.EnumMap<>(InspectMouseListener.Action.class);
+            for (InspectMouseListener.Action action : InspectMouseListener.Action.values()) {
+                if (action == InspectMouseListener.Action.READ && view.inspection == null
+                    || action == InspectMouseListener.Action.PREVIOUS && (view.layout == null || view.page == 0)
+                    || action == InspectMouseListener.Action.NEXT && (view.layout == null || view.page+1 >= view.layout.pages.size())) continue;
+                Rectangle target = button(size.height, action); target.translate(getBounds().x, getBounds().y); targets.put(action, target);
+            }
+            mouse.bounds(targets);
+        }
+        return size;
     }
     /** Shared with the isolated preview; does not access the game or mutate state. */
     public static Dimension paint(Graphics2D original, QuickInspectController.View view) {
@@ -119,21 +150,35 @@ public final class QuickInspectOverlay extends Overlay {
                     if (!line.value.isEmpty()) {
                         graphics.setFont(InspectionLayout.LABEL);
                         graphics.setColor(SemanticPalette.LINK);
-                        graphics.drawString(line.text, pad, y);
-                        int valueX = pad + graphics.getFontMetrics().stringWidth(line.text) + 7;
+                        graphics.drawString(line.text, pad + line.indent, y);
+                        int valueX = pad + line.indent + graphics.getFontMetrics().stringWidth(line.text) + 7;
                         graphics.setFont(InspectionLayout.BODY);
                         graphics.setColor(line.color);
                         graphics.drawString(line.value, valueX, y);
-                    } else graphics.drawString(line.text, pad, y);
+                    } else graphics.drawString(line.text, pad + line.indent, y);
                     y += step;
                 }
             }
             graphics.setFont(InspectionLayout.BODY);
             graphics.setColor(new Color(200, 200, 200));
-            String footer = "OSRS Wiki | Shift-right-click";
+            for (InspectMouseListener.Action action : InspectMouseListener.Action.values()) {
+                boolean enabled = action == InspectMouseListener.Action.DISMISS
+                    || view.inspection != null && (action == InspectMouseListener.Action.READ
+                        || action == InspectMouseListener.Action.PREVIOUS && view.page > 0
+                        || action == InspectMouseListener.Action.NEXT && view.page+1 < view.layout.pages.size());
+                if ((action == InspectMouseListener.Action.NEXT || action == InspectMouseListener.Action.PREVIOUS)
+                    && (view.layout == null || view.layout.pages.size() <= 1)) continue;
+                Rectangle target = button(height, action);
+                graphics.setColor(new Color(255,255,255,enabled ? 28 : 8)); graphics.fillRect(target.x,target.y,target.width,target.height);
+                graphics.setColor(enabled ? SemanticPalette.LINK : Color.GRAY);
+                String label = action == InspectMouseListener.Action.READ ? "Read article"
+                    : action == InspectMouseListener.Action.PREVIOUS ? "<" : action == InspectMouseListener.Action.NEXT ? ">" : "×";
+                graphics.drawString(label, target.x+4, height-6);
+            }
+            graphics.setColor(Color.LIGHT_GRAY);
             if (view.layout != null && view.layout.pages.size() > 1)
-                footer = "OSRS Wiki " + (view.page + 1) + "/" + view.layout.pages.size() + " | Shift-right-click";
-            graphics.drawString(footer, pad, height - 5);
+                graphics.drawString((view.page+1)+"/"+view.layout.pages.size(), 106, height-6);
+            else graphics.drawString("OSRS Wiki", 88, height-6);
             return new Dimension(InspectionLayout.WIDTH, height);
         } finally { graphics.dispose(); }
     }

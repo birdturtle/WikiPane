@@ -2,7 +2,7 @@
 
 ## Rules
 
-Identity comes first in a repeated record. Explicit name columns become titles. When there is no entity name, a numeric Level/Tier/Rank/Stage/Wave column becomes a labeled key; its label and value stay separate source-backed fragments. Short, simple attributes use a compact two-column metric layout; below 160px of available metric width they become one column. Long prose, nested tables and complex condition groups retain full labeled-field presentation. Short loot records use the same compact format while retaining exact probabilities, qualifiers, citation links and rarity captions. Labels and values remain separate selectable source fragments, with the original field provenance for pinning.
+Identity comes first in a repeated record. Explicit name columns become titles. When there is no entity name, a numeric Level/Tier/Rank/Stage/Wave column becomes a labeled key; its label and value stay separate source-backed fragments. Short, simple attributes use a compact two-column metric layout; below 160px of available metric width they become one column. Long prose, nested tables and complex condition groups retain full labeled-field presentation. Short loot records use the same compact format while retaining exact probabilities, qualifiers, citation links and source-defined rarity labels. Labels and values remain separate selectable source fragments, with the original field provenance for pinning.
 
 Image-only cells and adjacent linked names can contain exactly the same normalized text. Retain both source cells in table records, then assign the actual text cell to identity and its matching image cell to illustration metadata. Text equality alone is insufficient evidence that one source cell is redundant. This fixes Cooking records that previously retained only the image-derived name and therefore had no promoted identity.
 
@@ -16,7 +16,7 @@ Headings use the semantic section hierarchy rather than splitting display string
 | --- | --- |
 | Repeated table records | Identity first; compact short attributes; generic fallback remains for complex values. |
 | Infobox facts | Keep labeled fields and width-aware stacking; these are distinct facts rather than comparable records. |
-| Drop odds | Retain exact source odds, conditional text and existing rarity captions on compact full-width rows. |
+| Drop odds | Retain exact source odds, conditional text and source-defined rarity labels on compact full-width rows. |
 | Requirements | Preserve per-quest checks, indentation, alternatives and full qualification text. No extra status tooltip. |
 | Headings and prose | Keep existing section hierarchy and wrapping. No article title duplication added. |
 | Images | Keep existing bounded asynchronous thumbnails; image-only duplicate names become illustration metadata. |

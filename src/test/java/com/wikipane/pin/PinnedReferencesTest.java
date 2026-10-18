@@ -53,6 +53,22 @@ public class PinnedReferencesTest {
         session.pins.pin(same); session.complete();
         assertEquals(1, session.added.size());
     }
+    @Test public void currentPageOpensItsOwnSourceAndDuplicatePinIsEmphasized() throws Exception {
+        com.wikipane.document.WikiDocument doc=PinSelectionTest.document("<h2><span id='First'>First</span></h2><p>First passage.</p>"
+            +"<h2><span id='Second'>Second</span></h2><p>"+"Second passage repeated. ".repeat(20)+"</p>");
+        PinSelection selection=PinSelectionTest.edt(() -> {
+            java.util.List<PinSelection.Fragment> fragments=new ArrayList<>();
+            for(com.wikipane.semantic.SemanticDocument.Node node:doc.semantic.nodes)
+                if(node.text!=null && node.type==com.wikipane.semantic.SemanticDocument.NodeType.TEXT)
+                    fragments.add(PinSelectionTest.whole(PinSelectionTest.pane(node.text.html,new PinContext(doc.semantic,node))));
+            return new PinSelection(fragments);
+        });
+        Session session=new Session();session.pins.pin(selection);session.complete();
+        PinnedReferences.Pin pin=session.added.get(0);session.pins.page(pin,100);
+        session.pins.openSource(pin);assertTrue(session.sources.get(0).endsWith("#Second"));
+        session.pins.pin(selection);assertEquals(0,pin.page);assertTrue(pin.emphasizeUntil>System.nanoTime());
+        assertEquals(1,session.added.size());
+    }
     @Test public void pinsAreBoundedAndUnpinningReusesTheFreePositionSlot() throws Exception {
         Session session = new Session();
         for (int i = 0; i < PinnedReferences.LIMIT + 1; i++) session.pins.pin(PinSelectionTest.simple("<p>Reference " + i + ".</p>"));

@@ -12,9 +12,11 @@ public final class MapPresentation {
     public static String html(String html, Source source) {
         if(!html.contains("data-wikipane-map"))return html;
         Element body=Jsoup.parseBodyFragment(html).body();
-        for(Element map:body.select("span[data-wikipane-map]"))
+        for(Element map:body.select("span[data-wikipane-map]")) {
             if(WikiMapIntegration.destination(new Location(map.attr("data-x"),map.attr("data-y"),
-                map.attr("data-plane"),source,true,map.attr("data-mapid")))!=null)map.remove();
+                map.attr("data-plane"),source,true,map.attr("data-mapid")))!=null) map.remove();
+            else map.text("Location available on the Wiki map");
+        }
         return body.html();
     }
 }

@@ -12,7 +12,6 @@ import com.wikipane.inspect.*;
 import com.wikipane.pin.*;
 import net.runelite.client.ui.overlay.OverlayManager;
 import com.wikipane.ui.WikiPanePanel;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.*;
 import javax.inject.Inject;
@@ -28,6 +27,7 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.*;
 import net.runelite.client.ui.*;
 import net.runelite.client.util.LinkBrowser;
+import net.runelite.client.util.ImageUtil;
 import okhttp3.OkHttpClient;
 
 @PluginDescriptor(name = "WikiPane", description = "Read and search the OSRS Wiki inside RuneLite",
@@ -42,6 +42,7 @@ public class WikiPanePlugin extends Plugin {
     @Inject private ItemManager items;
     @Inject private PluginManager plugins;
     @Inject private WikiPaneConfig config;
+    @Inject private ConfigManager configManager;
     @Inject private OkHttpClient http;
     @Inject private Gson gson;
     @Inject private OverlayManager overlays;
@@ -54,6 +55,7 @@ public class WikiPanePlugin extends Plugin {
     private ExecutorService workers, pinWorkers;
     private WikiPanePanel panel;
     private NavigationButton navigation;
+    private InspectMouseListener inspectMouse;
     private WikiButtonIntegration integration;
     private ContextMenuIntegration contextMenus;
     private com.wikipane.integration.SkillInterfaceIntegration skillMenus;
@@ -69,6 +71,7 @@ public class WikiPanePlugin extends Plugin {
     }
     @Override
     protected void startUp() {
+        WikiPaneConfigMigration.apply(configManager);
         active = true;
         long version = ++lifecycle;
         com.wikipane.integration.WikiMapIntegration currentMap = new com.wikipane.integration.WikiMapIntegration(client,mapPoints,sprites,
@@ -129,6 +132,7 @@ public class WikiPanePlugin extends Plugin {
                 if (active && version == lifecycle) currentPins.pin(selection);
             }));
             panel.playerContext(playerSnapshot);
+            panel.autoPositionSkills(config.autoPositionSkills());
             panel.mapRequests(location -> clientThread.invokeLater(() -> {
                 if(active&&version==lifecycle)currentMap.show(location);
             }));
@@ -148,13 +152,29 @@ public class WikiPanePlugin extends Plugin {
                 SwingUtilities.invokeLater(() -> { if (active && version == lifecycle && panel != null) panel.skillIcons(icons); });
             }); } catch (RejectedExecutionException ex) { /* Shutdown may precede optional icon preparation. */ }
             navigation =
-                NavigationButton.builder().tooltip("WikiPane").priority(7).icon(icon()).panel(panel).build();
+                NavigationButton.builder()
+                    .tooltip("WikiPane")
+                    .icon(icon())
+                    .priority(1)
+                    .panel(panel)
+                    .build();
             toolbar.addNavigation(navigation);
         });
         inspections = new QuickInspectController(new KnowledgeService(currentWiki), new ImageCache(currentWiki),
             currentWorkers, task -> clientThread.invokeLater(task), url -> openReference(url, version));
         inspectOverlay = new QuickInspectOverlay(this, client, inspections);
         overlays.add(inspectOverlay);
+        QuickInspectOverlay currentInspect = inspectOverlay;
+        inspectMouse = new InspectMouseListener(() -> active && version == lifecycle
+            && client.getGameState() == net.runelite.api.GameState.LOGGED_IN && !client.isMenuOpen()
+            && inspections.view() != null,
+            action -> {
+                QuickInspectController.View selected = inspections.view();
+                clientThread.invokeLater(() -> {
+                    if (active && version == lifecycle && inspections.view() == selected) currentInspect.control(action);
+                });
+            });
+        inspectOverlay.mouse(inspectMouse); mouseManager.registerMouseListener(inspectMouse);
         contextMenus = new ContextMenuIntegration(client, items, config, url -> {
             if (!active || version != lifecycle) return;
             if (config.contextDestination() == WikiPaneConfig.ContextDestination.FULL_ARTICLE)
@@ -164,8 +184,7 @@ public class WikiPanePlugin extends Plugin {
         skillMenus = new com.wikipane.integration.SkillInterfaceIntegration(client, items, config,
             () -> active && version == lifecycle, url -> openReference(url.toString(), version),
             url -> openEntity(url, version));
-        WikiLookupRouter wikiRouter = new WikiLookupRouter(config, url -> openEntity(url, version),
-            LinkBrowser::browse, () -> SwingUtilities.invokeLater(() -> {
+        WikiLookupRouter wikiRouter = new WikiLookupRouter(url -> openEntity(url, version), () -> SwingUtilities.invokeLater(() -> {
                 if (active && version == lifecycle && panel != null) {
                     toolbar.openPanel(navigation);
                     panel.focusSearch();
@@ -203,6 +222,7 @@ public class WikiPanePlugin extends Plugin {
         QuickInspectController oldInspections = inspections;
         if (oldInspections != null) clientThread.invokeLater(oldInspections::stop);
         if (inspectOverlay != null) overlays.remove(inspectOverlay);
+        if (inspectMouse != null) { mouseManager.unregisterMouseListener(inspectMouse); inspectMouse = null; }
         PinnedReferences oldPins = pinned;
         if (oldPins != null) clientThread.invokeLater(oldPins::stop);
         if (wiki != null)
@@ -275,6 +295,7 @@ public class WikiPanePlugin extends Plugin {
     @Subscribe public void onGameTick(GameTick event) {
         if (active && playerContext != null) playerContext.tick();
         if (active && maps != null) maps.center();
+        if (active && integration != null) integration.reconcile();
     }
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
@@ -297,6 +318,11 @@ public class WikiPanePlugin extends Plugin {
             && event.getKey().startsWith("context");
         clientThread.invokeLater(() -> {
             if (!active || version != lifecycle) return;
+            if (event.getGroup().equals(WikiPaneConfig.GROUP) && event.getKey().equals("autoPositionSkills")) {
+                boolean enabled = config.autoPositionSkills();
+                SwingUtilities.invokeLater(() -> { if (active && version == lifecycle && panel != null) panel.autoPositionSkills(enabled); });
+                return;
+            }
             if (event.getGroup().equals(WikiPaneConfig.GROUP) && event.getKey().equals("playerRequirements")) {
                 if (playerContext != null) playerContext.enabled(config.playerRequirements());
                 return;
@@ -305,16 +331,23 @@ public class WikiPanePlugin extends Plugin {
             if (!config.contextLookups() && inspections != null) inspections.dismiss();
         });
     }
+    @Subscribe public void onProfileChanged(net.runelite.client.events.ProfileChanged event) {
+        if (!active) return;
+        WikiPaneConfigMigration.apply(configManager);
+        long version = lifecycle;
+        clientThread.invokeLater(() -> {
+            if (active && version == lifecycle) {
+                integration.refresh();
+                boolean autoPosition = config.autoPositionSkills();
+                SwingUtilities.invokeLater(() -> { if (active && version == lifecycle && panel != null) panel.autoPositionSkills(autoPosition); });
+                if (playerContext != null) playerContext.enabled(config.playerRequirements());
+            }
+        });
+    }
     @Subscribe public void onPluginChanged(PluginChanged event){
         if(active&&event.getPlugin() instanceof net.runelite.client.plugins.wiki.WikiPlugin){long version=lifecycle;clientThread.invokeLater(()->{if(active&&version==lifecycle)integration.refresh();});}
     }
     private BufferedImage icon() {
-        BufferedImage image = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = image.createGraphics();
-        g.setColor(ColorScheme.BRAND_ORANGE);
-        g.setFont(new Font(Font.SERIF, Font.BOLD, 22));
-        g.drawString("W", 0, 21);
-        g.dispose();
-        return image;
+        return ImageUtil.loadImageResource(WikiPanePlugin.class, "icon.png");
     }
 }

@@ -19,7 +19,7 @@ public class ThumbnailStabilityTest {
                 image.setSize(before);
                 BufferedImage canvas=new BufferedImage(before.width,before.height,BufferedImage.TYPE_INT_ARGB);
                 Graphics2D graphics=canvas.createGraphics(); image.paint(graphics);graphics.dispose();
-                if(fixed) assertEquals(new Dimension(22,30),before);
+                if(fixed) assertEquals(new Dimension(22,22),before);
             }
         });
     }

@@ -108,7 +108,7 @@ public class ReaderUiTest {
             });
             await(()
                       -> all(panel).stream().anyMatch(
-                          c -> c instanceof JLabel && "Offline".equals(((JLabel) c).getText())));
+                          c -> c instanceof JEditorPane && org.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().contains("Please try again")));
             assertTrue(edt(() -> text(panel, "New marker")));
             edt(() -> {
                 panel.stop();

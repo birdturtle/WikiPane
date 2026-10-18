@@ -1,8 +1,8 @@
 # Quest guide routing
 
-Use **Replace Wiki button** with **WikiPane sidebar** destination, or independently enable **Quest guides in WikiPane**, then use the game quest list's existing **Open wiki guide** or **Open wiki quick guide** action. Each opens its corresponding Wiki article in the sidebar with normal history, requirement annotations and pinning.
+Enable **Open Wiki links in WikiPane**, then use the game quest list's existing **Open wiki guide** or **Open wiki quick guide** action. Each opens its corresponding Wiki article in the sidebar with normal history, requirement annotations and pinning.
 
-No extra WikiPane quest entry is added. Read journal, Show on map and unrelated browser links remain unchanged. Quest routing is enabled by `questLookups OR (replacement AND destination == SIDEBAR)`. Quick Inspect and Shift preferences do not affect it. Existing config keys are retained. Browser behavior applies when neither opt-in is active; an explicit quest opt-in still routes to the sidebar when the minimap destination is Browser.
+No extra WikiPane quest entry is added. Read journal, Show on map and unrelated browser links remain unchanged. Quest routing is enabled by `replacement` (the unified Open Wiki links in WikiPane setting). Quick Inspect and Shift preferences do not affect it. Existing config keys are retained. Browser behavior applies when neither opt-in is active; an explicit quest opt-in still routes to the sidebar when the minimap destination is Browser.
 
 ## Resolution and safety
 

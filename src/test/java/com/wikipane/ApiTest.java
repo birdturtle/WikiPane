@@ -7,6 +7,7 @@ import com.wikipane.api.*;
 import com.wikipane.cache.ImageCache;
 import com.wikipane.integration.GameEntityLookup;
 import java.io.*;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.runelite.api.coords.WorldPoint;
 import okhttp3.*;
@@ -38,6 +39,23 @@ public class ApiTest {
         assertEquals(1, calls.get());
         assertTrue(client.search(" ", false).isEmpty());
         client.close();
+    }
+    @Test public void fullSearchFollowsServerContinuationAndCachesIndividualPages() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        WikiClient client = client(chain -> {
+            calls.incrementAndGet();
+            boolean first = "0".equals(chain.request().url().queryParameter("sroffset"));
+            return response(chain, 200, first
+                ? "{\"continue\":{\"sroffset\":20,\"continue\":\"-||\"},\"query\":{\"search\":[{\"title\":\"First\"}]}}"
+                : "{\"query\":{\"search\":[{\"title\":\"Later\"}]}}");
+        });
+        try {
+            WikiClient.SearchPage first = client.searchPage("broad", 0);
+            assertEquals(Integer.valueOf(20), first.nextOffset);
+            assertEquals(List.of("Later"), client.searchPage("broad", first.nextOffset).titles);
+            assertNull(client.searchPage("broad", 20).nextOffset);
+            assertEquals(2, calls.get());
+        } finally { client.close(); }
     }
     @Test
     public void articleRedirectUsesCanonicalApiTitleAndRevision() throws Exception {

@@ -141,16 +141,34 @@ public class WikiButtonIntegrationTest {
         verify(game.parent).setOriginalY(46);
         verify(game.vanilla, never()).setHidden(false);
     }
-    @Test public void corePluginConflictIsReportedOnceAndNeverAutomaticallyDisabled() {
+    @Test public void coreHiddenButtonIsRespectedAndNeverAutomaticallyDisabled() {
         Game game = new Game();
         net.runelite.client.plugins.wiki.WikiPlugin core = mock(net.runelite.client.plugins.wiki.WikiPlugin.class);
         when(game.plugins.getPlugins()).thenReturn(Collections.singletonList(core));
         when(game.plugins.isPluginEnabled(core)).thenReturn(true);
         game.integration.reconcile(); game.integration.reconcile();
-        assertEquals(1, game.messages.size());
-        assertTrue(game.messages.get(0).contains("Disable RuneLite's Wiki plugin"));
+        assertTrue(game.messages.isEmpty());
         assertTrue(game.created.isEmpty());
         verify(game.plugins, never()).setPluginEnabled(any(), anyBoolean());
+    }
+    @Test public void coreWidgetIsRestoredAndItsDpsActionIsPreservedWithoutCoreLookupSelection() {
+        Game game = new Game();
+        net.runelite.client.plugins.wiki.WikiPlugin core = mock(net.runelite.client.plugins.wiki.WikiPlugin.class);
+        when(game.plugins.getPlugins()).thenReturn(Collections.singletonList(core));
+        when(game.plugins.isPluginEnabled(core)).thenReturn(true);
+        Widget original = mock(Widget.class); when(original.getName()).thenReturn("Wiki");
+        JavaScriptCallback dps = mock(JavaScriptCallback.class);
+        when(original.getOnOpListener()).thenReturn(new Object[]{dps});
+        when(original.getActions()).thenReturn(new String[]{null,null,null,null,null,"Search","DPS"});
+        game.children.set(new Widget[]{original}); game.integration.reconcile(); game.integration.reconcile();
+        assertEquals(1, game.created.size()); verify(game.created.get(0)).setAction(6,"DPS");
+        org.mockito.ArgumentCaptor<JavaScriptCallback> op = org.mockito.ArgumentCaptor.forClass(JavaScriptCallback.class);
+        verify(game.created.get(0)).setOnOpListener(op.capture());
+        ScriptEvent event = mock(ScriptEvent.class); when(event.getOp()).thenReturn(7); op.getValue().run(event);
+        verify(dps).run(event); assertTrue(game.searches.isEmpty());
+        verify(original,never()).setOnTargetEnterListener(any());
+        game.integration.stop(); assertSame(original,game.children.get()[0]);
+        verify(game.plugins,never()).setPluginEnabled(any(),anyBoolean());
     }
     @Test public void removedWidgetCallbacksCannotReactivateSelection() {
         Game game = new Game();

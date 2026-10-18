@@ -45,6 +45,9 @@ public final class RequirementBadge extends JPanel {
             : result.status == RequirementEvaluator.Status.UNMET ? SemanticPalette.UNMET : SemanticPalette.MUTED);
         status.getAccessibleContext().setAccessibleName(result.status + ": " + result.summary);
         status.setIcon(icon); status.putClientProperty("wiki.requirement.result", result);
-        status.setVisible(enabled);
+        boolean noCondition = condition.kind == Requirement.Kind.OTHER
+            && condition.original.text.strip().matches("(?i)(?:none|n/a|not required|no requirements)[.!]?");
+        status.setVisible(enabled && !noCondition);
+        revalidate(); repaint();
     }
 }

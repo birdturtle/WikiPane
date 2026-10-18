@@ -27,20 +27,20 @@ public class ArticleNavigationTest {
             WikiPage page = new WikiPage(DocumentTest.document(fixture));
             Set<String> destinations = new HashSet<>();
             for (ArticleNavigation.Destination destination : page.navigation.sections) {
-                assertTrue(destinations.add(destination.area + "\0" + destination.anchor));
+                assertTrue(fixture+" duplicate "+destination.area+" / "+destination.anchor+" / "+destination.label,destinations.add(destination.area + "\0" + destination.anchor));
                 if (!destination.anchor.isBlank())
                     assertTrue(page.view.areas.stream()
                             .flatMap(a -> a.components.stream())
                             .anyMatch(c
                                 -> c.id.equals(destination.anchor)
-                                    || page.navigation.anchors(destination.area)
-                                        .containsKey(destination.anchor)));
+                                    || page.navigation.readingSection(destination.area,destination.anchor)!=null));
             }
-            for (ArticleViewModel.Area area : page.view.areas)
-                assertTrue(fixture + " " + area.id,
-                    page.navigation.sections.stream().anyMatch(
-                        d -> d.area.equals(page.navigation.modeFor(area.id))));
+            for(ArticleViewModel.Area area:page.view.areas)for(ArticleViewModel.Component component:area.components)
+                assertTrue(fixture+" "+component.id,page.navigation.roots.stream().anyMatch(root -> contains(root,component.id)));
         }
+    }
+    private boolean contains(ArticleNavigation.ReadingSection section,String id) {
+        return section.components.stream().anyMatch(c -> c.id.equals(id))||section.children.stream().anyMatch(child -> contains(child,id));
     }
     @Test
     public void questOverviewContainsRequirementsAndWalkthroughDoesNotStartWithGeneralQuestIntro()

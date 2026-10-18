@@ -26,6 +26,16 @@ public final class ContentRenderer {
     private final ExecutorService workers;
     private final ImageCache images;
     private ImageViewer imageViewer;
+    private boolean fragment, fragmentHighlights;
+    private String fragmentScope="";
+    void fragmentScope(String scope){fragmentScope=scope;}
+    private Runnable contentChanged=() -> {};
+    void contentChanged(Runnable changed) {contentChanged=changed;}
+    void imageViewer(ImageViewer viewer) {imageViewer=viewer;}
+    JPanel renderFragment(WikiPage page,ArticleViewModel.Area area,Map<String,Integer> saved,String variant,boolean highlights) {
+        fragment=true; fragmentHighlights=highlights;
+        return renderArea(page,area,saved,variant);
+    }
     public void closeImageViewer() { if (imageViewer != null) imageViewer.close(); }
     private final List<Runnable> imageChecks = new ArrayList<>();
     private final Map<String, JComponent> anchors = new HashMap<>();
@@ -43,7 +53,11 @@ public final class ContentRenderer {
             if(com.wikipane.integration.WikiMapIntegration.destination(location)==null) continue;
             String key=location.x+","+location.y+","+location.plane;
             if(!seen.add(key)) continue;
-            JButton show=linkButton("Show on map");
+            String label = location.source.sectionTitle;
+            if (locations.size() > 1 && !label.isBlank() && !label.equals(location.source.article))
+                label = "Show " + label + " on map";
+            else label = "Show on map";
+            JButton show=linkButton(label.equals("Show on map") ? label : "<html>" + escape(label) + "</html>");
             show.setName("wiki.showOnMap"); show.putClientProperty("wiki.location",location);
             show.setToolTipText("From "+location.source.article+" · "+location.source.sectionTitle);
             show.addActionListener(event->mapRequests.accept(location));
@@ -83,6 +97,9 @@ public final class ContentRenderer {
     private java.util.Map<String, javax.swing.Icon> skillIcons = java.util.Map.of();
     private Future<?> evaluation;
     private final Set<String> presentedFacts = new HashSet<>();
+    private final Map<String, JComponent> factViews = new HashMap<>();
+    private final Map<String, List<Source>> factSources = new HashMap<>();
+    private JPanel supportingFacts, technicalFacts;
     public ContentRenderer(Consumer<String> links, ExecutorService workers, ImageCache images) {
         this(links, workers, images, null, message -> {});
     }
@@ -144,7 +161,7 @@ public final class ContentRenderer {
         components.pinDocument(null); pinDocument = null;
         imageChecks.clear();
         anchors.clear();
-        presentedFacts.clear(); previousBreadcrumb = "";
+        presentedFacts.clear(); factViews.clear(); factSources.clear(); previousBreadcrumb = "";
         pending = List.of();
         flow = null;
         rendered = null;
@@ -203,14 +220,14 @@ public final class ContentRenderer {
             for(com.wikipane.semantic.Recipe.Skill skill:recipe.skills) requested.add(skill.requirement);
         contextRequests.accept(java.util.List.copyOf(requested));
         skillRequests.accept(progressionSkill);
-        areaId = area.id;
+        areaId = fragment?fragmentScope:area.id;
         anchorAliases = page.navigation.anchors(area.id);
         tableState = new HashMap<>(saved);
         selectedVariant = variant;
         JPanel body = column();
         rendered = body;
 
-        if ((area.id.equals("info") || area.id.equals("overview")) && !layout.highlights(variant).isEmpty()) {
+        if ((!fragment || fragmentHighlights) && (area.id.equals("info") || area.id.equals("overview")) && !layout.highlights(variant).isEmpty()) {
             body.add(components.highlights(layout.highlights(variant)));
             for (com.wikipane.view.ReaderLayout.Field field : layout.highlights(variant)) presentedFacts.add(field.identity());
             body.add(components.gap(8));
@@ -244,10 +261,7 @@ public final class ContentRenderer {
                     related.add(destination);
                 }
                 // Long link collections remain available without pushing the source content away.
-                JButton toggle = linkButton("Related links (" + group.links.size() + ")");
-                related.setVisible(false);
-                toggle.addActionListener(e -> { related.setVisible(!related.isVisible()); body.revalidate(); });
-                body.add(toggle); body.add(related);
+                body.add(components.disclosure("Related links (" + group.links.size() + ")", related));
             }
         }
         pending = new ArrayList<>();
@@ -256,11 +270,16 @@ public final class ContentRenderer {
                 pending.add(component);
         flow = column();
         body.add(flow);
+        supportingFacts = column(); technicalFacts = column();
+        JComponent supporting = components.disclosure("Article details", supportingFacts);
+        JComponent technical = components.disclosure("Technical details", technicalFacts);
+        supporting.setVisible(false); technical.setVisible(false);
+        body.add(supporting); body.add(technical);
         revealed = 0;
-        appendNext(Math.max(6, tableState.getOrDefault("@shown:" + area.id, 6)));
-        if (pending.isEmpty() && area.related.isEmpty())
+        appendNext(Math.max(6, tableState.getOrDefault("@shown:" + areaId, 6)));
+        if (!fragment && pending.isEmpty() && area.related.isEmpty())
             body.add(text("No readable content was returned for this area."));
-        body.add(text("<p class='source'>Content: <a href='" + escape(article.url)
+        if (!fragment) body.add(text("<p class='source'>Content: <a href='" + escape(article.url)
             + ("'>OSRS Wiki</a> · <a href='https://oldschool.runescape.wiki/w/RuneScape:Copyrights'>CC "
                 + "BY-NC-SA</a></p>")));
         if (selection != null) selection.refresh(body);
@@ -324,7 +343,7 @@ public final class ContentRenderer {
             String sourceSection = component.source.section;
             JComponent anchorDestination = section;
             if (!sourceSection.isBlank() && !anchors.containsKey(sourceSection)) {
-                if (!component.source.sectionTitle.equals(component.source.article)
+                if (!fragment && !component.source.sectionTitle.equals(component.source.article)
                     && !(component.source.sectionTitle.equals("Details")
                         && (component.type == ArticleViewModel.ComponentType.FACTS
                             || component.type == ArticleViewModel.ComponentType.REQUIREMENTS))) {
@@ -416,6 +435,7 @@ public final class ContentRenderer {
             components.pinContext(null);
         }
         if (selection != null && rendered != null) selection.refresh(rendered);
+        contentChanged.run();
         evaluateRequirements();
         tableState.put("@shown:" + areaId, revealed);
         flow.revalidate();
@@ -480,16 +500,41 @@ public final class ContentRenderer {
             if (basePin != null) components.pinContext(basePin.group(group.title));
             java.util.List<com.wikipane.view.ReaderLayout.Field> visible = new ArrayList<>();
             for (com.wikipane.view.ReaderLayout.Field field : group.fields) {
-                if (presentedFacts.add(field.identity())) visible.add(field);
-                else audit.add("FACT_ALREADY_PRESENTED", field.source.unit,
-                    com.wikipane.view.CompositionAudit.Outcome.REPAIRED,
-                    "Identical source fact is already visible in this reading mode; provenance retained.");
+                Fact fact = component.facts.stream().filter(f -> f.source.unit.equals(field.source.unit)
+                    && f.label.equals(field.label) && f.value.html.equals(field.value.html)).findFirst().orElse(null);
+                String key = fact == null ? field.identity() : com.wikipane.view.FactPolicy.duplicateKey(fact);
+                List<Source> sources = factSources.computeIfAbsent(key, ignored -> new ArrayList<>());
+                sources.add(field.source);
+                if (!presentedFacts.add(field.identity()) || sources.size() > 1) {
+                    JComponent existing = factViews.get(key);
+                    if (existing != null) existing.putClientProperty("wiki.fact.sources", List.copyOf(sources));
+                    audit.add("FACT_ALREADY_PRESENTED", field.source.unit,
+                        com.wikipane.view.CompositionAudit.Outcome.REPAIRED,
+                        "Equivalent source fact consolidated; all provenance retained.");
+                    continue;
+                }
+                com.wikipane.view.FactPolicy.Importance importance = com.wikipane.view.FactPolicy.importance(field.label, field.value.text);
+                if (importance == com.wikipane.view.FactPolicy.Importance.PRIMARY) {
+                    visible.add(field);
+                    // The view is attached below, after its source-aware group heading.
+                } else {
+                    JComponent row = components.field(field);
+                    row.putClientProperty("wiki.fact.sources", List.copyOf(sources)); factViews.put(key, row);
+                    JPanel destination = importance == com.wikipane.view.FactPolicy.Importance.TECHNICAL ? technicalFacts : supportingFacts;
+                    destination.add(row); destination.getParent().setVisible(true);
+                }
             }
             if (visible.isEmpty()) continue;
             if (!group.title.isBlank())
                 target.add(components.heading(group.title, "", null));
             JPanel card = components.card("wiki.facts");
-            for (com.wikipane.view.ReaderLayout.Field field : visible) card.add(components.field(field));
+            for (com.wikipane.view.ReaderLayout.Field field : visible) {
+                JComponent row = components.field(field); card.add(row);
+                Fact fact = component.facts.stream().filter(f -> f.source.unit.equals(field.source.unit)
+                    && f.label.equals(field.label)).findFirst().orElse(null);
+                String key = fact == null ? field.identity() : com.wikipane.view.FactPolicy.duplicateKey(fact);
+                factViews.put(key, row); row.putClientProperty("wiki.fact.sources", List.copyOf(factSources.get(key)));
+            }
             target.add(card);
             target.add(components.gap(8));
         }
@@ -520,10 +565,12 @@ public final class ContentRenderer {
             Cell value=recipe.conditions.get(label);
             if(value!=null&&!value.value.text.isBlank())card.add(components.field(new com.wikipane.view.ReaderLayout.Field(label,value.value,value.source)));
         }
-        JButton details=linkButton("<html>Costs &amp; source details</html>");
+        JComponent disclosure;
         JPanel source=column();source.setVisible(false);
         // Reuse the complete source table renderer; no unsupported values are discarded.
         com.wikipane.pin.PinContext sourceContext=original;
+        disclosure = components.disclosure("Costs & source details", source);
+        JButton details = (JButton) disclosure.getComponent(0);
         details.addActionListener(e -> {
             if(source.getComponentCount()==0) {
                 components.pinContext(sourceContext);
@@ -531,10 +578,11 @@ public final class ContentRenderer {
                 source.add(table(recipe.materialsTable,recipe.id+".materials"));
                 components.pinContext(null);
                 if(selection!=null&&rendered!=null)selection.refresh(rendered);
+                contentChanged.run();
             }
-            source.setVisible(!source.isVisible());card.revalidate();
+            card.revalidate();
         });
-        card.add(details);card.add(source);components.pinContext(original);
+        card.add(disclosure);components.pinContext(original);
         return card;
     }
     private JComponent recipeIngredient(com.wikipane.semantic.Recipe.Ingredient ingredient) {
@@ -556,13 +604,14 @@ public final class ContentRenderer {
         group.add(records);
         java.util.List<com.wikipane.view.ReaderLayout.Record> rows = layout.records(table);
         JButton more = linkButton("Show more entries");
+        JButton collapse = linkButton("Show fewer entries"); collapse.setName("wiki.collapseTable");
         int[] shown = {0};
         String[] previous = {""};
         com.wikipane.pin.PinContext tableContext = components.pinContext();
         Runnable next = () -> {
             com.wikipane.pin.PinContext previousContext = components.pinContext();
             components.pinContext(tableContext);
-            records.remove(more);
+            records.remove(more); records.remove(collapse);
             int end = Math.min(rows.size(), shown[0] + 20);
             for (int i = shown[0]; i < end; i++) {
                 com.wikipane.view.ReaderLayout.Record record = rows.get(i);
@@ -606,8 +655,10 @@ public final class ContentRenderer {
                 more.setText("Show more (" + (rows.size() - end) + " remaining)");
                 records.add(more);
             }
+            if (end > 20) records.add(collapse);
             components.pinContext(previousContext);
             if (selection != null && rendered != null) selection.refresh(rendered);
+            contentChanged.run();
             group.revalidate();
             group.repaint();
             updateLevelRows();
@@ -620,7 +671,7 @@ public final class ContentRenderer {
         if (!progressionSkill.isEmpty()) {
             long version = generation;
             levelRevealers.add(base -> {
-                if (version != generation) return;
+                if (version != generation || rendered == null || !SwingUtilities.isDescendingFrom(group, rendered)) return;
                 java.util.Map<Integer, Integer> positions = new TreeMap<>();
                 for (int i = 0; i < rows.size(); i++) {
                     Integer level = com.wikipane.context.SkillGuideProgress.level(rows.get(i));
@@ -631,6 +682,12 @@ public final class ContentRenderer {
             });
         }
         more.addActionListener(e -> next.run());
+        collapse.addActionListener(e -> {
+            levelRows.values().forEach(list -> list.removeIf(row -> SwingUtilities.isDescendingFrom(row, records)));
+            levelRows.values().removeIf(List::isEmpty);
+            records.removeAll(); shown[0] = 0; previous[0] = ""; next.run();
+            more.scrollRectToVisible(new Rectangle(0, 0, 1, 1));
+        });
         return group;
     }
     private JButton linkButton(String title) {
@@ -645,6 +702,7 @@ public final class ContentRenderer {
             @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
             @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
         };
+        button.setForeground(ReaderComponents.ACCENT);
         button.setMargin(new Insets(5, 6, 5, 6));
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -659,11 +717,13 @@ public final class ContentRenderer {
         int maxWidth = decoration ? 22 : identity ? 88 : 200, maxHeight = decoration ? 22 : identity ? 88 : 220;
         FittedThumbnail label = new FittedThumbnail(maxWidth, maxHeight, image.width, image.height, audit, decoration);
         label.putClientProperty("html.disable", true);
-        label.setText(decoration ? "" : image.alt.isBlank() ? "Image" : image.alt);
+        label.setText(decoration ? "" : "…");
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        label.getAccessibleContext().setAccessibleName(image.alt.isBlank() ? "Wiki image" : image.alt);
         label.setForeground(ReaderComponents.MUTED);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setToolTipText(decoration ? null : image.alt);
-        label.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
+        label.setBorder(BorderFactory.createEmptyBorder(decoration ? 0 : 4, 0, decoration ? 0 : 4, 0));
         if (!decoration) {
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
@@ -710,8 +770,11 @@ public final class ContentRenderer {
                         });
                     } catch (Exception ex) {
                         SwingUtilities.invokeLater(() -> {
-                            if (version == generation)
-                                label.setText(decoration ? "" : "Image unavailable");
+                            if (version != generation) return;
+                            if (!decoration) {
+                                label.unavailable();
+                                label.setToolTipText("Image unavailable · Click to try the full-size image");
+                            }
                         });
                     }
                 });

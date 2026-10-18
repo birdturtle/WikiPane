@@ -4,7 +4,7 @@ import com.wikipane.document.WikiDocument;
 import com.wikipane.view.WikiPage;
 import java.util.*;
 
-/** One EDT-owned history for search results, articles, and source-section jumps. */
+/** One EDT-owned history for search results, and articles; section jumps update the current article. */
 public final class NavigationHistory {
     public static final class Entry {
         public final WikiDocument document;
@@ -13,8 +13,9 @@ public final class NavigationHistory {
         public final List<String> results;
         public int scroll;
         public boolean skillPositioned;
+        public Integer nextSearchOffset;
+        public boolean suggestions;
         public String area = "", variant = "", section = "";
-        public final Map<String, Integer> areaScroll = new HashMap<>();
         public final Map<String, Integer> tables = new HashMap<>();
         public Entry(WikiDocument document, String anchor, int scroll) {
             this(new WikiPage(document), anchor, scroll);
@@ -60,16 +61,19 @@ public final class NavigationHistory {
     }
     public void push(WikiPage page, String anchor) {
         Entry old = current();
-        if (old != null && !old.isSearch() && old.document.url.equals(page.document.url)
-            && old.anchor.equals(anchor))
+        if (old != null && !old.isSearch() && old.document.url.equals(page.document.url)) {
+            old.section = anchor;
             return;
+        }
         append(new Entry(page, anchor, 0));
     }
     public void pushDestination(WikiPage page, String area, String anchor) {
         Entry old = current();
-        if (old != null && !old.isSearch() && old.document.url.equals(page.document.url)
-            && old.area.equals(area) && old.section.equals(anchor))
+        if (old != null && !old.isSearch() && old.document.url.equals(page.document.url)) {
+            old.area = area;
+            old.section = anchor;
             return;
+        }
         Entry entry = new Entry(page, anchor, 0);
         entry.area = area;
         append(entry);

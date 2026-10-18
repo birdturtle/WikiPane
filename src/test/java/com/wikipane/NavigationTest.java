@@ -24,9 +24,11 @@ public class NavigationTest {
         assertEquals(46, h.current().scroll);
         h.back();
         h.push(recipe, "Requirements");
-        assertFalse(h.canForward());
-        assertEquals("Requirements", h.current().anchor);
-        assertEquals(731, h.back().scroll);
+        assertTrue(h.canForward());
+        assertFalse(h.canBack());
+        assertEquals("Requirements", h.current().section);
+        assertEquals(731, h.current().scroll);
+        assertSame(cook, h.forward().document);
     }
     @Test
     public void trivialRedrawDoesNotDuplicateAndHistoryIsBounded() {
@@ -63,7 +65,7 @@ public class NavigationTest {
         assertFalse(history.canForward());
     }
     @Test
-    public void sectionDestinationsRetainTheirModeAndDoNotDuplicateIdenticalJumps() {
+    public void sectionDestinationsUpdateOneArticleEntryAndPreserveForwardHistory() {
         NavigationHistory history = new NavigationHistory();
         com.wikipane.view.WikiPage page = new com.wikipane.view.WikiPage(doc("Test"));
         history.pushDestination(page, "overview", "");
@@ -71,8 +73,14 @@ public class NavigationTest {
         history.saveScroll(914);
         history.pushDestination(page, "walkthrough", "Chapter");
         assertEquals(914, history.current().scroll);
-        assertEquals("overview", history.back().area);
-        assertEquals("Chapter", history.forward().section);
+        assertFalse(history.canBack());
+        assertEquals("walkthrough", history.current().area);
+        history.push(doc("Other"), "");
+        assertEquals("Chapter", history.back().section);
+        history.pushDestination(page, "overview", "");
+        assertTrue(history.canForward());
+        assertEquals(914, history.current().scroll);
+        assertEquals("Other", history.forward().document.title);
     }
     @Test
     public void cacheExpiresAndEvictsLeastRecentlyUsed() {

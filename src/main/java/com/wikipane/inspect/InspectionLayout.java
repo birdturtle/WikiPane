@@ -19,9 +19,13 @@ public final class InspectionLayout {
         public final boolean label;
         public final String value;
         public final Color color;
+        public final int indent;
         Line(String text, boolean label) { this(text, label, ""); }
         Line(String text, boolean label, String value) { this(text, label, value, com.wikipane.ui.SemanticPalette.TEXT); }
-        Line(String text, boolean label, String value, Color color) { this.text = text; this.label = label; this.value = value; this.color = color; }
+        Line(String text, boolean label, String value, Color color) { this(text,label,value,color,0); }
+        Line(String text, boolean label, String value, Color color, int indent) {
+            this.text=text; this.label=label; this.value=value; this.color=color; this.indent=indent;
+        }
     }
     public final List<List<Line>> pages;
     public final List<String> title;
@@ -54,7 +58,11 @@ public final class InspectionLayout {
                 lines.add(new Line(label, false, row.value.text, color));
             } else {
                 add(lines, label, true);
-                for (String part : wrap(row.value.text, BODY, INNER)) lines.add(new Line(part, false, "", color));
+                for (String paragraph : structuredText(row.value.html)) {
+                    int depth=0; while (depth<paragraph.length() && paragraph.charAt(depth)=='\t') depth++;
+                    int indent=Math.min(6,depth)*8;
+                    for (String part : wrap(paragraph.strip(), BODY, INNER-indent)) lines.add(new Line(part,false,"",color,indent));
+                }
             }
         }
         if (lines.isEmpty()) add(lines, "No verified compact facts are available. Open the full article.", false);
@@ -74,6 +82,31 @@ public final class InspectionLayout {
             from = end;
         }
         pages = List.copyOf(result);
+    }
+    /** Preserve list boundaries and AND/OR prose from the semantic source instead of flattening it. */
+    static List<String> structuredText(String html) {
+        org.jsoup.nodes.Element root = org.jsoup.Jsoup.parseBodyFragment(html).body();
+        for (org.jsoup.nodes.Element list : root.select("ol,ul")) {
+            int index = 1;
+            try { if (list.hasAttr("start")) index = Integer.parseInt(list.attr("start")); } catch (NumberFormatException ignored) {}
+            for (org.jsoup.nodes.Element item : list.children()) if (item.tagName().equals("li")) {
+                try { if (item.hasAttr("value")) index = Integer.parseInt(item.attr("value")); } catch (NumberFormatException ignored) {}
+                int depth=0;
+                for (org.jsoup.nodes.Element ancestor=list.parent(); ancestor!=null; ancestor=ancestor.parent())
+                    if (ancestor.tagName().equals("ol") || ancestor.tagName().equals("ul")) depth++;
+                item.prependText("\t".repeat(depth) + (list.tagName().equals("ol") ? index++ + ". " : "• "));
+            }
+        }
+        for (org.jsoup.nodes.Element block : root.select("li,p,dt,dd,br")) {
+            block.before(new org.jsoup.nodes.TextNode("\n"));
+            if (!block.tagName().equals("br")) block.after(new org.jsoup.nodes.TextNode("\n"));
+        }
+        List<String> result = new ArrayList<>();
+        for (String line : root.wholeText().split("\n")) if (!line.isBlank()) {
+            int depth=0; while(depth<line.length() && line.charAt(depth)=='\t')depth++;
+            result.add("\t".repeat(depth)+line.strip().replaceAll("[ \t]+", " "));
+        }
+        return result.isEmpty() ? List.of(root.text()) : List.copyOf(result);
     }
     private static void add(List<Line> lines, String text, boolean label) {
         for (String part : wrap(text, label ? LABEL : BODY, INNER)) lines.add(new Line(part, label));

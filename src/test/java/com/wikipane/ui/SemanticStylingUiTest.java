@@ -22,6 +22,10 @@ public class SemanticStylingUiTest {
         for (Component child : root.getComponents()) { found.add(child); if (child instanceof Container) found.addAll(all((Container)child)); }
         return found;
     }
+    private static boolean visible(Component child, Container root) {
+        for (Component parent=child; parent!=root; parent=parent.getParent()) if (parent==null || !parent.isVisible()) return false;
+        return true;
+    }
     private static void layout(Container root) {
         root.doLayout(); for (Component child : root.getComponents()) if (child instanceof Container) layout((Container)child);
     }
@@ -60,7 +64,7 @@ public class SemanticStylingUiTest {
                     .findFirst().orElseThrow();
                 FieldPresentation display = (FieldPresentation)rare.getClientProperty("wiki.field.presentation");
                 assertEquals(display.probability.original, plain(rare));
-                assertTrue(children.stream().anyMatch(c -> c instanceof JLabel && "wiki.rarity".equals(c.getName()) && ((JLabel)c).getText().equals("Common")));
+                assertFalse(children.stream().anyMatch(c -> "wiki.rarity".equals(c.getName())));
                 PinSelection.Fragment captured = SelectionCapture.capture(rare, 0, rare.getDocument().getLength());
                 assertEquals(display.probability.original, captured.text().strip());
                 assertFalse(captured.text().contains("Common"));
@@ -81,7 +85,7 @@ public class SemanticStylingUiTest {
                         JPanel body = renderer.renderArea(page, area, Map.of(), "");
                         for (int pass = 0; pass < 5; pass++) { body.setSize(width, body.getPreferredSize().height); layout(body); }
                         SidebarLayoutValidator.inspect(body, page.view.audit);
-                        for (Component child : all(body)) if (child instanceof JEditorPane || "wiki.rarity".equals(child.getName())) {
+                        for (Component child : all(body)) if (visible(child, body) && (child instanceof JEditorPane || "wiki.rarity".equals(child.getName()))) {
                             assertTrue(target[0] + ": width " + width + " " + child.getBounds(), child.getWidth() > 0 && child.getX() >= 0 && child.getX()+child.getWidth() <= child.getParent().getWidth()+1);
                         }
                         renderer.clear();

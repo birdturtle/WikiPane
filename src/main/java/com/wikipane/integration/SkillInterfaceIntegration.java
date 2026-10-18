@@ -45,7 +45,7 @@ public final class SkillInterfaceIntegration {
         this.article = article; this.entity = entity;
     }
     public static boolean enabled(WikiPaneConfig config) {
-        return config.skillLookups() || config.replacement() && config.destination() == WikiPaneConfig.Destination.SIDEBAR;
+        return config.replacement();
     }
     private boolean available() {
         return active.getAsBoolean() && enabled(config) && client.getGameState() == GameState.LOGGED_IN

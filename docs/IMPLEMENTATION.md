@@ -115,10 +115,14 @@ The reader attaches semantic provenance to selectable text. `ui/ReaderSelection`
 
 ## Semantic presentation refinement
 
-`view/FieldPresentation`, `Probability` and `RequirementPresentation` provide derived display metadata over original source values. `ui/SemanticPalette` supplies shared semantic colors to the reader and existing compact layouts. Odds are classified only in explicitly labeled probability fields under documented rules; exact text, multi-roll rates and source qualifications remain intact. Requirement styling is prepared on the worker and preserves words, links and nesting. `ReaderComponents` keeps derived rarity captions separate from selectable Wiki text.
+`view/FieldPresentation`, `Probability` and `RequirementPresentation` provide derived display metadata over original source values. `ui/SemanticPalette` supplies shared semantic colors to the reader and existing compact layouts. Odds are classified only in explicitly labeled probability fields under documented rules; exact text, multi-roll rates and source qualifications remain intact. Requirement styling is prepared on the worker and preserves words, links and nesting. `ReaderComponents` keeps derived rarity categories in tooltips; numeric source odds remain the visible selectable value. See `docs/UX_REFINEMENT.md` for fact importance, recovery states and miniature controls.
 
 The renderer accounts for already-visible source facts by URL, revision, unit, label and HTML, and avoids repeating consecutive parent breadcrumbs. Infobox normalization distinguishes full-width content from row values and preserves explicit section headers alongside images. Script-only GE chart placeholders no longer become facts with inherited labels. The captured Rake fixture covers that regression. See [semantic styling](SEMANTIC_STYLING.md).
 
 ## Player-aware requirements
 
 `context/PlayerContextSnapshot`, `PlayerContextService` and `RequirementEvaluator` add immutable local game state and pure three-state evaluation. Sidebar activation requests only current-article quests, updates are event-coalesced, and account state is cleared on logout and lifecycle changes. `ui/RequirementBadge` annotates existing source rows without replacing their text or adding player state to pins. See [local player context](PLAYER_CONTEXT.md) for bounds, supported cases and manual acceptance.
+
+## Unified Wiki integration revision
+
+The current reader uses one Open Wiki links in WikiPane switch for minimap/quest/skill routing. Core Wiki may remain enabled: WikiPane temporarily presents its own button while retaining the exact core widget for restoration and forwarding its DPS callback. No core configuration is mutated. Older replacement-only/manual-disable descriptions above describe the initial implementation. Current settings and migration are documented in README.

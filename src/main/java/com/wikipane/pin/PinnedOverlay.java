@@ -38,6 +38,10 @@ public final class PinnedOverlay extends Overlay {
         if (!owner.active(pin) || client.getGameState() != GameState.LOGGED_IN) return null;
         menus();
         Dimension size = paint(graphics, pin.layout, pin.page);
+        if (System.nanoTime() < pin.emphasizeUntil) {
+            Color previous = graphics.getColor(); graphics.setColor(com.wikipane.ui.SemanticPalette.LINK);
+            graphics.drawRect(0,0,size.width-1,size.height-1); graphics.setColor(previous);
+        }
         if (mouse != null) {
             Rectangle previous = button(size.height, false), next = button(size.height, true);
             previous.translate(getBounds().x, getBounds().y); next.translate(getBounds().x, getBounds().y);
@@ -70,7 +74,7 @@ public final class PinnedOverlay extends Overlay {
                     boolean enabled = next ? page + 1 < layout.pages.size() : page > 0;
                     graphics.setColor(new Color(255, 255, 255, enabled ? 28 : 8));
                     graphics.fillRect(button.x, button.y, button.width, button.height);
-                    graphics.setColor(enabled ? new Color(255, 190, 65) : Color.GRAY);
+                    graphics.setColor(enabled ? com.wikipane.ui.SemanticPalette.LINK : Color.GRAY);
                     graphics.drawString(next ? ">" : "<", button.x + 9, height - 6);
                 }
                 graphics.setColor(Color.LIGHT_GRAY);

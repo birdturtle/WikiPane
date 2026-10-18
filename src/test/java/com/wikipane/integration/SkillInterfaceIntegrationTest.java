@@ -24,12 +24,9 @@ public class SkillInterfaceIntegrationTest {
         final Menu menu = mock(Menu.class);
         final List<HttpUrl> articles = new ArrayList<>(), entities = new ArrayList<>();
         final List<MenuEntry> added = new ArrayList<>();
-        boolean active = true, replacement = true, explicit;
-        WikiPaneConfig.Destination destination = WikiPaneConfig.Destination.SIDEBAR;
+        boolean active = true, replacement = true;
         final WikiPaneConfig config = new WikiPaneConfig() {
             public boolean replacement() { return replacement; }
-            public boolean skillLookups() { return explicit; }
-            public Destination destination() { return destination; }
         };
         final SkillInterfaceIntegration integration = new SkillInterfaceIntegration(client, items, config,
             () -> active, articles::add, entities::add);
@@ -113,12 +110,11 @@ public class SkillInterfaceIntegrationTest {
     }
     @Test public void settingsMatrixAndLogoutGuardsMatchQuestRouting() {
         assertFalse(SkillInterfaceIntegration.enabled(new WikiPaneConfig() {}));
-        for (boolean replacement : new boolean[]{false, true}) for (boolean explicit : new boolean[]{false, true})
-            for (WikiPaneConfig.Destination destination : WikiPaneConfig.Destination.values()) {
-                Game g = new Game(); g.replacement = replacement; g.explicit = explicit; g.destination = destination;
-                g.open(g.skill(InterfaceID.Stats.HERBLORE, "Herblore"));
-                assertEquals(explicit || replacement && destination == WikiPaneConfig.Destination.SIDEBAR ? 1 : 0, g.added.size());
-            }
+        for (boolean replacement : new boolean[]{false, true}) {
+            Game g = new Game(); g.replacement = replacement;
+            g.open(g.skill(InterfaceID.Stats.HERBLORE, "Herblore"));
+            assertEquals(replacement ? 1 : 0, g.added.size());
+        }
         Game g = new Game(); MenuEntry original = g.skill(InterfaceID.Stats.FARMING, "Farming");
         when(g.client.getGameState()).thenReturn(GameState.LOGIN_SCREEN); g.open(original);
         assertTrue(g.added.isEmpty()); when(g.client.getGameState()).thenReturn(GameState.LOGGED_IN);

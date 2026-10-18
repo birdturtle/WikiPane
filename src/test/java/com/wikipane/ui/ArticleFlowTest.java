@@ -34,7 +34,8 @@ public class ArticleFlowTest {
             try {
                 if (edt(()
                             -> all(panel).stream().anyMatch(
-                                c -> c instanceof JLabel && title.equals(((JLabel) c).getText()))))
+                                c -> c instanceof JEditorPane && "wiki.articleTitle".equals(c.getName())
+                                    && title.equals(org.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text()))))
                     done.complete(null);
             } catch (Exception e) {
                 done.completeExceptionally(e);

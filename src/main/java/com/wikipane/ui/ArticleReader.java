@@ -29,7 +29,7 @@ final class ArticleReader {
     private JPanel body;
     private Consumer<List<Requirement>> contextRequests=ignored -> {};
     private Consumer<String> skillRequests=ignored -> {};
-    private Consumer<Location> mapRequests=ignored -> {};
+    private Consumer<MapDestination> mapRequests=ignored -> {};
     private Runnable changed=() -> {};
     private PlayerContextSnapshot player=PlayerContextSnapshot.unavailable(false);
     private Map<String,Icon> skillIcons=Map.of();
@@ -41,7 +41,7 @@ final class ArticleReader {
     void changed(Runnable callback) {changed=callback;}
     void contextRequests(Consumer<List<Requirement>> callback) {contextRequests=callback;}
     void skillRequests(Consumer<String> callback) {skillRequests=callback;}
-    void mapRequests(Consumer<Location> callback) {mapRequests=callback;}
+    void mapRequests(Consumer<MapDestination> callback) {mapRequests=callback;}
     void playerContext(PlayerContextSnapshot snapshot) {player=snapshot;for(ContentRenderer renderer:List.copyOf(fragments))renderer.playerContext(snapshot);}
     void skillIcons(Map<String,Icon> icons) {skillIcons=Map.copyOf(icons);for(ContentRenderer renderer:fragments)renderer.skillIcons(icons);}
     void closeImageViewer() {viewer.close();}

@@ -49,7 +49,7 @@ public class WikiMapIntegrationTest {
         integration.show(location("3208","3216","0"));assertTrue(messages.get(0).contains("could not be opened"));
         ArgumentCaptor<WorldMapPoint> marker=ArgumentCaptor.forClass(WorldMapPoint.class);verify(points).add(marker.capture());
         assertEquals(new WorldPoint(3208,3216,0),marker.getValue().getWorldPoint());
-        assertEquals("WikiPane: Example",marker.getValue().getTooltip());
+        assertEquals("Example · Start<br>Example · Start",marker.getValue().getTooltip());
         WorldMap map=mock(WorldMap.class);WorldMapData data=mock(WorldMapData.class);
         when(client.getWidget(InterfaceID.Worldmap.MAP_DISPLAY)).thenReturn(mock(Widget.class));when(client.getWorldMap()).thenReturn(map);
         when(map.getWorldMapData()).thenReturn(data);when(data.surfaceContainsPosition(3208,3216)).thenReturn(true);
@@ -120,4 +120,49 @@ public class WikiMapIntegrationTest {
         callbacks.get(1).accept(image);verify(points,times(1)).add(any());
         integration.stop();callbacks.get(1).accept(image);verify(points,times(1)).add(any());
     }
+    @Test public void groupedSelectionReplacesAllOwnedMarkersAndKeepsTheirSourceMenu() {
+        Client client=mock(Client.class);when(client.isClientThread()).thenReturn(true);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(client.getWidget(InterfaceID.Worldmap.MAP_DISPLAY)).thenReturn(mock(Widget.class));
+        WorldMap map=mock(WorldMap.class);WorldMapData data=mock(WorldMapData.class);
+        when(client.getWorldMap()).thenReturn(map);when(map.getWorldMapData()).thenReturn(data);
+        when(data.surfaceContainsPosition(anyInt(),anyInt())).thenReturn(true);
+        WorldMapPointManager points=mock(WorldMapPointManager.class);
+        WikiMapIntegration integration=integration(client,points,new ArrayList<>());
+        List<String> sources=new ArrayList<>();integration.sourceRequests(sources::add);
+        integration.show(com.wikipane.view.MapDestinationTest.group());
+        ArgumentCaptor<WorldMapPoint> capture=ArgumentCaptor.forClass(WorldMapPoint.class);
+        verify(points,times(2)).add(capture.capture());
+        for(WorldMapPoint marker:capture.getAllValues()) {
+            assertEquals("WikiPane: West garden",marker.getName());
+            assertFalse(marker.isSnapToEdge());
+            assertEquals("West garden<br>Example creature · Spawns",marker.getTooltip());
+        }
+        MenuEntry focus=mock(MenuEntry.class);when(focus.getType()).thenReturn(MenuAction.RUNELITE);
+        when(focus.getOption()).thenReturn("Focus on");when(focus.getTarget()).thenReturn("<col=ff9040>WikiPane: West garden</col>");
+        MenuEntry read=mock(MenuEntry.class,RETURNS_SELF);when(client.createMenuEntry(-1)).thenReturn(read);
+        net.runelite.api.events.MenuOpened opened=new net.runelite.api.events.MenuOpened();
+        opened.setMenuEntries(new MenuEntry[]{focus});integration.opened(opened);
+        ArgumentCaptor<java.util.function.Consumer<MenuEntry>> action=ArgumentCaptor.forClass(java.util.function.Consumer.class);
+        verify(read).onClick(action.capture());verify(read).setOption("Read in WikiPane");
+        action.getValue().accept(read);
+        assertEquals(List.of("https://oldschool.runescape.wiki/w/Example_creature#Spawns"),sources);
+        integration.show(location("3208","3216","0"));
+        for(WorldMapPoint marker:capture.getAllValues())verify(points).remove(marker);
+        action.getValue().accept(read);assertEquals("Stale menus must not navigate",1,sources.size());
+        integration.stop();verify(points,times(3)).remove(any());verify(points,never()).removeIf(any());
+    }
+    @Test public void anotherPluginsFocusEntryDoesNotReceiveWikiPaneActions() {
+        Client client=mock(Client.class);when(client.isClientThread()).thenReturn(true);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(client.getWidget(InterfaceID.Worldmap.MAP_DISPLAY)).thenReturn(mock(Widget.class));
+        WikiMapIntegration integration=integration(client,mock(WorldMapPointManager.class),new ArrayList<>());
+        integration.show(location("3208","3216","0"));
+        MenuEntry focus=mock(MenuEntry.class);when(focus.getType()).thenReturn(MenuAction.RUNELITE);
+        when(focus.getOption()).thenReturn("Focus on");when(focus.getTarget()).thenReturn("Other plugin marker");
+        net.runelite.api.events.MenuOpened opened=new net.runelite.api.events.MenuOpened();
+        opened.setMenuEntries(new MenuEntry[]{focus});integration.opened(opened);
+        verify(client,never()).createMenuEntry(anyInt());
+    }
+
 }

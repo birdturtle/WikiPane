@@ -1,6 +1,8 @@
 # Source-backed world map actions
 
-The reader offers Show on map for qualifying semantic locations, preserving its article, history and reading position. Actions belong to their source table record or prose/infobox component. Multiple source locations remain separate actions; repeated coordinates within one control group are consolidated. One session marker is active at a time. There is no separate removal control; another lookup replaces the selected marker, and lifecycle cleanup removes it.
+The reader offers contextual map actions for qualifying semantic locations, preserving its article, history and reading position. Quest-start actions sit directly beneath the starting-location fact; spawn/shop actions belong to their table record. Multiple verified points in one record form one selection; duplicate tiles in that selection are consolidated, with planes kept distinct. Another selection replaces the previous group. There is no separate removal control; lifecycle cleanup removes the entire owned group.
+
+`MapDestination` is a presentation projection of existing semantic locations and facts. It retains the exact Location/Source objects; it does not parse pages again or infer coordinates. Labels use explicit fact labels, linked person/place names, and table identities. Groups are limited to 64 markers; an oversized request is rejected as a whole rather than truncated. A group centers its first source point; automatic fit-to-group zoom is not exposed by the inspected public API. Only single markers snap to map edges, avoiding a pile of overlapping edge flags for groups.
 
 ## Provenance and validation
 
@@ -18,7 +20,7 @@ The revised action uses Client.openInterface on the native WORLDMAP interface in
 
 The marker uses SpriteManager's cached native MAPMARKER frame 0 destination-flag sprite asynchronously. Client-thread callbacks carry a generation token so late sprite results cannot restore replaced or shutdown markers. No custom marker bitmap is drawn. Pending centering checks only the map widget/data on game ticks; after centering it stops changing map position. Current map coverage is checked before centering; unrelated map areas are left untouched with feedback.
 
-Controls show only Show on map, with source attribution in the tooltip. Map coordinates remain available in the semantic model, but supported coordinate spans are removed from the display projection; source facts and provenance are unchanged. Marker names/tooltips identify the article without coordinate strings. Successful actions do not add a persistent status banner. Guidance labels correctly enable escaped HTML wrapping rather than exposing raw markup.
+Controls use Show quest start, Show spawn/Show spawn locations, Show shop/Show shops, or a generic Show on map/Show locations, with source context in the tooltip. Map coordinates remain available in the semantic model, but supported coordinate spans are removed from the display projection; source facts and provenance are unchanged. Marker names identify their source-backed destination, and wrapped plain-text tooltips retain the article/section without coordinate strings. Successful actions do not add a persistent status banner. Guidance labels correctly enable escaped HTML wrapping rather than exposing raw markup.
 
 The plugin clears its marker on logout, world hopping and shutdown and never removes another plugin's points. Stale callbacks cannot restore a marker after shutdown. Sidebar closure/article changes do not remove a deliberately selected marker. No persistence, scene scan, account context or telemetry is involved.
 
@@ -34,7 +36,7 @@ Player verification:
 4. Close the native map with its X button and reopen through another lookup. Check normal closing behavior and that other map points remain. Close/reopen the sidebar and test Back/Forward and pinning.
 5. Logout/login, world hop and disable/re-enable WikiPane; verify no orphaned marker or delayed recenter.
 
-Known limits: automatic local map opening currently targets fixed and resizable desktop floating-map layers only; occupied/unknown layers are not overwritten. no guessed locations, no generic embedded-map center conversion, no native mapping for unsupported Wiki map IDs/instances, no automatic map-area switching, no route planning, no world-map-to-article menu yet. In-game marker geometry, map-load timing and visual usability remain unverified until player acceptance.
+Known limits: automatic local map opening currently targets fixed and resizable desktop floating-map layers only; occupied/unknown layers are not overwritten. no guessed locations, no generic embedded-map center conversion, no native mapping for unsupported Wiki map IDs/instances, no automatic map-area switching, no route planning, world-map-to-article access is limited to WikiPane-owned flags. In-game marker geometry, map-load timing and visual usability remain unverified until player acceptance.
 
 Primary APIs inspected: https://github.com/runelite/runelite/blob/master/runelite-client/src/main/java/net/runelite/client/ui/overlay/worldmap/WorldMapPoint.java and WorldMapPointManager.java; installed RuneLite 1.13.2 WorldMap/WorldMapData and gameval interfaces. ScriptID.WORLDMAP_LOADMAP takes nine integer arguments and is not used as an assumed open-map API.
 
@@ -43,3 +45,20 @@ Revised UX acceptance pending: automatic native opening, game location sprite, c
 Player testing confirmed automatic map opening and positioning. The marker has since changed to the native red destination flag to distinguish it from the player-location indicator; its appearance awaits a fresh visual check.
 
 The native destination flag is enlarged 2× using nearest-neighbor scaling once when the sprite arrives, preserving crisp pixel art without per-frame image work. Player feedback found the original size too small among other map symbols.
+
+
+## Contextual map selection — map-integration branch
+
+Right-clicking an owned flag adds **Read in WikiPane** alongside the existing native **Focus on** action. This uses MenuOpened and a RUNELITE-only action, matched to the owned marker name; it does not replace the native action, add server actions, or change other plugins' marker menus. A generation guard rejects menus from replaced selections or shutdown. The callback uses the existing article router and source section URL. Same-page source navigation remains within the current history entry; different articles use normal page history.
+
+Public API inspection (RuneLite 1.13.2 and upstream source) found WorldMap.getWorldMapData, initializeWorldMap and setWorldMapPositionTarget, but no Client/WorldMap API to enumerate or resolve map areas, and WorldMapData only exposes surfaceContainsPosition. Automatic underground map-area selection remains unsupported in this slice. Wiki map IDs other than 0/-1 remain excluded from native conversion; no mapping from a Wiki map namespace to a client map area is invented. Generic embedded-map viewport centers remain unverified. These are explicit remaining tasks, not implemented features.
+
+Additional automated checks cover real Cook's Assistant labels/provenance, one control for a multi-point table record, exact-tile deduplication, grouped marker ownership/removal, source-menu navigation, stale menu rejection, and exclusion of other plugins' focus entries. The approved 2× native flag is unchanged. Manual tests still required:
+
+1. Cook's Assistant: use Show quest start directly below Start point. Confirm closed-map opening, accurate centering, useful tooltip, and unchanged sidebar position.
+2. Right-click the flag: verify Read in WikiPane and Focus on both work. Read another article first, then return through the flag and verify Back/Forward remain page-based.
+3. Vorkath Spawns: verify Show spawn and a marker named for its actual location. Select another location and confirm previous WikiPane markers disappear.
+4. A record containing multiple supported exact points: verify a single action places the group; selecting a different destination removes all of it. Group source menus and logout/shutdown must remain safe.
+5. Rake's underground Wiki map ID remains unsupported: no guessed native marker should appear. Use the explicit browser fallback when necessary.
+
+References inspected: https://github.com/runelite/runelite/blob/master/runelite-api/src/main/java/net/runelite/api/worldmap/WorldMap.java , WorldMapData.java, and https://github.com/runelite/runelite/blob/master/runelite-client/src/main/java/net/runelite/client/ui/overlay/worldmap/WorldMapOverlay.java .

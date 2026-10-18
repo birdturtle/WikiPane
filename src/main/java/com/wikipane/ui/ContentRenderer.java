@@ -44,25 +44,21 @@ public final class ContentRenderer {
     private JPanel flow;
     private Map<String, String> anchorAliases = Map.of();
     private JPanel rendered;
-    private Consumer<Location> mapRequests = location -> {};
+    private final Set<String> mappedFactUnits=new HashSet<>();
+    private Consumer<com.wikipane.view.MapDestination> mapRequests = destination -> {};
     private final Map<String, java.util.List<Location>> locationsByUnit = new HashMap<>();
-    public void mapRequests(Consumer<Location> show) { mapRequests=show; }
-    private JComponent mapActions(java.util.List<Location> locations) {
-        JPanel actions=column(); Set<String> seen=new HashSet<>();
-        for(Location location:locations) {
-            if(com.wikipane.integration.WikiMapIntegration.destination(location)==null) continue;
-            String key=location.x+","+location.y+","+location.plane;
-            if(!seen.add(key)) continue;
-            String label = location.source.sectionTitle;
-            if (locations.size() > 1 && !label.isBlank() && !label.equals(location.source.article))
-                label = "Show " + label + " on map";
-            else label = "Show on map";
-            JButton show=linkButton(label.equals("Show on map") ? label : "<html>" + escape(label) + "</html>");
-            show.setName("wiki.showOnMap"); show.putClientProperty("wiki.location",location);
-            show.setToolTipText("From "+location.source.article+" · "+location.source.sectionTitle);
-            show.addActionListener(event->mapRequests.accept(location));
-            actions.add(show);
-        }
+    public void mapRequests(Consumer<com.wikipane.view.MapDestination> show) { mapRequests=show; }
+    private JComponent mapActions(com.wikipane.view.MapDestination destination) {
+        JPanel actions=column();
+        if(destination.places.isEmpty())return actions;
+        JButton show=linkButton(destination.action);
+        show.setName("wiki.showOnMap"); show.putClientProperty("wiki.destination",destination);
+        show.putClientProperty("wiki.location",destination.places.get(0).location);
+        String label=destination.places.get(0).label;
+        show.setToolTipText("<html>"+escape(label)+(destination.places.size()>1
+            ? " · "+destination.places.size()+" locations" : "")+"</html>");
+        show.addActionListener(event->mapRequests.accept(destination));
+        actions.add(show);
         return actions;
     }
     private String progressionSkill = "";
@@ -153,7 +149,7 @@ public final class ContentRenderer {
         generation++;
         cancelEvaluation(); badges.clear();
         levelRows.clear(); levelRevealers.clear(); progressionSkill = "";
-        locationsByUnit.clear();
+        locationsByUnit.clear();mappedFactUnits.clear();
         if (notify) contextRequests.accept(java.util.List.of());
         if (notify) skillRequests.accept("");
         if (selection != null) selection.clear();
@@ -430,7 +426,7 @@ public final class ContentRenderer {
                     break;
             }
             if(component.node.table==null||!component.node.table.kind.isEmpty())
-                section.add(mapActions(component.node.locations));
+                section.add(mapActions(com.wikipane.view.MapDestination.forNode(component.node).excludingUnits(mappedFactUnits)));
             flow.add(section);
             components.pinContext(null);
         }
@@ -534,6 +530,12 @@ public final class ContentRenderer {
                     && f.label.equals(field.label)).findFirst().orElse(null);
                 String key = fact == null ? field.identity() : com.wikipane.view.FactPolicy.duplicateKey(fact);
                 factViews.put(key, row); row.putClientProperty("wiki.fact.sources", List.copyOf(factSources.get(key)));
+                if(fact!=null) {
+                    com.wikipane.view.MapDestination destination=com.wikipane.view.MapDestination.forFact(fact,component.node.locations);
+                    if(!destination.places.isEmpty()) {
+                        card.add(mapActions(destination));mappedFactUnits.add(fact.source.unit);
+                    }
+                }
             }
             target.add(card);
             target.add(components.gap(8));
@@ -643,7 +645,7 @@ public final class ContentRenderer {
                     records.add(card);
                     java.util.List<Location> locations=new ArrayList<>();
                     for(String unit:record.units) locations.addAll(locationsByUnit.getOrDefault(unit,java.util.List.of()));
-                    records.add(mapActions(locations));
+                    records.add(mapActions(com.wikipane.view.MapDestination.forRecord(locations,record)));
                     records.add(components.gap(3));
                 }
                 for (int n = 0; n < record.nested.size(); n++)

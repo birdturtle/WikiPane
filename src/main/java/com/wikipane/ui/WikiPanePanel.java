@@ -32,7 +32,7 @@ public final class WikiPanePanel extends PluginPanel {
     private java.util.function.Consumer<String> skillRequests = skill -> {};
     private NavigationHistory.Entry pendingSkillPosition;
     public void skillRequests(java.util.function.Consumer<String> requests) { skillRequests = requests; }
-    public void mapRequests(java.util.function.Consumer<com.wikipane.semantic.SemanticDocument.Location> show) { renderer.mapRequests(show); }
+    public void mapRequests(java.util.function.Consumer<com.wikipane.view.MapDestination> show) { renderer.mapRequests(show); }
     public void contextRequests(java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> requests) { contextRequests = requests; }
     public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) {
         if (active) { renderer.playerContext(snapshot); positionSkillGuide(); }

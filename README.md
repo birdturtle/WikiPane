@@ -67,7 +67,9 @@ Skill level-up tables start at your base level when local player state is availa
 
 ## Wiki locations on the map
 
-Supported source locations have **Show on map**. It opens the native floating world map when needed, centers the destination, and marks it with the game's red destination flag. Selecting another location replaces the previous WikiPane marker. Other plugins' markers stay untouched.
+Supported locations have contextual actions such as **Show quest start**, **Show spawn**, or **Show on map**, beside the associated information. The action opens the native floating map, centers the destination, and uses the game's red destination flag. Several verified points in one record form one selection; another selection replaces all previous WikiPane markers. Other plugins' markers stay untouched.
+
+Marker tooltips identify the destination and source article/section. Right-click a WikiPane flag and choose **Read in WikiPane** to return to that source through the existing sidebar navigation. RuneLite's **Focus on** action remains available. Map actions preserve the sidebar's article and reading position.
 
 Only explicit Wiki map links with supported coordinates and a known plane qualify. General map centers, prose locations and unsupported instance maps keep the usual browser fallback. Markers are cleared on logout, world hopping and plugin shutdown.
 

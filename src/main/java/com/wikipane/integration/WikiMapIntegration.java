@@ -1,6 +1,11 @@
 package com.wikipane.integration;
 
 import com.wikipane.semantic.SemanticDocument.Location;
+import com.wikipane.view.MapDestination;
+import java.util.*;
+import net.runelite.api.MenuEntry;
+import net.runelite.api.events.MenuOpened;
+import net.runelite.client.util.Text;
 import java.math.BigDecimal;
 import java.util.function.Consumer;
 import net.runelite.api.Client;
@@ -19,7 +24,7 @@ import net.runelite.api.worldmap.WorldMap;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 
-/** One user-selected local marker; no movement, input injection, or other plugins' marker changes. */
+/** One user-selected local destination group; no movement, input injection, or other plugins' marker changes. */
 public final class WikiMapIntegration {
     private final Client client;
     private final WorldMapPointManager points;
@@ -29,7 +34,15 @@ public final class WikiMapIntegration {
     private long request;
     private WidgetNode ownedMap;
     private int ownedParent;
-    private WorldMapPoint marker;
+    private static final int MAX_MARKERS = 64;
+    private static final class SelectedMarker {
+        final WorldMapPoint marker;
+        final MapDestination.Place place;
+        SelectedMarker(WorldMapPoint marker, MapDestination.Place place) { this.marker=marker;this.place=place; }
+    }
+    private final List<SelectedMarker> markers = new ArrayList<>();
+    private Consumer<String> sourceRequests = ignored -> {};
+    public void sourceRequests(Consumer<String> open) { sourceRequests = open; }
     private WorldPoint pending;
     private boolean stopped;
     public WikiMapIntegration(Client client, WorldMapPointManager points, SpriteManager sprites,
@@ -46,19 +59,64 @@ public final class WikiMapIntegration {
         } catch (ArithmeticException|NumberFormatException ex) { return null; }
     }
     private void checkThread() { if (!client.isClientThread()) throw new IllegalStateException("Map actions require client thread"); }
-    public void show(Location location) {
+    public void show(Location location) { show(MapDestination.single(location)); }
+    public void show(MapDestination destination) {
         checkThread(); if(stopped) return;
-        WorldPoint point=destination(location);
-        if(point==null) {feedback.accept("This Wiki location has no verified map tile and plane.");return;}
+        if(destination.places.isEmpty() || destination.places.size()>MAX_MARKERS) {
+            feedback.accept("These locations cannot be shown together. Choose a specific location in the article.");return;
+        }
+        // Validate the complete group before replacing an existing selection.
+        for(MapDestination.Place place:destination.places) if(destination(place.location)==null) {
+            feedback.accept("This Wiki location has no verified map tile and plane.");return;
+        }
         if(client.getGameState()!=GameState.LOGGED_IN) {feedback.accept("Log in to show this location on the world map.");return;}
-        clear();long version=request;pending=point;
+        clear();long version=request;pending=destination(destination.places.get(0).location);
         sprites.getSpriteAsync(SpriteID.MAPMARKER,0,image -> later.accept(() -> {
-            if(stopped||version!=request||client.getGameState()!=GameState.LOGGED_IN||image==null)return;
-            marker=new WorldMapPoint(point,destinationIcon(image));marker.setName("WikiPane: "+location.source.article);
-            marker.setTooltip("WikiPane: "+location.source.article);marker.setJumpOnClick(true);marker.setSnapToEdge(true);points.add(marker);
+            if(stopped||version!=request||client.getGameState()!=GameState.LOGGED_IN)return;
+            if(image==null) {feedback.accept("The map marker could not be loaded. Try showing the location again.");return;}
+            java.awt.image.BufferedImage icon=destinationIcon(image);
+            for(MapDestination.Place place:destination.places) {
+                WorldMapPoint marker=new WorldMapPoint(destination(place.location),icon);
+                marker.setName("WikiPane: "+place.label);
+                String source=place.location.source.article;
+                if(!place.location.source.sectionTitle.isBlank()&&!place.location.source.sectionTitle.equals(source))
+                    source+=" · "+place.location.source.sectionTitle;
+                marker.setTooltip(tooltip(place.label)+"<br>"+tooltip(source));
+                marker.setJumpOnClick(true);
+                // A group must not stack every offscreen flag at the map's edge.
+                marker.setSnapToEdge(destination.places.size()==1);
+                markers.add(new SelectedMarker(marker,place));points.add(marker);
+            }
         }));
         if(!mapOpen()) openMap();
         center();
+    }
+    private static String tooltip(String text) {
+        // RuneLite draws these rows as plain text; HTML entities would be shown literally.
+        StringBuilder rows=new StringBuilder();int width=0;
+        for(String word:text.replace('<','‹').replace('>','›').split("\\s+")) {
+            if(width>0) {
+                if(width+1+word.length()>42) {rows.append("<br>");width=0;}
+                else {rows.append(' ');width++;}
+            }
+            rows.append(word);width+=word.length();
+        }
+        return rows.toString();
+    }
+    /** Add an informational source action beside RuneLite's existing Focus on action. */
+    public void opened(MenuOpened event) {
+        checkThread();if(stopped||markers.isEmpty()||!mapOpen())return;
+        for(MenuEntry entry:event.getMenuEntries()) {
+            if(entry.getType()!=MenuAction.RUNELITE||!"Focus on".equals(entry.getOption()))continue;
+            for(SelectedMarker selected:markers) if(selected.marker.getName().equals(Text.removeTags(entry.getTarget()))) {
+                long version=request;
+                client.createMenuEntry(-1).setOption("Read in WikiPane").setTarget(entry.getTarget())
+                    .setType(MenuAction.RUNELITE).onClick(clicked -> {
+                        if(!stopped&&version==request)sourceRequests.accept(selected.place.location.source.link());
+                    });
+                return;
+            }
+        }
     }
     /** Integer scaling keeps the native flag's pixel art crisp and legible among map symbols. */
     private static java.awt.image.BufferedImage destinationIcon(java.awt.image.BufferedImage image) {
@@ -113,7 +171,7 @@ public final class WikiMapIntegration {
         }
         map.setWorldMapPositionTarget(pending); pending=null;return true;
     }
-    public void clear() {checkThread();request++;if(marker!=null)points.remove(marker);marker=null;pending=null;
+    public void clear() {checkThread();request++;for(SelectedMarker selected:markers)points.remove(selected.marker);markers.clear();pending=null;
         if(client.getGameState()!=GameState.LOGGED_IN)closeOwnedMap();}
     public void stop() {checkThread();clear();closeOwnedMap();stopped=true;}
 }

@@ -29,3 +29,9 @@ The existing reader, routing, overlays and maps were user-tested before dependen
 `docs/submission/wikipane` records the exact source marker. Advance it on the existing PR after source changes; do not open duplicate submissions.
 
 [Official standard build and submission guidance](https://github.com/runelite/plugin-hub#creating-new-plugins).
+
+## Current submission evidence
+
+Source `472857ab8cf75913356b279c4857e553743e2b3c`; [hosted standard-build run](https://github.com/runelite/plugin-hub/actions/runs/39195494680) passed. The refreshed reviewbot comment has no API, dependency or non-plugin-change warnings. Approval/merge remains a separate maintainer decision.
+
+The local official packager compiled the standard template, then failed archive recompression on this Arch environment. The hosted unmodified packager passed. No archive workaround, custom Hub Gradle build or dependency exception is part of this submission.

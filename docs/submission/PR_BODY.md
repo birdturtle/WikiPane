@@ -19,7 +19,11 @@ Please review core Wiki widget retention/restoration and DPS callback forwarding
 - Java 11 / RuneLite 1.13.2 build: 267 tests pass, no failures/errors/skips.
 - All 14 semantic composition reports match the previous reader byte-for-byte; six complete map fixtures pass.
 - Live Wiki articles/search, canonical item lookup, seed inspection, NPC variant and image decode pass.
-- Packaged API audit and negative API fixtures pass. Official standard packaging is checked separately against the submitted commit.
+- Packaged API audit and negative API fixtures pass.
+- [Official hosted standard-build packaging passed](https://github.com/runelite/plugin-hub/actions/runs/39195494680) on source `472857ab8cf75913356b279c4857e553743e2b3c`.
+- The refreshed reviewbot reports the new plugin/source link without API, dependency or non-plugin-change warnings. This is not maintainer approval.
+
+The local official packager compiled the standard template but encountered an archive-recompression error on this Arch environment. The unmodified hosted packager subsequently passed; no project build hook or dependency exception is used.
 
 The owner previously tested reading, routing, pinning, character checks, skill guides and maps in RuneLite. The dependency-free beta requires a fresh in-client regression pass. Broader multi-user/platform/lifecycle testing remains incomplete. Automated checks do not establish Hub approval.
 

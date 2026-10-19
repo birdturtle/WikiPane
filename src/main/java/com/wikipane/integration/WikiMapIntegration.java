@@ -44,6 +44,8 @@ public final class WikiMapIntegration {
     private Consumer<String> sourceRequests = ignored -> {};
     public void sourceRequests(Consumer<String> open) { sourceRequests = open; }
     private WorldPoint pending;
+    private MapDestination pendingSelection;
+    private java.awt.image.BufferedImage pendingIcon;
     private boolean stopped;
     public WikiMapIntegration(Client client, WorldMapPointManager points, SpriteManager sprites,
         Consumer<Runnable> later, Consumer<String> feedback) {
@@ -62,7 +64,7 @@ public final class WikiMapIntegration {
     public void show(Location location) { show(MapDestination.single(location)); }
     public void show(MapDestination destination) {
         checkThread(); if(stopped) return;
-        if(destination.places.isEmpty() || destination.places.size()>MAX_MARKERS) {
+        if(destination.places.isEmpty() || !destination.unavailable.isEmpty() || destination.places.size()>MAX_MARKERS) {
             feedback.accept("These locations cannot be shown together. Choose a specific location in the article.");return;
         }
         // Validate the complete group before replacing an existing selection.
@@ -70,23 +72,15 @@ public final class WikiMapIntegration {
             feedback.accept("This Wiki location has no verified map tile and plane.");return;
         }
         if(client.getGameState()!=GameState.LOGGED_IN) {feedback.accept("Log in to show this location on the world map.");return;}
-        clear();long version=request;pending=destination(destination.places.get(0).location);
+        long version=++request;pending=destination(destination.places.get(0).location);
+        pendingSelection=destination;pendingIcon=null;
         sprites.getSpriteAsync(SpriteID.MAPMARKER,0,image -> later.accept(() -> {
             if(stopped||version!=request||client.getGameState()!=GameState.LOGGED_IN)return;
-            if(image==null) {feedback.accept("The map marker could not be loaded. Try showing the location again.");return;}
-            java.awt.image.BufferedImage icon=destinationIcon(image);
-            for(MapDestination.Place place:destination.places) {
-                WorldMapPoint marker=new WorldMapPoint(destination(place.location),icon);
-                marker.setName("WikiPane: "+place.label);
-                String source=place.location.source.article;
-                if(!place.location.source.sectionTitle.isBlank()&&!place.location.source.sectionTitle.equals(source))
-                    source+=" · "+place.location.source.sectionTitle;
-                marker.setTooltip(tooltip(place.label)+"<br>"+tooltip(source));
-                marker.setJumpOnClick(true);
-                // A group must not stack every offscreen flag at the map's edge.
-                marker.setSnapToEdge(destination.places.size()==1);
-                markers.add(new SelectedMarker(marker,place));points.add(marker);
+            if(image==null) {
+                pending=null;pendingSelection=null;
+                feedback.accept("The map marker could not be loaded. Try showing the location again.");return;
             }
+            pendingIcon=destinationIcon(image);center();
         }));
         if(!mapOpen()) openMap();
         center();
@@ -152,7 +146,7 @@ public final class WikiMapIntegration {
         if(ownedMap!=null&&client.getComponentTable()!=null&&client.getComponentTable().get(ownedParent)==ownedMap)
             client.closeInterface(ownedMap,false);
         ownedMap=null;
-        pending=null;
+        pending=null;pendingSelection=null;pendingIcon=null;request++;
     }
     public boolean clicked(MenuOptionClicked event) {
         checkThread();
@@ -166,12 +160,27 @@ public final class WikiMapIntegration {
         if(!mapOpen()) return false;
         WorldMap map=client.getWorldMap();
         if(map==null||map.getWorldMapData()==null) return false;
-        if(!map.getWorldMapData().surfaceContainsPosition(pending.getX(),pending.getY())) {
-            pending=null;feedback.accept("Marker added. Select the matching map area to view this location.");return true;
+        for(MapDestination.Place place:pendingSelection.places) {
+            WorldPoint point=destination(place.location);
+            if(!map.getWorldMapData().surfaceContainsPosition(point.getX(),point.getY())) {
+                pending=null;pendingSelection=null;pendingIcon=null;request++;
+                feedback.accept("This location is not available on the displayed game map. Use its Wiki map preview or source instead.");return true;
+            }
         }
-        map.setWorldMapPositionTarget(pending); pending=null;return true;
+        if(pendingIcon==null)return false;
+        removeMarkers();
+        for(MapDestination.Place place:pendingSelection.places) {
+            WorldMapPoint marker=new WorldMapPoint(destination(place.location),pendingIcon);
+            marker.setName("WikiPane: "+place.label);
+            String source=place.location.source.article;
+            if(!place.location.source.sectionTitle.isBlank()&&!place.location.source.sectionTitle.equals(source))source+=" · "+place.location.source.sectionTitle;
+            marker.setTooltip(tooltip(place.label)+"<br>"+tooltip(source));marker.setJumpOnClick(true);
+            marker.setSnapToEdge(pendingSelection.places.size()==1);markers.add(new SelectedMarker(marker,place));points.add(marker);
+        }
+        map.setWorldMapPositionTarget(pending);pending=null;pendingSelection=null;pendingIcon=null;feedback.accept("");return true;
     }
-    public void clear() {checkThread();request++;for(SelectedMarker selected:markers)points.remove(selected.marker);markers.clear();pending=null;
+    private void removeMarkers(){for(SelectedMarker selected:markers)points.remove(selected.marker);markers.clear();}
+    public void clear() {checkThread();request++;removeMarkers();pending=null;pendingSelection=null;pendingIcon=null;
         if(client.getGameState()!=GameState.LOGGED_IN)closeOwnedMap();}
     public void stop() {checkThread();clear();closeOwnedMap();stopped=true;}
 }

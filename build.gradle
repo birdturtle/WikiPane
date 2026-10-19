@@ -183,4 +183,11 @@ tasks.register('mapPreview', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.wikipane.ui.MapPresentationPreview'
     args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-map-chooser.png')
+    args providers.gradleProperty('article').getOrElse('Cooks_Assistant_maps')
+    args providers.gradleProperty('mapFrame').getOrElse('0')
+}
+
+tasks.register('mapCoverageReport', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.MapCoverageReport'
 }

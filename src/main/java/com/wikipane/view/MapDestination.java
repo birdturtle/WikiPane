@@ -16,10 +16,13 @@ public final class MapDestination {
         }
     }
     public final List<Place> places;
+    public final List<Place> unavailable;
     public final String action;
     private MapDestination(List<Place> places, String action) {
-        this.places = List.copyOf(places);
-        this.action = action;
+        this(places,List.of(),action);
+    }
+    private MapDestination(List<Place> places,List<Place> unavailable,String action) {
+        this.places=List.copyOf(places);this.unavailable=List.copyOf(unavailable);this.action=action;
     }
     public static MapDestination single(Location location) {
         String section = location.source.sectionTitle;
@@ -30,7 +33,9 @@ public final class MapDestination {
     public MapDestination excludingUnits(Set<String> units) {
         List<Place> remaining=new ArrayList<>();
         for(Place place:places) if(!units.contains(place.location.source.unit))remaining.add(place);
-        return new MapDestination(remaining,action);
+        List<Place> unsupported=new ArrayList<>();
+        for(Place place:unavailable)if(!units.contains(place.location.source.unit))unsupported.add(place);
+        return new MapDestination(remaining,unsupported,action);
     }
     private static boolean questStart(Fact fact) {
         return Set.of("start point","starting point","quest start").contains(fact.label.toLowerCase(Locale.ROOT));
@@ -79,13 +84,13 @@ public final class MapDestination {
         return count > 1 ? "Show locations" : "Show on map";
     }
     public static MapDestination create(List<Place> places, String action) {
-        Map<String, Place> unique = new LinkedHashMap<>();
+        Map<String, Place> unique = new LinkedHashMap<>(),unsupported=new LinkedHashMap<>();
         for (Place place : places) {
             Location location = place.location;
-            if (WikiMapIntegration.destination(location) == null) continue;
-            // Keep planes distinct, preserve the first exact source rather than duplicating a tile.
-            unique.putIfAbsent(location.x + "," + location.y + "," + location.plane, place);
+            String identity=location.mapId+":"+location.x+","+location.y+","+location.plane+":"+place.label;
+            // Distinct entities at the same tile retain their names; only equivalent entries consolidate.
+            (WikiMapIntegration.destination(location)==null?unsupported:unique).putIfAbsent(identity,place);
         }
-        return new MapDestination(new ArrayList<>(unique.values()), action);
+        return new MapDestination(new ArrayList<>(unique.values()),new ArrayList<>(unsupported.values()), action);
     }
 }

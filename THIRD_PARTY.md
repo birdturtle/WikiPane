@@ -73,3 +73,15 @@ Map regression fixture captured 2026-10-17: Hans, revision 15373142, https://old
 Map-data regression fixture captured 2026-10-18: Cook's Assistant, revision 15375073, https://oldschool.runescape.wiki/w/Cook%27s_Assistant . `Cooks_Assistant_maps.json` retains the API's rendered text and `jsconfigvars` map features. Attribution and content terms are as above. Wiki map imagery fetched at runtime is © Jagex Ltd.; served by the OSRS Wiki at https://maps.runescape.wiki/ . No map tiles are bundled.
 
 The map tile protocol and Simple projection were checked against the Wiki's published Kartographer extension: https://github.com/weirdgloop/mediawiki-extensions-Kartographer/tree/weirdgloop/REL1_45 . WikiPane independently implements bounded viewport composition and numbered markers; no extension code or JavaScript is loaded or distributed.
+
+
+Additional complete API fixtures captured 2026-10-18 for the map coverage audit, under the Wiki attribution and content terms above:
+
+- Hans, revision 15373142: https://oldschool.runescape.wiki/w/Hans
+- Bob's Brilliant Axes., revision 15084401: https://oldschool.runescape.wiki/w/Bob%27s_Brilliant_Axes.
+- Farming/Patch locations, revision 15275974: https://oldschool.runescape.wiki/w/Farming/Patch_locations
+- Varrock Sewers, revision 15273145: https://oldschool.runescape.wiki/w/Varrock_Sewers
+- Taverley Dungeon, revision 15366418: https://oldschool.runescape.wiki/w/Taverley_Dungeon
+- Tree Gnome Village, revision 15351851: https://oldschool.runescape.wiki/w/Tree_Gnome_Village
+
+No map tiles are included in these fixtures. Region/route geometry is retained from the Wiki's `jsconfigvars` GeoJSON data.

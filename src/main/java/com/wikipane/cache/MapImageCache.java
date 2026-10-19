@@ -49,7 +49,39 @@ public final class MapImageCache {
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
             graphics.setFont(new Font(Font.SANS_SERIF,Font.BOLD,12));
             int number=0;
-            for(WikiMaps.Feature feature:frame.features(maps)) {
+            java.util.List<String> references=new java.util.ArrayList<>();java.util.List<java.awt.Point> positions=new java.util.ArrayList<>();
+            int areaReference=0,routeReference=0;
+            for(WikiMaps.Feature feature:frame.features(maps))if(!feature.point) {
+                com.wikipane.semantic.MapGeometry geometry=feature.geometry;
+                java.awt.geom.Path2D path=new java.awt.geom.Path2D.Double(java.awt.geom.Path2D.WIND_EVEN_ODD);
+                for(java.util.List<com.wikipane.semantic.MapGeometry.Position> ring:geometry.paths) {
+                    boolean first=true;
+                    for(com.wikipane.semantic.MapGeometry.Position point:ring) {
+                        double x=width/2.0+(point.x-frame.x)*scale,y=height/2.0-(point.y-frame.y)*scale;
+                        if(first){path.moveTo(x,y);first=false;}else path.lineTo(x,y);
+                    }
+                    if(geometry.kind==com.wikipane.semantic.MapGeometry.Kind.AREA)path.closePath();
+                }
+                if(geometry.kind==com.wikipane.semantic.MapGeometry.Kind.AREA) {
+                    graphics.setComposite(AlphaComposite.SrcOver.derive((float)geometry.fillOpacity));
+                    graphics.setColor(Color.decode(geometry.fill));graphics.fill(path);
+                }
+                graphics.setComposite(AlphaComposite.SrcOver.derive((float)geometry.opacity));
+                graphics.setStroke(new BasicStroke((float)geometry.weight,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND));
+                graphics.setColor(Color.decode(geometry.stroke));if(geometry.weight>0)graphics.draw(path);graphics.setComposite(AlphaComposite.SrcOver);
+                boolean area=geometry.kind==com.wikipane.semantic.MapGeometry.Kind.AREA;
+                references.add(area?"A"+(++areaReference):"R"+(++routeReference));
+                java.awt.geom.Rectangle2D bounds=path.getBounds2D();
+                positions.add(new java.awt.Point((int)Math.round(bounds.getCenterX()),(int)Math.round(bounds.getCenterY())));
+            }
+            // Reference badges identify shapes in the static legend; these never become game destinations.
+            for(int index=0;index<references.size();index++) {
+                java.awt.Point point=positions.get(index);if(point.x<0||point.x>=width||point.y<0||point.y>=height)continue;
+                String label=references.get(index);int labelWidth=graphics.getFontMetrics().stringWidth(label)+6;
+                graphics.setColor(new Color(20,20,20,210));graphics.fillRoundRect(point.x-labelWidth/2,point.y-9,labelWidth,17,4,4);
+                graphics.setColor(Color.WHITE);graphics.drawString(label,point.x-labelWidth/2+3,point.y+4);
+            }
+            for(WikiMaps.Feature feature:frame.features(maps))if(feature.point) {
                 int x=(int)Math.round(width/2.0+(feature.x-frame.x)*scale),y=(int)Math.round(height/2.0-(feature.y-frame.y)*scale);
                 graphics.setColor(Color.BLACK);graphics.fillOval(x-8,y-8,17,17);
                 graphics.setColor(color(feature.icon));graphics.fillOval(x-7,y-7,15,15);

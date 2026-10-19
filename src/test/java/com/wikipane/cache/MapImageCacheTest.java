@@ -57,4 +57,21 @@ public class MapImageCacheTest {
         }finally{wiki.close();}
     }
 
+    @Test public void realNpcAreasAndQuestPathsAreDrawnRatherThanReducedToPins() throws Exception {
+        byte[] png=tile(256);WikiClient wiki=new WikiClient(new OkHttpClient.Builder().addInterceptor(chain->new Response.Builder()
+            .request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
+            .body(ResponseBody.create(MediaType.get("image/png"),png)).build()).build(),new Gson());
+        try {
+            WikiMaps npc=DocumentTest.document("Hans_maps").maps;BufferedImage area=new MapImageCache(wiki).load(npc.frames.get(0),npc,false);
+            assertNotEquals("The source roaming region must be visible",new Color(30,50,70).getRGB(),area.getRGB(150,150));
+            WikiMaps quest=DocumentTest.document("Tree_Gnome_Village_maps").maps;WikiMaps.Frame frame=quest.frames.get(0);
+            BufferedImage route=new MapImageCache(wiki).load(frame,quest,false);
+            WikiMaps.Feature line=frame.features(quest).stream().filter(f->f.geometry.kind==com.wikipane.semantic.MapGeometry.Kind.LINE).findFirst().orElseThrow();
+            com.wikipane.semantic.MapGeometry.Position start=line.geometry.paths.get(0).get(0);
+            int x=(int)Math.round(frame.width/2.0+(start.x-frame.x)*Math.pow(2,frame.zoom));
+            int y=(int)Math.round(frame.height/2.0-(start.y-frame.y)*Math.pow(2,frame.zoom));
+            assertEquals(Color.decode(line.geometry.stroke).getRGB(),route.getRGB(x,y));
+        }finally{wiki.close();}
+    }
+
 }

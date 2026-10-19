@@ -83,7 +83,12 @@ public final class WikiDocument {
     public static final class Image implements Block {
         public final String url, alt, link;
         public final int width, height;
+        public final boolean map;
         public Image(String url, String alt, String link, int width, int height) {
+            this(url,alt,link,width,height,false);
+        }
+        public Image(String url,String alt,String link,int width,int height,boolean map) {
+            this.map=map;
             this.url = url;
             this.alt = alt;
             this.link = link;

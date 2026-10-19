@@ -40,12 +40,12 @@ public final class WikiMapExtractor {
                 Set<String> overlays=new LinkedHashSet<>();
                 JsonArray groups=element.attr("data-overlays").isBlank()?new JsonArray():new JsonParser().parse(element.attr("data-overlays")).getAsJsonArray();
                 for(JsonElement group:groups)if(group.isJsonPrimitive())overlays.add(group.getAsString());
-                String id="map-frame-"+(ordinal++);
+                String id="map-frame-"+(ordinal++);element.attr("data-wikipane-frame",id);
                 frames.add(new WikiMaps.Frame(id,title,captionText,element.attr("data-mapid"),element.attr("data-plane"),template,
                     x,y,width,height,zoom,overlays,new Source(article,WikiUrls.article(article),revision,section,heading,id)));
             } catch(RuntimeException error) {
                 incomplete=true;
-                String id="map-frame-"+(ordinal++);
+                String id="map-frame-"+(ordinal++);element.attr("data-wikipane-frame",id);
                 frames.add(new WikiMaps.Frame(id,heading,"Map preview unavailable",element.attr("data-mapid"),element.attr("data-plane"),"",
                     0,0,300,300,1,Set.of(),new Source(article,WikiUrls.article(article),revision,section,heading,id)));
             }
@@ -68,7 +68,7 @@ public final class WikiMapExtractor {
                             String label=string(properties,"title");if(label.isBlank())label=description.text();if(label.isBlank())label="Map location";
                             Source source=new Source(article,WikiUrls.article(article),revision,"","Map locations","map-feature-"+(index++));
                             features.add(new WikiMaps.Feature(label,group.getKey(),string(properties,"mapID"),string(properties,"plane"),string(properties,"icon"),x,y,point,feature.toString(),source));
-                            if(!point)incomplete=true;
+                            if(features.get(features.size()-1).geometry.kind==MapGeometry.Kind.UNSUPPORTED)incomplete=true;
                         } catch(RuntimeException error) {incomplete=true;}
                     }
                 }

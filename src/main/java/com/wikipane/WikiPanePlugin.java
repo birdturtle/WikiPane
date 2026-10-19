@@ -76,7 +76,7 @@ public class WikiPanePlugin extends Plugin {
         long version = ++lifecycle;
         com.wikipane.integration.WikiMapIntegration currentMap = new com.wikipane.integration.WikiMapIntegration(client,mapPoints,sprites,
             task -> clientThread.invokeLater(task),
-            message -> SwingUtilities.invokeLater(() -> { if(active&&version==lifecycle&&panel!=null)panel.guidance(message); }));
+            message -> SwingUtilities.invokeLater(() -> { if(active&&version==lifecycle&&panel!=null)panel.mapGuidance(message); }));
         currentMap.sourceRequests(url -> openReference(url, version));
         maps=currentMap;
         workers = new ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(48), r -> {

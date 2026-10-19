@@ -330,8 +330,14 @@ public final class WikiPanePanel extends PluginPanel {
             ? "No article loaded."
             : history.current().page.view.audit.summary();
     }
+    private boolean mapGuidance;
+    public void mapGuidance(String value) {
+        if(value.isEmpty()&&!mapGuidance)return;
+        status(value);mapGuidance=!value.isEmpty();
+    }
     public void guidance(String value) { status(value); }
     private void status(String value) {
+        mapGuidance=false;
         recovery.setVisible(false); retryAction = null; failedUrl = null;
         message.setVisible(!value.isEmpty());
         progress.setVisible(value.endsWith("…"));

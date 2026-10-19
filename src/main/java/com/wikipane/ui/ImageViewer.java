@@ -23,7 +23,10 @@ final class ImageViewer {
         open(owner,image.alt.isBlank()?"Image":image.alt,url,()->images.preview(image.url),"Loading full-size image…","");
     }
     void open(Component owner, com.wikipane.semantic.WikiMaps.Frame frame,com.wikipane.semantic.WikiMaps maps) {
-        open(owner,frame.title,frame.source.link(),()->images.maps.load(frame,maps,true),"Loading Wiki map…",MapPreview.legend(frame,maps));
+        open(owner,frame,maps,frame.title);
+    }
+    void open(Component owner,com.wikipane.semantic.WikiMaps.Frame frame,com.wikipane.semantic.WikiMaps maps,String title) {
+        open(owner,frame.source.article+" · "+title,frame.source.link(),()->images.maps.load(frame,maps,true),"Loading Wiki map…",MapPreview.legend(frame,maps,title));
     }
     private void open(Component owner,String title,String browserUrl,Callable<BufferedImage> load,String loading,String details) {
         Window parent = dialog == null ? SwingUtilities.getWindowAncestor(owner) : dialog.getOwner();

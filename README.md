@@ -71,11 +71,11 @@ Supported locations have contextual actions such as **Show quest start**, **Show
 
 Marker tooltips identify the destination and source article/section. Right-click a WikiPane flag and choose **Read in WikiPane** to return to that source through the existing sidebar navigation. RuneLite's **Focus on** action remains available. Map actions preserve the sidebar's article and reading position.
 
-The persistent **Map ▾** control beside the section selector lists this article's maps and locations. Expand a group to show an individual destination or **Show all on game map**. Map images remain available even when their coordinates cannot be shown natively.
+The persistent **Map ▾** control beside the section selector lists this article's maps and locations. Expand a group to show an individual destination or **Show all on game map**. Large collections, such as farming patches, use named location groups. Map images remain available even when their coordinates cannot be shown natively.
 
-Wiki map previews are reconstructed from the Wiki's own map tiles and explicit feature data. Click a preview to open the larger image viewer with Fit, zoom and pan; the viewer fetches a higher-detail crop where available. Numbered markers match the legend. An incomplete feature notice identifies maps that cannot be fully reproduced. Ordinary map images continue to use the full-resolution image viewer.
+Wiki map previews are reconstructed from the Wiki's own map tiles and explicit feature data. Click a preview to open the larger image viewer with Fit, zoom and pan; the viewer fetches a higher-detail crop where available. Numbered points and labeled regions/routes match the legend. Regions retain their source outline and routes retain their path. An incomplete feature notice identifies maps that cannot be fully reproduced. Ordinary map images continue to use the full-resolution image viewer.
 
-Only explicit Wiki map links or structured map features with supported coordinates and a known plane qualify for game markers. A map's viewing center never becomes a destination. General map centers, prose locations and unsupported instance maps keep the usual browser fallback. Markers are cleared on logout, world hopping and plugin shutdown. Map images use HTTPS requests to the Wiki-controlled `maps.runescape.wiki`; no player state is included.
+Only explicit Wiki map links or structured map features with supported coordinates and a known plane qualify for game markers. A map's viewing center never becomes a destination. General map centers, prose locations and unsupported instance maps keep the usual browser fallback. A location outside the displayed game map leaves the previous selection intact and offers guidance to the Wiki preview/source. Markers are cleared on logout, world hopping and plugin shutdown. Map images use HTTPS requests to the Wiki-controlled `maps.runescape.wiki`; no player state is included.
 
 ## Check your requirements
 

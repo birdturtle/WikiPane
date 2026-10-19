@@ -50,4 +50,27 @@ public class MapChooserUiTest {
             assertEquals(1,count);renderer.clear();
         });}finally{workers.shutdownNow();wiki.close();}
     }
+    @Test public void farmingMapsMaterializeOnlyAfterOpeningASpecificLocation() throws Exception {
+        WikiPage page=new WikiPage(DocumentTest.document("Farming_patches_maps"));ExecutorService workers=Executors.newSingleThreadExecutor();
+        WikiClient wiki=new WikiClient(new OkHttpClient(),new Gson());
+        try {SwingUtilities.invokeAndWait(()->{
+            ImageCache images=new ImageCache(wiki);MapChooser chooser=new MapChooser(page,workers,images,new ImageViewer(workers,images),ignored->{},()->{});
+            assertEquals(0,all(chooser).stream().filter(c->"wiki.mapPreview".equals(c.getName())).count());
+            JButton first=(JButton)all(chooser).stream().filter(c->c instanceof JButton&&((JButton)c).getText().contains("South of Falador")).findFirst().orElseThrow();
+            first.doClick();assertEquals(1,all(chooser).stream().filter(c->"wiki.mapPreview".equals(c.getName())).count());
+            chooser.setSize(185,430);for(int pass=0;pass<6;pass++)layout(chooser);
+            for(Component child:all(chooser))if((child instanceof JButton||child instanceof JEditorPane)&&child.getWidth()>0)
+                assertTrue(child.getBounds().toString(),child.getX()+child.getWidth()<=child.getParent().getWidth()+1);
+            chooser.stop();
+        });}finally{workers.shutdownNow();wiki.close();}
+    }
+
+    @Test public void regionAndRouteLegendsRetainDistinctVisualReferences() throws Exception {
+        com.wikipane.semantic.WikiMaps maps=DocumentTest.document("Tree_Gnome_Village_maps").maps;
+        String routes=MapPreview.legend(maps.frames.get(0),maps);
+        assertTrue(routes.contains("R1"));assertTrue(routes.contains("R2"));
+        String regions=MapPreview.legend(maps.frames.get(1),maps);
+        assertTrue(regions.contains("A1"));assertTrue(regions.contains("Tracker gnome 1"));
+    }
+
 }

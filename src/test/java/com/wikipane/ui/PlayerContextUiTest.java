@@ -58,7 +58,7 @@ public class PlayerContextUiTest {
                     if(c instanceof JEditorPane) {
                         JEditorPane pane=(JEditorPane)c;String raw=pane.getDocument().getText(0,pane.getDocument().getLength());int last=raw.length()-1;
                         while(last>=0&&Character.isWhitespace(raw.charAt(last)))last--;
-                        if(last>=0)assertTrue("Requirement text clipped at width "+width+": "+raw,
+                        if(last>=0)assertTrue("Requirement text clipped at width "+width+", bounds="+pane.getBounds()+", last="+pane.modelToView2D(last)+": "+raw,
                             pane.modelToView2D(last).getMaxY()<=pane.getHeight()+2);
                     }
                 }}

@@ -247,8 +247,35 @@ public final class ReaderComponents {
         return text;
     }
     public JComponent condition(String html) {
-        JPanel row = column();
-        row.add(text(html));
+        JEditorPane prose = text(html);
+        prose.putClientProperty("reader.column", Boolean.TRUE);
+        // BoxLayout caches child heights before assigning the indented width. A wrapped
+        // condition must measure its text at that width before reserving the row height.
+        JPanel row = new JPanel(null) {
+            private int heightAt(int width) {
+                Insets inset = getInsets();
+                prose.setSize(Math.max(1, width - inset.left - inset.right), Short.MAX_VALUE);
+                return prose.getPreferredSize().height + inset.top + inset.bottom;
+            }
+            @Override public Dimension getPreferredSize() {
+                Container parent = getParent();
+                int width = parent != null && parent.getWidth() > 0
+                    ? parent.getWidth() - parent.getInsets().left - parent.getInsets().right
+                    : getWidth() > 0 ? getWidth() : 190;
+                return new Dimension(width, heightAt(width));
+            }
+            @Override public Dimension getMaximumSize() {
+                return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+            }
+            @Override public Dimension getMinimumSize() { return new Dimension(0, getPreferredSize().height); }
+            @Override public void doLayout() {
+                Insets inset = getInsets();
+                int height = heightAt(getWidth());
+                prose.setBounds(inset.left, inset.top, Math.max(1, getWidth() - inset.left - inset.right),
+                    height - inset.top - inset.bottom);
+            }
+        };
+        row.setOpaque(false); row.setAlignmentX(Component.LEFT_ALIGNMENT); row.add(prose);
         row.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 2, 0, 0, BORDER),
             BorderFactory.createEmptyBorder(3, 7, 3, 0)));
         return row;
@@ -454,6 +481,27 @@ public final class ReaderComponents {
                     width = 200;
                 setSize(width, Short.MAX_VALUE);
                 Dimension size = super.getPreferredSize();
+                // HTML views can report a fractional final line height. Measure at the real
+                // inner width and round up, rather than relying on font-specific integer sizing.
+                Insets insets = getInsets();
+                View root = getUI().getRootView(this);
+                root.setSize(Math.max(1, width - insets.left - insets.right), Short.MAX_VALUE);
+                size.height = Math.max(size.height,
+                    (int) Math.ceil(root.getPreferredSpan(View.Y_AXIS)) + insets.top + insets.bottom);
+                // Some Swing HTML/font combinations lay out one more line than their
+                // preferred span reports. Include the final rendered glyph, not a blank
+                // trailing document paragraph. This is a bounded tail lookup, not a scan.
+                try {
+                    int length = getDocument().getLength(), start = Math.max(0, length - 128);
+                    String tail = getDocument().getText(start, length - start);
+                    int last = tail.length() - 1;
+                    while (last >= 0 && Character.isWhitespace(tail.charAt(last))) last--;
+                    if (last >= 0) {
+                        java.awt.geom.Rectangle2D glyph = modelToView2D(start + last);
+                        if (glyph != null)
+                            size.height = Math.max(size.height, (int) Math.ceil(glyph.getMaxY()) + insets.bottom);
+                    }
+                } catch (BadLocationException ignored) { /* Document changed; its next layout remeasures. */ }
                 Object floor = getClientProperty("reader.requiredHeight");
                 if (floor instanceof Dimension && ((Dimension) floor).width == width)
                     size.height = Math.max(size.height, ((Dimension) floor).height);

@@ -1,128 +1,37 @@
-# Implementation
+# Current implementation
 
-WikiPane targets Java 11 and RuneLite's official example-plugin workflow. The `latest.release` dependency resolved to RuneLite 1.13.2 during development.
+WikiPane is a Java 11 RuneLite plugin with native Swing reading and RuneLite overlays. It uses RuneLite's injected OkHttp client and Gson, and jsoup for in-memory HTML parsing. There is no external service, script execution, telemetry, account handling or gameplay automation.
 
-## Components
+## Content pipeline
 
-- `WikiPanePlugin`, `WikiPaneConfig`: lifecycle, toolbar registration, settings, and client-thread dispatch.
-- `api/WikiClient`, `api/WikiUrls`: bounded HTTPS requests, API parsing, official entity lookup resolution, URL restrictions, and cancellation.
-- `semantic/SemanticDocument`, `SemanticExtractor`, `RequirementExtractor`, `TableRecords`: source-linked facts, scoped requirements, instructions, locations, relationships, complete tables, and generic content.
-- `view/ArticleViewModel`, `WikiPage`: page-type-specific content areas and cached presentation models, independent of Swing.
-- `view/PresentationValidator`, `CompositionAudit`, `LayoutConstraints`: source ownership, component contracts, coverage, bounded diagnostics, and deterministic width policies.
-- `ui/SidebarLayoutValidator`, `FittedThumbnail`: measured visible-component checks and thumbnails that fit actual available width.
-- `view/ReaderLayout`: component contracts for fact groups, scoped requirement rows, named records, table headers, and variant-aware highlights. Built on the article worker.
-- `ui/ReaderComponents`: shared typography, spacing, surfaces, aligned fields, requirement groups, record cards, headings, links, and source actions.
-- `document/WikiDocument`, `WikiDocumentParser`: immutable content model, server-HTML normalization, infobox variants, table geometry, safe inline formatting, and image references.
-- `ui/WikiPanePanel`, `ContentRenderer`: persistent article identity and navigation, native reader, expandable table records, keyboard navigation, content areas, anchor navigation, and lazy images.
-- `navigation/NavigationHistory`: article/anchor history and viewport positions.
-- `integration/GameEntityLookup`, `WikiButtonIntegration`: canonicalized item IDs, transformed NPC/object definitions, location-aware lookup URLs, selection cleanup, conflict detection, and owned-widget restoration.
-- `cache/WikiCache`, `ImageCache`: expiring bounded caches and bounded image decoding.
+`WikiClient` retrieves complete server-parsed article HTML, metadata and structured map data. `WikiDocumentParser` normalizes source content; `SemanticExtractor` produces `SemanticDocument` with source units, requirements, relationships and locations. `ArticleViewModel`, `ReaderLayout` and the presentation validation pass compose width-aware article components. Content not safely specialized stays accessible in the general reader. Unknown values are never filled in.
 
-All HTTP requests, document normalization, and image decoding run on a three-thread worker pool with a bounded queue. Swing updates run on the EDT; game state reads and widget modifications run on the client thread. Request generations reject stale search/article completions. Shutdown cancels tracked HTTP calls, stops the debounce timer, clears reader state, shuts down workers without waiting, removes the tab, and queues owned-widget cleanup.
+`KnowledgeService` and `KnowledgeArticle` reuse the same cached documents for entity-aware compact inspection. Exact item/NPC/object identities and source variants are preserved; an unresolved variant cannot borrow another variant's statistics.
 
-## Retrieval
+## Reader and history
 
-Suggestions use MediaWiki `action=opensearch` with redirect resolution. Full search uses `action=query&list=search`. Articles use `action=parse&prop=text|sections|revid|categories&redirects=1&formatversion=2`.
+`ArticleNavigation` supplies one canonical hierarchy to the section dropdown and scrollable disclosures. Overview starts expanded; the other sections start collapsed. Source-backed heading anchors align section jumps. Back/Forward records page/results changes, not same-page section jumps; entries retain position and disclosure state.
 
-Entity requests use the same `Special:Lookup` parameters as RuneLite's Wiki plugin. Same-Wiki HTTP redirects and the response's canonical article link are supported. No title-only search substitutes for a failed ID lookup. Ambiguous/unresolved lookups retain the official lookup URL through the browser action. Infobox resource IDs select the correct variant when the lookup fragment uses an older alias.
+`ReaderComponents` owns typography, spacing, links and compact records. Semantic styling retains exact odds and qualifications. Technical IDs/MOIDs and editorial facts use separate disclosures. Source-aware deduplication consolidates repeated presentation without discarding provenance. Article images use asynchronous bounded decoding; the non-modal Swing viewer fetches the original raster on deliberate click (SVGs use a larger Wiki PNG).
 
-The reader receives normalized blocks, not website HTML. Inline fragments contain only selected formatting and safe links. Scripts, frames, forms, editing controls, site navigation, and hidden infobox resources are not sent to Swing. Infobox switch resources are materialized into labeled variants before their raw markup is removed.
+## Game integrations
 
-## Tables
+The opt-in unified Wiki routing switch covers minimap lookup/search and supported quest/skill Wiki actions. Core Wiki may stay enabled: the integration retains/restores its widget and forwards its DPS callback. It does not mutate another plugin's config or intercept global browser launches. Context menus are separate, opt-in informational client callbacks. See [native integration](NATIVE_INTEGRATION.md).
 
-Source rows retain every cell, its column index, header label, colspan, and rowspan. Data cells in a row with a single heading use that heading. Image-only headings use their alt/title text. Row-spanning context is carried into subsequent records. Nested tables remain separate expandable tables.
+Quick Inspect keeps the article/history untouched until the player explicitly opens the article. Selection pins use the existing semantic provenance and a separate miniature layout: highlight → right-click → Pin. They are bounded session snapshots, not account data or persisted HTML. See [pinning](PINNING.md).
 
-The pipeline is complete server-parsed article → normalized document → semantic document → page-type view model → native components. Extraction and page organization run on workers. Neither the document nor semantic layers imports Swing or depends on the view layer. Facts retain source article, revision, section, variant, and source-unit identifiers. Pure numeric values are available separately from their original text.
+`PlayerContextService` snapshots supported local skills, requested quest states and quest points on the client thread. `RequirementEvaluator` applies MET/UNMET/UNKNOWN, nested ALL/ANY and explicit boost rules independently of cached Wiki knowledge. No inventory/equipment/bank comparison is implemented. See [player context](PLAYER_CONTEXT.md).
 
-Requirements retain their source groups, explicit skill levels, boost qualifiers, quest/item links, quantities when explicit, and ALL/ANY expressions. Unknown conditions remain original prose. Ordered instructions retain numbering and nested steps. Read-only local skill, quest-completion and quest-point comparisons now consume this model independently; inventory and equipment checks remain unimplemented.
+`ArticleMaps` indexes source images, frames and verified points. Map previews preserve source regions/routes; exact verified locations can open the native map with one replaceable marker selection. Unsupported map areas preserve the previous marker and offer preview/source access. See [map integration](MAP_INTEGRATION.md) and [coverage audit](MAP_COVERAGE_AUDIT.md).
 
-All meaningful normalized text, cells, links, images, nested tables, and unknown content receive a destination. Source-to-semantic and semantic-to-view coverage are tested separately from selected factual values. This validates the captured fixtures, not every possible Wiki template. Website controls are removed; unrecognized article content remains generic content rather than being summarized away.
+## Threads, bounds and lifecycle
 
-Contextual reading modes and a source-derived Sections navigator organize content by page type. Important facts appear first without discarding secondary facts. Remaining material stays in Other sections. Separate strategy/full-guide articles remain explicit linked articles; the plugin does not crawl their links automatically. The complete selected article is buffered before display. Swing components are created six at a time as the player scrolls; large tables expose 20 records at a time. All records and columns remain available, with source row order and relationships preserved.
+HTTP/parsing/image/layout work runs on bounded worker executors. Swing updates run on the EDT; game reads and native marker/menu callbacks run on the client thread. Generation guards ignore stale completions. Shutdown cancels work/HTTP calls and removes owned widgets, overlays, mouse listeners and navigation. No injected client's shared executor is shut down.
 
-## Bounds
+Caches: 80 search/suggestion entries each (2 minutes), 12 articles and 12 prepared pages (10 minutes), 100 resolved entities (10 minutes), 40 history entries, 48 thumbnails (10 minutes), 2 full images (10 minutes), and 32 map tiles plus 4 composed map rasters (10 minutes). Thumbnails fit 200×220. Original images are capped at 12 MB compressed, 12 million pixels and 8192 per dimension; map compositions are at most 1200×1200 and 36 tiles. Failed responses are not cached and rate limits do not trigger retry loops.
 
-- Suggestions: 80 entries, 2-minute expiry.
-- Parsed articles and metadata: 12 entries, 10-minute expiry.
-- Entity destinations: 100 entries, 10-minute expiry.
-- History: 40 entries, retaining immutable documents.
-- Images: 48 decoded thumbnails, 10-minute expiry; loaded lazily for visible components.
-- Article responses: 4 MB. Entity HTML: 2 MB. Images: 1 MB compressed, 12 million source pixels, 8192 pixels per dimension.
-- Decoded thumbnails fit within 200 × 220 pixels. Images load only on the Wiki-controlled `/images/` path; no automatic high-resolution srcset requests.
-- Failed requests are not cached. HTTP 429 is reported without an automatic retry loop.
+## Limits and release status
 
-## Rendering limits
+No JavaScript, calculators, interactive website controls, audio/video or animated image playback. Unusual templates/formulas can need the explicit browser fallback. Pins are session-only. Unknown requirements remain unknown. Underground native map-area switching is not exposed by the inspected public API; regions/routes remain Wiki preview geometry, not inferred exact game destinations.
 
-No JavaScript, video/audio playback, interactive maps, image animation, website CSS, table sorting, or calculators. Some image formats unsupported by Java ImageIO show a fallback. Only the first frame of animated images is used. Additional images and oversized pages require the original Wiki article. Mathematical and unusual interactive templates may render as plain text or need the browser.
-
-Section headings and infobox-variant anchors are supported. Arbitrary anchors buried in specialized templates may need the browser. Section jumps do not reproduce website script behavior. Back/Forward retain scroll positions, table expansion, and the number of table rows revealed.
-
-Quest, diary, and DPS-specific interface menu additions are not included. The replacement minimap button covers items (including equipped/supported item widgets), NPCs, objects, ground items, and direct search. Standard mode preserves RuneLite's original workflow.
-
-The acceptance articles, Cooking, Vorkath/Strategies, and Recipe for Disaster/Full guide are regression fixtures, not a claim of full-Wiki rendering compatibility.
-
-## Plugin Hub submission
-
-The project uses `build=gradle` because jsoup is a necessary additional dependency for recovering and traversing MediaWiki HTML. Networking still uses RuneLite's injected OkHttp client; jsoup is used only as an in-memory parser. Gson is injected by RuneLite.
-
-Before submission:
-
-1. Complete the player tests, including all game layouts and enable/disable cycles.
-2. Address any rendering defects found on additional articles.
-3. Review jsoup against Plugin Hub's third-party dependency verification list. If this version is not approved, submit the required verification-template dependency and SHA-256 metadata for maintainer review.
-4. Publish a source repository and submit the standard repository/commit marker only when authorized.
-5. Have Plugin Hub maintainers review the replacement widget behavior and distribution.
-
-Source repository: https://github.com/birdturtle/WikiPane. The project retains the official example plugin's Git history. Plugin Hub submission remains pending player testing and maintainer review.
-
-## Sidebar presentation framework
-
-`ReaderLayout` adapts semantic information into component contracts before it reaches Swing. `ContentRenderer` handles navigation anchors, progressive materialization, pagination, and lazy images; `ReaderComponents` owns appearance and layout. Document extraction does not depend on these components.
-
-Short fields use a two-column row with a consistent label/value split. Long values stack beneath their label. Domain groups such as attack and defence bonuses remain distinct. Record identity is promoted only from explicit name/item/location/method columns. Remaining columns keep their labels and values. An image-only cell linking to the same record identity becomes an illustration description in its tooltip; the semantic data and presentation description remain available. Arbitrary prose is not discarded as an image caption.
-
-Requirements retain scope headings and original wording. Their outer list shells are translated into consistently spaced rows without duplicate bullets. Unknown conditions and alternatives keep their source wording. Text wrapping preserves Swing's dedicated line-break view.
-
-The fixed controls use one navigation row and compact area tabs. Source-section actions are available from a heading's right-click menu rather than repeated buttons in the reading flow. Identity images are limited to 88 × 88; content images retain the larger thumbnail bound. Resizing runs on the image worker.
-
-## Validation pass
-
-Composition is validated on the article worker before a `WikiPage` reaches Swing. See [presentation validation](PRESENTATION_VALIDATION.md) for rules and fallback behavior. Reference definitions are extracted from actual reference-list markup before ordered lists are classified as instructions. Definitions and inline citation uses retain stable Wiki IDs and source links; they share the ordinary navigation/history pipeline.
-
-Native bounds can only be checked after actual Swing layout. Width policies choose stacked fields and highlight lists before laying out children. The bounded geometry inspection then checks visible materialized components and reserves measured text height when needed. It runs after composition changes, width changes, pagination, or movement into another 180-pixel scroll band, not on every client frame. It performs no network, parsing, or image decoding. Unknown geometric problems are reported; no iterative layout search is performed.
-
-## Contextual navigation
-
-`ArticleNavigation` derives two primary reading modes and a complete table of contents from the validated semantic view. Overview combines information with requirements for quests; the second mode follows page type. Remaining areas and their actual source headings stay in Sections. Search is a separate UI state reached through the persistent search icon. Article identity, global navigation, mode actions, and Sections stay outside the scroll pane.
-
-Mode buttons restore per-mode positions without adding history entries. Sections entries always jump to their destination rather than restoring a mode position. Those jumps create history entries. Search results also have history entries containing the query, result titles, and viewport position, so Back/Forward requires no new article or search request. Fresh search results truncate the forward branch.
-
-Parent headings with no immediate blocks are aliased to their first descendant content in the chosen mode. Full-guide transclusions sometimes flatten child heading levels; normalization recovers an identity container only when the Wiki's edit-source title identifies the imported article and matches its root heading. Unestablished relationships retain source hierarchy. This is not a title-specific chapter map.
-
-Quest prose is no longer labeled walkthrough simply because it links to a quest subpage. Section semantics and actual instruction markup determine that classification. The Sections popup is a virtualized list with filtering and keyboard selection, not nested menus.
-
-## Knowledge access and temporary inspection
-
-`knowledge/KnowledgeService` provides worker-only exact entity and title queries through the same WikiClient source caches. `KnowledgeArticle` filters the existing semantic document by its entity-ID/redirect variant without constructing an article view. The sidebar and minimap entity path use this service too. `Inspection` is a deliberately selected, source-preserving projection, not another parser.
-
-`integration/ContextMenuIntegration` reads local menu entity metadata on the client thread and adds callbacks after a menu opens. `inspect/QuickInspectController` owns independent temporary state with generation guards and cancellation; it calls the existing sidebar only on explicit exploration. `InspectionLayout` prepares bounded text pages on the worker. `QuickInspectOverlay` paints them and uses RuneLite overlay actions and a native related-article submenu. Palette and label/value conventions are shared with the reader. Quick Inspect introduces no hover HTTP requests or account-dependent Wiki caches. Local reader comparisons are described below.
-
-See [NATIVE_INTEGRATION.md](NATIVE_INTEGRATION.md) for implementation boundaries, policy decisions and the next milestone's testing gate.
-
-## Selection pins
-
-The reader attaches semantic provenance to selectable text. `ui/ReaderSelection` and `ui/SelectionCapture` create a structured `pin/PinSelection` from actual highlighted ranges, including selections across native components. A separate `PinLayout` applies compact native-overlay rules. `PinnedReferences` manages bounded session pins independently of sidebar navigation; `PinnedOverlay` supplies RuneLite movement and source/paging/removal actions. Layout has a small independent worker, and pinning performs no Wiki requests. See [PINNING.md](PINNING.md).
-
-## Semantic presentation refinement
-
-`view/FieldPresentation`, `Probability` and `RequirementPresentation` provide derived display metadata over original source values. `ui/SemanticPalette` supplies shared semantic colors to the reader and existing compact layouts. Odds are classified only in explicitly labeled probability fields under documented rules; exact text, multi-roll rates and source qualifications remain intact. Requirement styling is prepared on the worker and preserves words, links and nesting. `ReaderComponents` keeps derived rarity categories in tooltips; numeric source odds remain the visible selectable value. See `docs/UX_REFINEMENT.md` for fact importance, recovery states and miniature controls.
-
-The renderer accounts for already-visible source facts by URL, revision, unit, label and HTML, and avoids repeating consecutive parent breadcrumbs. Infobox normalization distinguishes full-width content from row values and preserves explicit section headers alongside images. Script-only GE chart placeholders no longer become facts with inherited labels. The captured Rake fixture covers that regression. See [semantic styling](SEMANTIC_STYLING.md).
-
-## Player-aware requirements
-
-`context/PlayerContextSnapshot`, `PlayerContextService` and `RequirementEvaluator` add immutable local game state and pure three-state evaluation. Sidebar activation requests only current-article quests, updates are event-coalesced, and account state is cleared on logout and lifecycle changes. `ui/RequirementBadge` annotates existing source rows without replacing their text or adding player state to pins. See [local player context](PLAYER_CONTEXT.md) for bounds, supported cases and manual acceptance.
-
-## Unified Wiki integration revision
-
-The current reader uses one Open Wiki links in WikiPane switch for minimap/quest/skill routing. Core Wiki may remain enabled: WikiPane temporarily presents its own button while retaining the exact core widget for restoration and forwarding its DPS callback. No core configuration is mutated. Older replacement-only/manual-disable descriptions above describe the initial implementation. Current settings and migration are documented in README.
+The real user has tested major interactions in gameplay. Broader beta/lifecycle/platform checks remain a release gate, separate from automated tests. Current instructions: [beta guide](BETA_TESTING.md), [tests](TESTING.md), [Plugin Hub readiness](PLUGIN_HUB.md). Maintainer approval and a Hub submission have not occurred.

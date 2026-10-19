@@ -1,0 +1,29 @@
+name: Verify WikiPane
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  java11:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '11'
+      - name: Build, offline tests, coverage audits and beta package
+        run: ./gradlew --no-daemon build semanticReport mapCoverageReport betaBundle
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: build/reports/tests/test/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wikipane-friend-beta
+          path: build/beta/
+          if-no-files-found: error

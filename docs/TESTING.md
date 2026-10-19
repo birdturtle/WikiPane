@@ -14,6 +14,8 @@ Optional network check: `./gradlew liveCheck`. Offline fixtures are regression e
 
 Use the [friend beta checklist](BETA_TESTING.md), plus focused checks in [player context](PLAYER_CONTEXT.md), [pinning](PINNING.md), [quest interfaces](QUEST_INTERFACES.md), [skill interfaces](SKILL_INTERFACES.md), and [map coverage](MAP_COVERAGE_AUDIT.md).
 
+Check RuneLite's minimap Wiki lookup/search/DPS and hide-button preference before and after enabling/disabling WikiPane. Its button must remain unchanged; WikiPane lookup is available separately through its sidebar and entity menu.
+
 Before public submission, record tester OS, RuneLite build, UI layout/scale, version, pass/fail, and issue links. Test fixed/resizable layouts, a narrow sidebar, core Wiki enabled/disabled, Menu Entry Swapper, and repeated lifecycle transitions. Exercise offline/timeouts/rate-limit recovery without leaving stale overlays or losing the previous article.
 
 The developer has reported successful gameplay testing of the main reading, routing, pinning, skills and map paths. That is separate from a systematic multi-user/multi-platform acceptance matrix. A successful build or mocked client test does not establish real game behavior. No automated gameplay input or capture is used.

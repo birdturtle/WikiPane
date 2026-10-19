@@ -5,20 +5,17 @@ import net.runelite.client.config.*;
 @ConfigGroup(WikiPaneConfig.GROUP)
 public interface WikiPaneConfig extends Config {
     String GROUP = "wikipane";
-    @ConfigSection(name = "Wiki integration", description = "Use the sidebar for existing game Wiki actions", position = 0)
+    @ConfigSection(name = "Wiki integration", description = "Use the sidebar for quest and skill Wiki actions", position = 0)
     String INTEGRATION = "integration";
     @ConfigSection(name = "Right-click lookup", description = "Optional direct lookup from game entities", position = 1)
     String CONTEXT = "context";
     @ConfigSection(name = "Your character", description = "Local requirement and skill-guide annotations", position = 2)
     String CHARACTER = "character";
 
-    @ConfigItem(keyName = "replacement", name = "Open Wiki links in WikiPane", section = INTEGRATION,
+    @ConfigItem(keyName = "replacement", name = "Quest and skill Wiki links", section = INTEGRATION,
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
-        description = "Open minimap Wiki lookups, searches, quest guides and skill Wiki links in the sidebar. Works with RuneLite's Wiki plugin and retains its DPS action.", position = 0)
+        description = "Open supported quest guides and skill Wiki links in the sidebar. RuneLite's minimap Wiki button keeps its normal behavior.", position = 0)
     default boolean replacement() { return false; }
-    @ConfigItem(keyName = "leftSearch", name = "Wiki button: left-click search", section = INTEGRATION,
-        description = "When integration is enabled: checked opens search; unchecked selects an entity to look up.", position = 1)
-    default boolean leftSearch() { return false; }
     @ConfigItem(keyName = "contextLookups", name = "Add WikiPane to entity menus", section = CONTEXT, position = 0,
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
         description = "Add an informational lookup to item, NPC and object menus. Lookups are sent to the OSRS Wiki.")

@@ -2,7 +2,7 @@
 
 ## RuneLite
 
-The widget selection implementation in `WikiButtonIntegration` and entity lookup behavior are adapted from RuneLite WikiPlugin by Abex and RuneLite contributors.
+Entity lookup behavior in `GameEntityLookup` is adapted from RuneLite WikiPlugin by Abex and RuneLite contributors. The former minimap widget integration has been removed.
 
 Source: https://github.com/runelite/runelite/blob/master/runelite-client/src/main/java/net/runelite/client/plugins/wiki/WikiPlugin.java
 

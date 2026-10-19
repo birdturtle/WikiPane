@@ -16,7 +16,7 @@ WikiPane is a Java 11 RuneLite plugin with native Swing reading and RuneLite ove
 
 ## Game integrations
 
-The opt-in unified Wiki routing switch covers minimap lookup/search and supported quest/skill Wiki actions. Core Wiki may stay enabled: the integration retains/restores its widget and forwards its DPS callback. It does not mutate another plugin's config or intercept global browser launches. Context menus are separate, opt-in informational client callbacks. See [native integration](NATIVE_INTEGRATION.md).
+The opt-in Wiki routing switch covers supported quest/skill Wiki actions only. RuneLite's minimap Wiki button and its callbacks remain untouched. WikiPane does not mutate another plugin's config or intercept global browser launches. Context menus are separate, opt-in informational client callbacks. See [native integration](NATIVE_INTEGRATION.md).
 
 Quick Inspect keeps the article/history untouched until the player explicitly opens the article. Selection pins use the existing semantic provenance and a separate miniature layout: highlight → right-click → Pin. They are bounded session snapshots, not account data or persisted HTML. See [pinning](PINNING.md).
 

@@ -10,7 +10,7 @@ Current gameval interfaces include classic SKILL_GUIDE and SKILL_GUIDE_V2. The p
 
 ## Routing
 
-`SkillInterfaceIntegration` is enabled by `replacement` (Open Wiki links in WikiPane), matching the accepted quest workflow without requiring another switch in replacement mode. The shared integration option is off by default and has the third-party request warning. Shift and Quick Inspect preferences do not affect these deliberate Wiki actions.
+`SkillInterfaceIntegration` is enabled by `replacement` (Quest and skill Wiki links), matching the existing quest workflow. The minimap Wiki button is unaffected. The shared integration option is off by default and has the third-party request warning. Shift and Quick Inspect preferences do not affect these deliberate Wiki actions.
 
 On MenuOpened, a skill is verified using explicit gameval component-to-Skill mappings, visible widget parent, and the actual View-skill-guide operation. A matching existing RUNELITE Wiki entry gets a sidebar callback, preserving its label, position and original browser callback for opt-out. It must match this menu's verified skill target; arbitrary same-named links elsewhere are not handled. No duplicate entry is added. If core Wiki is disabled, one equivalent local Wiki action is provided; normal skill operations are untouched.
 
@@ -26,7 +26,7 @@ Only the selected skill/article/item identity is sent to the Wiki. No skill leve
 
 ## Player tests required
 
-1. With Open Wiki links in WikiPane enabled, right-click Farming and choose Wiki. Confirm Farming opens in the sidebar without a browser.
+1. With Quest and skill Wiki links enabled, right-click Farming and choose Wiki. Confirm Farming opens in the sidebar without a browser.
 2. Repeat for Herblore and Cooking. Ensure the existing View guide and View experience actions are unchanged.
 3. Enable core Wiki alongside WikiPane integration. Confirm there is only one Wiki action and it opens the sidebar. Turn off WikiPane integration and confirm the core Wiki browser behavior returns.
 4. Open the game's Farming and Herblore level guides. Test any existing Wiki item/training links. Confirm destinations and variants. Report entries that still open a browser; diagnostic logs can identify unsupported paths without assuming the labels or IDs.

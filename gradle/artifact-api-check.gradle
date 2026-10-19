@@ -52,6 +52,15 @@ ext.auditJarApis = { File artifact ->
                         'forName', 'newInstance', 'getMethod', 'getDeclaredMethod', 'getField', 'getDeclaredField',
                         'getConstructor', 'getDeclaredConstructor', 'getClassLoader'
                     ]
+                    // WikiPane reads game widgets but never mutates core-owned widgets or selection state.
+                    prohibited |= owner == 'net/runelite/api/widgets/Widget' && (
+                        name.startsWith('set') || name in [
+                            'createChild', 'deleteAllChildren', 'revalidate', 'revalidateScroll'
+                        ]
+                    )
+                    prohibited |= owner == 'net/runelite/api/Client' && name in [
+                        'setAllWidgetsAreOpTargetable', 'setWidgetSelected'
+                    ]
                     if (prohibited) violations.add("${entry.name}: ${owner}.${name}")
                 }
             }
@@ -76,7 +85,10 @@ tasks.register('verifyApiAudit') {
         def cases = [
             [9, 'java/lang/System', 'err', 'Ljava/io/PrintStream;'],
             [10, 'java/net/URL', 'openConnection', '()Ljava/net/URLConnection;'],
-            [10, 'java/net/http/HttpClient', 'newBuilder', '()Ljava/net/http/HttpClient$Builder;']
+            [10, 'java/net/http/HttpClient', 'newBuilder', '()Ljava/net/http/HttpClient$Builder;'],
+            [11, 'net/runelite/api/widgets/Widget', 'setHidden', '(Z)V'],
+            [11, 'net/runelite/api/widgets/Widget', 'createChild', '(II)Lnet/runelite/api/widgets/Widget;'],
+            [11, 'net/runelite/api/Client', 'setAllWidgetsAreOpTargetable', '(Z)V']
         ]
         cases.eachWithIndex { reference, index ->
             def bytes = new ByteArrayOutputStream()

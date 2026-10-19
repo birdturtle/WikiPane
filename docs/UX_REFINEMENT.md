@@ -55,7 +55,7 @@ Player acceptance checklist:
 5. Right-click an entity with Quick Inspect selected. Test footer Read article, paging and dismiss; Shift-right-click related/recipe actions; Alt movement. Confirm ordinary game clicks are unaffected.
 6. Pin text spanning two source sections, page onward and Open source. Pin the same selection again, unpin it, then repeat enable/disable and login/logout checks.
 7. Click a large image: Fit, 100%, zoom, pan, resize and Escape. Decorative item icons must remain non-interactive. Test an unavailable image.
-8. Toggle Jump to your skill level separately from Show character checks. Existing Wiki button, quest Wiki actions and skill Wiki actions must still route correctly.
+8. Toggle Jump to your skill level separately from Show character checks. Quest/skill Wiki actions must still route correctly; the minimap Wiki button retains RuneLite's normal behavior.
 
 No Plugin Hub submission or publication is performed here. Config-dependent visual disabling remains an upstream API limitation, not a custom UI workaround.
 

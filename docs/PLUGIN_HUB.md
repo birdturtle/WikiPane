@@ -14,7 +14,7 @@ HTTP uses injected OkHttp; Gson is injected. Parsing and decoding run off the cl
 
 - Searches and selected entity lookup identity/location go to the Wiki; character-state comparisons remain local. No telemetry or external backend.
 - Optional integrations are disabled by default with third-party-server warnings. No other plugin settings are changed.
-- Client-only menus and explicit map requests do not automate gameplay. Core Wiki widgets are retained/restored with DPS callback forwarding.
+- Client-only menus and explicit map requests do not automate gameplay. Core Wiki widgets are never modified, hidden, replaced or reconfigured; the minimap integration has been deleted.
 - Monster information is static; restricted combat-strategy selections cannot be pinned.
 - No website JavaScript/calculators, automatic underground map switching or persistent pins. Unsupported requirements remain unknown.
 
@@ -22,16 +22,14 @@ HTTP uses injected OkHttp; Gson is injected. Parsing and decoding run off the cl
 
 Run `JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew clean build semanticReport mapCoverageReport betaBundle` for local Java 11 tests, composition reports, packaging and API checks. The official standard-build packager must also pass on the submitted source marker.
 
-Current local results: 267 passing tests, 14 composition reports identical to the previous reader, six map fixtures, packaged API audit and live Wiki/entity/image checks passing.
+Beta 5 removes all minimap widget integration. The local Java 11 build passes 256 tests with no failures/errors/skips; all 14 composition reports match beta 4, six map fixtures and packaged API checks pass. The packaged audit rejects Widget mutation and client target-selection setters. The owner confirmed the beta-5 in-client test; the existing PR is being advanced to the tested source.
 
-The existing reader, routing, overlays and maps were user-tested before dependency removal. The new beta JAR requires an in-client regression pass; compilation is not gameplay verification.
+The owner confirmed the beta-5 in-client test after the minimap takeover was removed. Broader multi-user/platform/lifecycle acceptance remains incomplete; compilation is not gameplay verification.
 
 `docs/submission/wikipane` records the exact source marker. Advance it on the existing PR after source changes; do not open duplicate submissions.
 
 [Official standard build and submission guidance](https://github.com/runelite/plugin-hub#creating-new-plugins).
 
-## Current submission evidence
+## Submission evidence
 
-Source `472857ab8cf75913356b279c4857e553743e2b3c`; [hosted standard-build run](https://github.com/runelite/plugin-hub/actions/runs/39195494680) passed. The refreshed reviewbot comment has no API, dependency or non-plugin-change warnings. Approval/merge remains a separate maintainer decision.
-
-The local official packager compiled the standard template, then failed archive recompression on this Arch environment. The hosted unmodified packager passed. No archive workaround, custom Hub Gradle build or dependency exception is part of this submission.
+Beta 4 passed the [hosted standard-build check](https://github.com/runelite/plugin-hub/actions/runs/39195494680). That is historical evidence, not verification of the beta-5 widget-removal change. The existing PR source marker must advance and pass its own hosted checks. Maintainer approval is separate from CI.

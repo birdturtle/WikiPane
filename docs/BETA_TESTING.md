@@ -1,15 +1,21 @@
-# WikiPane friend beta — 1.0.0-beta.4
+# WikiPane friend beta — 1.0.0-beta.5
 
 ## Install
 
 1. Install [Cabbage beta v1.2.0-beta.2 or newer](https://github.com/birdturtle/Cabbage/releases/tag/v1.2.0-beta.2).
-2. Save `wikipane-1.0.0-beta.4-developer-plugin.jar` somewhere permanent. You do not run this JAR directly.
+2. Save `wikipane-1.0.0-beta.5-developer-plugin.jar` somewhere permanent. You do not run this JAR directly.
 3. Close any RuneLite client you will replace. In Cabbage, open **Settings → Advanced → Developer plugins**, enable developer plugins, and **Add plugin JAR…**. Select the JAR and leave its checkbox checked.
 4. Launch your character normally. Enable **WikiPane** in RuneLite's plugin list and select its sidebar icon.
 
 On first use Cabbage copies your normal RuneLite profiles, plugin choices and supported plugin data into a separate, stable beta profile. Later launches and JAR updates retain that beta profile. Changes do not synchronize with your normal profile. Your Jagex login stays with the launcher; never send credentials to the plugin author.
 
 Local plugins have not undergone Plugin Hub review. Install only a JAR from someone you trust. The included `BUILD.txt` identifies its required RuneLite version. Cabbage checks compatibility; a RuneLite update may require a new JAR. Do not bypass that check.
+
+## Beta 5 changes
+
+The minimap Wiki button takeover and its left-click setting have been removed following Plugin Hub feedback. RuneLite's Wiki button retains its normal browser/search/DPS behavior. Use WikiPane's sidebar search or its separate entity right-click lookup. The renamed **Quest and skill Wiki links** setting retains its existing saved value and affects those interfaces only.
+
+After closing the old client and updating the JAR, check core Wiki enabled/disabled, fixed/resizable layouts, hide-button preference and WikiPane enable/disable. The minimap button should remain entirely controlled by RuneLite. Also recheck WikiPane's separate entity menus, quest/skill routing, sidebar search and pinning.
 
 ## Beta 4 changes
 
@@ -25,7 +31,7 @@ Section/Map buttons toggle closed on a second click. The map chooser remembers e
 
 - **Search:** type a title, then Enter or select a suggestion. Try Bronze dagger, Recipe for Disaster and Vorkath.
 - **Navigate:** Back/Forward changes articles or returns to results. The section dropdown and expandable article headings represent the same hierarchy. Section jumps stay within the current history entry.
-- **Use the game's Wiki actions:** opt into **Open Wiki links in WikiPane**. Core Wiki can remain enabled. Minimap lookup/search and supported quest/skill Wiki actions now open the sidebar.
+- **Quest/skill Wiki actions:** opt into **Quest and skill Wiki links**. Supported quest/skill links open the sidebar. The minimap Wiki button keeps RuneLite's normal behavior.
 - **Right-click an entity:** opt into **Add WikiPane to entity menus**. Default access is Shift-right-click; choose Quick Inspect for a temporary overlay or Full article for the sidebar.
 - **Pin:** highlight sidebar text → right-click → Pin selection. Alt-drag to move; footer arrows turn pages. Shift-right-click for source or removal. Up to five session pins; restarting/disabling clears them.
 - **Images/maps:** click article images for full-size viewing. **Map ▾** groups available maps and verified locations; a new game-map selection replaces previous WikiPane flags. Underground area auto-switching is unavailable; use the Wiki preview/image.

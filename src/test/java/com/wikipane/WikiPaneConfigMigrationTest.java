@@ -9,15 +9,26 @@ public class WikiPaneConfigMigrationTest {
         WikiPaneConfigMigration.apply(manager);
         verify(manager).setConfiguration("wikipane","replacement",true);
         verify(manager).unsetConfiguration("wikipane","destination");
-        verify(manager).setConfiguration("wikipane","settingsRevision","1");
+        verify(manager).setConfiguration("wikipane","settingsRevision","2");
         verify(manager,never()).setConfiguration(eq("wiki"),anyString(),any());
         clearInvocations(manager);
-        when(manager.getConfiguration("wikipane","settingsRevision")).thenReturn("1");
+        when(manager.getConfiguration("wikipane","settingsRevision")).thenReturn("2");
         WikiPaneConfigMigration.apply(manager);
         verify(manager,never()).setConfiguration(anyString(),anyString(),any());
     }
     @Test public void freshInstallDoesNotOptIntoNetworkIntegration() {
         ConfigManager manager=mock(ConfigManager.class); WikiPaneConfigMigration.apply(manager);
         verify(manager,never()).setConfiguration("wikipane","replacement",true);
+    }
+    @Test public void previousBetaRemovesOnlyTheObsoleteMinimapPreference() {
+        ConfigManager manager=mock(ConfigManager.class);
+        when(manager.getConfiguration("wikipane","settingsRevision")).thenReturn("1");
+        WikiPaneConfigMigration.apply(manager);
+        verify(manager).unsetConfiguration("wikipane","leftSearch");
+        verify(manager).setConfiguration("wikipane","settingsRevision","2");
+        verify(manager,never()).setConfiguration("wikipane","replacement",true);
+        verify(manager,never()).unsetConfiguration(eq("wiki"),anyString());
+        verify(manager,never()).setConfiguration(eq("wiki"),anyString(),any());
+        verify(manager,never()).unsetConfiguration("wikipane","contextLookups");
     }
 }

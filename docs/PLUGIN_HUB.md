@@ -22,7 +22,7 @@ HTTP uses injected OkHttp; Gson is injected. Parsing and decoding run off the cl
 
 Run `JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew clean build semanticReport mapCoverageReport betaBundle` for local Java 11 tests, composition reports, packaging and API checks. The official standard-build packager must also pass on the submitted source marker.
 
-Beta 5 removes all minimap widget integration. The local Java 11 build passes 256 tests with no failures/errors/skips; all 14 composition reports match beta 4, six map fixtures and packaged API checks pass. The packaged audit rejects Widget mutation and client target-selection setters. The owner confirmed the beta-5 in-client test; the existing PR is being advanced to the tested source.
+Beta 5 removes all minimap widget integration. The local Java 11 build passes 256 tests with no failures/errors/skips; all 14 composition reports match beta 4, six map fixtures and packaged API checks pass. The packaged audit rejects Widget mutation and client target-selection setters. The owner confirmed the beta-5 in-client test. The existing PR points to source `fac2bfa8b0877e91fd51c2fbdf0d41a1c1de7957`.
 
 The owner confirmed the beta-5 in-client test after the minimap takeover was removed. Broader multi-user/platform/lifecycle acceptance remains incomplete; compilation is not gameplay verification.
 
@@ -32,4 +32,4 @@ The owner confirmed the beta-5 in-client test after the minimap takeover was rem
 
 ## Submission evidence
 
-Beta 4 passed the [hosted standard-build check](https://github.com/runelite/plugin-hub/actions/runs/39195494680). That is historical evidence, not verification of the beta-5 widget-removal change. The existing PR source marker must advance and pass its own hosted checks. Maintainer approval is separate from CI.
+Beta 5 source `fac2bfa8b0877e91fd51c2fbdf0d41a1c1de7957` passed the [hosted standard-build check](https://github.com/runelite/plugin-hub/actions/runs/39199247403). The refreshed reviewbot comment has no API/dependency warnings. The PR still changes only `plugins/wikipane`. Maintainer approval is separate from CI.

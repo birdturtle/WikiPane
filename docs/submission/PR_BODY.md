@@ -16,10 +16,13 @@ The minimap replacement implementation has been deleted: no widget hiding/replac
 
 ### Verification
 
+Submitted source: `fac2bfa8b0877e91fd51c2fbdf0d41a1c1de7957`.
+
 - Beta-5 Java 11 build: 256 tests pass, no failures/errors/skips.
 - All 14 semantic reports match beta 4; six map fixtures pass.
 - Packaged-code and negative-fixture audits pass, including the new rejection of Widget mutators and client target-selection setters.
-- The owner confirmed the beta-5 in-client test. Hosted standard-build CI must verify the updated source marker.
+- The owner confirmed the beta-5 in-client test.
+- [Hosted standard-build CI passed](https://github.com/runelite/plugin-hub/actions/runs/39199247403) on the submitted beta-5 commit. The refreshed reviewbot comment has no API/dependency warnings; approval is a separate maintainer decision.
 
 The owner previously tested reading, routing, pinning, character checks, skill guides and maps in RuneLite, and has now confirmed the beta-5 widget-removal build. Broader multi-user/platform/lifecycle testing remains incomplete. Automated checks do not establish Hub approval.
 

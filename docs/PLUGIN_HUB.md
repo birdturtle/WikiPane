@@ -12,12 +12,15 @@ Reviewed against upstream Plugin Hub and its v5 packaging tooling on 2026-10-18.
 
 ## Dependency verification — upstream change required
 
-At review, upstream verification-template listed jsoup 1.13.1, not 1.23.2. Do not downgrade a working parser solely to avoid review. The prepared patch adds `org.jsoup:jsoup:1.23.2` under `thirdParty` with reason `wikipane`, and these independently Maven-Central-checked SHA-256 values:
+At review, upstream verification-template listed jsoup 1.13.1, not 1.23.2. Do not downgrade a working parser solely to avoid review. The prepared patch adds `org.jsoup:jsoup:1.23.2` under `thirdParty` with reason `wikipane`, and the following independently Maven-Central-checked SHA-256 values. Gradle also resolves the Netty BOM imported by jsoup's POM for its test dependencies; the patch verifies that POM, without introducing Netty binaries:
 
 | Artifact | SHA-256 |
 | --- | --- |
 | jsoup-1.23.2.jar | e9d8c856856680427f096d156f02a414289985c930998fcb519ce5be39b42003 |
 | jsoup-1.23.2.pom | 3ff28beafd484e9c345e0749d697d2aa31f29ace54b5d4da4e8375e6d8fe1802 |
+| netty-bom-4.2.17.Final.pom | 0951aa35bdcbf6dbc87af75a67e9af43c01687ed571f77c2e9195417c3afe969 |
+
+The Hub-specific archive task uses stored ZIP entries to avoid the v5 packager copying stale compressed sizes when re-encoding across Java/zlib versions. This changes compression only, not runtime content; the friend JAR remains compressed.
 
 jsoup parses already-downloaded HTML in memory. Its fetching APIs are not used. It has no production transitive dependencies. Maintainers must independently approve the dependency and hashes; the local patch is not an allowlist exemption on the public Hub.
 
@@ -54,3 +57,15 @@ A source marker, dependency diff and PR body are prepared locally during release
 - [Official example build](https://github.com/runelite/example-plugin/blob/master/build.gradle)
 - [Rejected or rolled-back features](https://github.com/runelite/runelite/wiki/Rejected-or-Rolled-Back-Features)
 - [Official packager and disallowed APIs](https://github.com/runelite/plugin-hub-tooling)
+
+## Recorded local rehearsal
+
+Source commit: `636e60a67be8b7b92de2856b8288fc286979a9f7`, Java 11 / RuneLite 1.13.2.
+
+- `build semanticReport mapCoverageReport betaBundle`: success, 254 tests, no failures/errors/skips; 14 article composition audits valid and six complete map-data fixtures audited.
+- Official v5 packager in `PACKAGE_IS_PR=true` local mode: success, including API/disallowed-symbol checks, dependency verification and final archive rewrite. No upload configuration or credentials were supplied.
+- Hub baseline: `759be27a1871164c51fcacc8c65ad487eddfaff0`; tooling source inspected: `034eaffd5bce7bb678d35287b547874f3dba6b3b`.
+- The local upstream rehearsal includes the proposed jsoup/BOM verification patch. A real upstream build needs that patch accepted or included in its PR; the unmodified upstream verification list is insufficient.
+- The clean GitHub runner identified a clipped RFD requirement introduction. The reader now reserves the final glyph bounds at the actual width. The indented requirement container now measures before reserving its height. The final [clean GitHub Java 11 run](https://github.com/birdturtle/WikiPane/actions/runs/39189832826) passed, including the prior failure.
+
+`docs/submission/wikipane` pins this exact technically tested source. `docs/submission/plugin-hub.patch` combines its marker and dependency verification changes, ready to review/apply in a fresh Hub fork. These are handoff artifacts, not an upstream PR. Before submitting, update the marker if further runtime code changes and rerun the official check.

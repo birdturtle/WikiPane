@@ -2,6 +2,8 @@
 
 Read the Old School RuneScape Wiki inside RuneLite.
 
+**Public beta · 1.0.0-beta.2.** The main workflows have been tested in-game by the project owner; broader article, platform and lifecycle coverage is still being tested. Please [report problems](https://github.com/birdturtle/WikiPane/issues) with the article, version and steps to reproduce. See [known limits](docs/IMPLEMENTATION.md#limits-and-release-status) and the [beta guide](docs/BETA_TESTING.md).
+
 - Search with suggestions or press Enter for full search results.
 - Read articles, quest requirements, item bonuses, NPC information, and walkthroughs.
 - Follow Wiki links and section anchors, and navigate Back and Forward.
@@ -133,6 +135,6 @@ Article images open in a resizable, non-modal Swing viewer when clicked. Press E
 
 ## Friend beta
 
-See the [installation and tester guide](docs/BETA_TESTING.md). Build the distributable with `./gradlew betaBundle`; the handoff directory is `build/beta/0.1.0-beta.1/`. Send its developer-plugin JAR and START-HERE.md to testers. The JAR includes jsoup and its license, excludes RuneLite/tests, and records the compatible RuneLite version. Cabbage keeps beta profile settings across JAR updates; it does not synchronize them with the normal profile.
+See the [installation and tester guide](docs/BETA_TESTING.md). Build the distributable with `./gradlew betaBundle`; the handoff directory is `build/beta/1.0.0-beta.2/`. Send its developer-plugin JAR and START-HERE.md to testers. The JAR includes jsoup and its license, excludes RuneLite/tests, and records the compatible RuneLite version. Cabbage keeps beta profile settings across JAR updates; it does not synchronize them with the normal profile.
 
 Plugin Hub submission is being prepared, not approved. See [readiness and submission](docs/PLUGIN_HUB.md).

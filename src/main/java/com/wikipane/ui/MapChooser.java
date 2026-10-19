@@ -51,9 +51,9 @@ final class MapChooser extends JPanel {
         for(ArticleMaps.Group child:group.children)body.add(group(child,false));
         MapDestination all=group.all();
         if(group.children.isEmpty()&&group.destinations.size()>1&&all.unavailable.isEmpty()&&all.places.size()<=64)
-            body.add(action("Show all on game map",()->{dismiss.run();show.accept(all);}));
+            body.add(action("Show all on game map","Show these locations together on the game map",()->{dismiss.run();show.accept(all);}));
         JPanel entries=ReaderComponents.column();body.add(entries);
-        JButton more=action("Show more locations",()->{});int[] shown={0};
+        JButton more=action("Show more locations","Reveal more locations in this list",()->{});int[] shown={0};
         Runnable append=()->{
             int end=Math.min(group.destinations.size(),shown[0]+30);
             for(int index=shown[0];index<end;index++) {
@@ -62,7 +62,7 @@ final class MapChooser extends JPanel {
                 String label=place.label,articlePrefix=place.location.source.article+" · ";
                 if(label.startsWith(articlePrefix))label=label.substring(articlePrefix.length());
                 if(label.startsWith(group.title+" · "))label=label.substring(group.title.length()+3);
-                if(destination.unavailable.isEmpty())entries.add(action(label,()->{dismiss.run();show.accept(destination);}));
+                if(destination.unavailable.isEmpty())entries.add(action(label,"Show "+label+" on the game map",()->{dismiss.run();show.accept(destination);}));
                 else if(group.frame!=null) {
                     JButton inspect=action("Inspect "+label,()->viewer.open(this,group.frame,page.document.maps,group.title));
                     inspect.setToolTipText("This location is available in the Wiki preview, not the native game map.");entries.add(inspect);
@@ -92,10 +92,13 @@ final class MapChooser extends JPanel {
         public boolean getScrollableTracksViewportWidth(){return true;}
         public boolean getScrollableTracksViewportHeight(){return false;}
     }
-    private JButton action(String text,Runnable action) {
+    private JButton action(String text,Runnable action) { return action(text,null,action); }
+    private JButton action(String text,String tooltip,Runnable action) {
         JButton button=ReaderComponents.navigationButton("<html>"+escape(text)+"</html>");
-        button.setToolTipText("Show "+text+" on game map");button.addActionListener(event->action.run());return button;
+        button.setToolTipText(tooltip);button.addActionListener(event->action.run());return button;
     }
     private void loadVisible(){if(!stopped)for(MapPreview preview:previews)preview.request();}
+    void pause(){previews.forEach(MapPreview::pause);}
+    void resume(){if(!stopped){previews.forEach(MapPreview::resume);SwingUtilities.invokeLater(this::loadVisible);}}
     void stop(){stopped=true;previews.forEach(MapPreview::stop);}
 }

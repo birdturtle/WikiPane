@@ -103,9 +103,9 @@ public final class WikiPanePanel extends PluginPanel {
         this.wiki = wiki;
         this.workers = workers;
         mapPopup.addPopupMenuListener(new PopupMenuListener() {
-            public void popupMenuWillBecomeVisible(PopupMenuEvent event) {}
-            public void popupMenuWillBecomeInvisible(PopupMenuEvent event) {if(mapChooser!=null)mapChooser.stop();}
-            public void popupMenuCanceled(PopupMenuEvent event) {if(mapChooser!=null)mapChooser.stop();}
+            public void popupMenuWillBecomeVisible(PopupMenuEvent event) {if(mapChooser!=null)mapChooser.resume();}
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent event) {if(mapChooser!=null)mapChooser.pause();}
+            public void popupMenuCanceled(PopupMenuEvent event) {if(mapChooser!=null)mapChooser.pause();}
         });
         images=new ImageCache(wiki);
         renderer = new ArticleReader(this::openLink, workers, images, pin, this::guidance);
@@ -191,7 +191,7 @@ public final class WikiPanePanel extends PluginPanel {
         destinations.add(sectionsButton,BorderLayout.CENTER);
         mapButton.setName("wiki.articleMap");mapButton.setForeground(ReaderComponents.ACCENT);
         mapButton.setMargin(new Insets(4,6,4,6));mapButton.setVisible(false);
-        mapButton.addActionListener(event->openMaps());destinations.add(mapButton,BorderLayout.EAST);
+        PopupToggle.bind(mapButton,mapPopup,this::openMaps);destinations.add(mapButton,BorderLayout.EAST);
         contextual.add(destinations);
         readingTools.add(contextual, BorderLayout.CENTER);
         statePanel.setOpaque(false);
@@ -276,7 +276,7 @@ public final class WikiPanePanel extends PluginPanel {
         back.addActionListener(e -> travel(false));
         forward.addActionListener(e -> travel(true));
         searchToggle.addActionListener(e -> focusSearch());
-        sectionsButton.addActionListener(e -> openSections());
+        PopupToggle.bind(sectionsButton, sectionPopup, this::openSections);
         browser.addActionListener(e -> LinkBrowser.browse(e.getActionCommand()));
         variants.addActionListener(e -> {
             if (!settingSections && viewingArticle && history.current() != null) {
@@ -756,10 +756,11 @@ public final class WikiPanePanel extends PluginPanel {
                 sectionPopup.setVisible(false);
                 navigateSection(destination);
             });
-        navigator.setPreferredSize(new Dimension(Math.max(160,sectionsButton.getWidth()),navigator.getPreferredSize().height));
+        navigator.setPreferredSize(PopupSizing.fit(sectionsButton, Math.max(160,sectionsButton.getWidth()),
+            navigator.getPreferredSize().height));
         sectionPopup.add(navigator);
         if (sectionsButton.isShowing()) {
-            sectionPopup.show(sectionsButton, 0, sectionsButton.getHeight());
+            PopupSizing.show(sectionPopup, sectionsButton);
             SwingUtilities.invokeLater(() -> {
                 if (sectionPopup.isVisible() && history.current() == entry)
                     navigator.focusFilter();
@@ -773,12 +774,14 @@ public final class WikiPanePanel extends PluginPanel {
     private void openMaps() {
         NavigationHistory.Entry entry=history.current();
         if(!active||entry==null||entry.isSearch())return;
-        closeMaps();
-        mapChooser=new MapChooser(entry.page,workers,images,renderer.mapViewer(),destination->{
-            if(active&&history.current()==entry)mapRequests.accept(destination);
-        },()->mapPopup.setVisible(false));
-        mapChooser.setPreferredSize(new Dimension(Math.max(160,readingTools.getWidth()-6),400));
-        mapPopup.add(mapChooser);mapPopup.show(readingTools,0,readingTools.getHeight());
+        if(mapChooser==null) {
+            mapChooser=new MapChooser(entry.page,workers,images,renderer.mapViewer(),destination->{
+                if(active&&history.current()==entry)mapRequests.accept(destination);
+            },()->mapPopup.setVisible(false));
+            mapPopup.add(mapChooser);
+        }
+        mapChooser.setPreferredSize(PopupSizing.fit(readingTools,Math.max(160,readingTools.getWidth()-6),400));
+        PopupSizing.show(mapPopup,readingTools);
     }
     public void navigateSection(ArticleNavigation.Destination destination) {
         NavigationHistory.Entry entry = history.current();

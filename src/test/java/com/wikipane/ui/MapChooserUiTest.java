@@ -73,4 +73,27 @@ public class MapChooserUiTest {
         assertTrue(regions.contains("A1"));assertTrue(regions.contains("Tracker gnome 1"));
     }
 
+    @Test public void closingAndReopeningPreservesExpandedLocationsAndScroll() throws Exception {
+        WikiPage page=new WikiPage(DocumentTest.document("Farming_patches_maps"));
+        ExecutorService workers=Executors.newSingleThreadExecutor();
+        WikiClient wiki=new WikiClient(new OkHttpClient(),new Gson());
+        try {SwingUtilities.invokeAndWait(()->{
+            ImageCache images=new ImageCache(wiki);
+            MapChooser chooser=new MapChooser(page,workers,images,new ImageViewer(workers,images),ignored->{},()->{});
+            JButton location=(JButton)all(chooser).stream().filter(c->c instanceof JButton
+                &&((JButton)c).getText().contains("South of Falador")).findFirst().orElseThrow();
+            location.doClick();
+            chooser.setSize(209,220);for(int pass=0;pass<6;pass++)layout(chooser);
+            JScrollPane scroll=(JScrollPane)chooser.getComponent(0);
+            scroll.getViewport().setViewPosition(new Point(0,50));
+            Point position=scroll.getViewport().getViewPosition();
+            int components=all(chooser).size();
+            chooser.pause();chooser.resume();
+            assertEquals(position,scroll.getViewport().getViewPosition());
+            assertTrue(location.getAccessibleContext().getAccessibleName().endsWith(", expanded"));
+            assertEquals(components,all(chooser).size());
+            chooser.stop();
+        });}finally{workers.shutdownNow();wiki.close();}
+    }
+
 }

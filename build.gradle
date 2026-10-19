@@ -89,7 +89,7 @@ test {
     systemProperty 'java.awt.headless', 'true'
 }
 
-version = '0.1.0-beta.1'
+version = '1.0.0-beta.2'
 
 tasks.register('liveCheck', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath

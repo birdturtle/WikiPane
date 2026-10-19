@@ -15,7 +15,8 @@ final class MapPreview extends JPanel {
     private final WikiMaps maps;
     private final ExecutorService workers;
     private final ImageCache images;
-    private boolean requested,stopped;
+    private boolean requested,stopped,paused;
+    private long request;
     private Future<?> task;
     MapPreview(WikiMaps.Frame frame,WikiMaps maps,ExecutorService workers,ImageCache images,ImageViewer viewer) {
         this(frame,maps,workers,images,viewer,frame.title);
@@ -59,13 +60,17 @@ final class MapPreview extends JPanel {
         text.append("<p class='muted tiny'>Click map to inspect · OSRS Wiki</p>");return text.toString();
     }
     void request() {
-        if(requested||stopped||!isShowing()||getVisibleRect().isEmpty())return;requested=true;
+        if(requested||stopped||paused||!isShowing()||getVisibleRect().isEmpty())return;requested=true;
+        long version=++request;
         try {task=workers.submit(()->{
             try {
                 java.awt.image.BufferedImage image=images.maps.load(frame,maps,false);
-                SwingUtilities.invokeLater(()->{if(!stopped){thumbnail.setText("");thumbnail.image(image);revalidate();repaint();}});
-            } catch(Exception error) {SwingUtilities.invokeLater(()->{if(!stopped){thumbnail.setText("Map unavailable · click to retry");revalidate();}});}
+                SwingUtilities.invokeLater(()->{if(!stopped&&!paused&&version==request){thumbnail.setText("");thumbnail.image(image);revalidate();repaint();}});
+            } catch(Exception error) {SwingUtilities.invokeLater(()->{if(!stopped&&!paused&&version==request){thumbnail.setText("Map unavailable · inspect");
+                    thumbnail.setToolTipText("Click to try loading the larger Wiki map");revalidate();}});}
         });}catch(RejectedExecutionException error){requested=false;thumbnail.setText("Click to inspect map");}
     }
-    void stop(){stopped=true;if(task!=null)task.cancel(true);}
+    void pause(){paused=true;request++;requested=false;if(task!=null)task.cancel(true);}
+    void resume(){paused=false;}
+    void stop(){stopped=true;pause();}
 }

@@ -89,7 +89,7 @@ final class ImageViewer {
                         minus.addActionListener(event -> { canvas.zoom(canvas.currentScale() / 1.25); update.run(); });
                         plus.addActionListener(event -> { canvas.zoom(canvas.currentScale() * 1.25); update.run(); });
                         canvas.addMouseWheelListener(event -> {
-                            if (event.isControlDown()) { canvas.zoom(canvas.currentScale() * Math.pow(1.25, -event.getWheelRotation())); update.run(); event.consume(); }
+                            if (event.isControlDown()) { canvas.zoom(canvas.currentScale() * Math.pow(1.25, -event.getWheelRotation()), event.getPoint()); update.run(); event.consume(); }
                         });
                         for (JButton control : new JButton[]{fit, actual, minus, plus}) control.setEnabled(true);
                         content.remove(status); content.add(scroll, BorderLayout.CENTER); update.run();
@@ -115,6 +115,7 @@ final class ImageViewer {
         private final BufferedImage image;
         private boolean fit = true;
         private double scale = 1;
+        private long zoomRequest;
         Canvas(BufferedImage image) {
             this.image = image;
             MouseAdapter pan = new MouseAdapter() {
@@ -141,8 +142,46 @@ final class ImageViewer {
             return Math.min(1, Math.min((double)Math.max(1, available.width-24)/image.getWidth(),
                 (double)Math.max(1, available.height-24)/image.getHeight()));
         }
-        void fit() { fit = true; revalidate(); repaint(); }
-        void zoom(double value) { fit = false; scale = Math.max(.05, Math.min(4, value)); revalidate(); repaint(); }
+        void fit() {
+            zoomRequest++; fit = true;
+            if (getParent() instanceof JViewport) ((JViewport)getParent()).setViewPosition(new Point());
+            revalidate(); repaint();
+        }
+        void zoom(double value) {
+            Point anchor = getParent() instanceof JViewport
+                ? new Point(((JViewport)getParent()).getViewPosition().x + ((JViewport)getParent()).getExtentSize().width/2,
+                    ((JViewport)getParent()).getViewPosition().y + ((JViewport)getParent()).getExtentSize().height/2)
+                : new Point(getWidth()/2,getHeight()/2);
+            zoom(value, anchor);
+        }
+        void zoom(double value, Point anchor) {
+            double previous = currentScale();
+            double pixelX = Math.max(0,Math.min(image.getWidth(),(anchor.x-imageX(previous))/previous));
+            double pixelY = Math.max(0,Math.min(image.getHeight(),(anchor.y-imageY(previous))/previous));
+            JViewport viewport = getParent() instanceof JViewport ? (JViewport)getParent() : null;
+            Point position = viewport == null ? new Point() : viewport.getViewPosition();
+            Point offset = new Point(anchor.x-position.x,anchor.y-position.y);
+            fit = false; scale = Math.max(.05, Math.min(4, value));
+            long version = ++zoomRequest;
+            revalidate();
+            if (viewport != null) {
+                Runnable preserve = () -> {
+                    if (version != zoomRequest || getParent() != viewport) return;
+                    Dimension extent = viewport.getExtentSize(), wanted = getPreferredSize();
+                    viewport.setViewSize(new Dimension(Math.max(extent.width,wanted.width),Math.max(extent.height,wanted.height)));
+                    int x = (int)Math.round(imageX(scale)+pixelX*scale-offset.x);
+                    int y = (int)Math.round(imageY(scale)+pixelY*scale-offset.y);
+                    viewport.setViewPosition(new Point(Math.max(0,Math.min(getWidth()-extent.width,x)),
+                        Math.max(0,Math.min(getHeight()-extent.height,y))));
+                };
+                preserve.run();
+                // Reapply after scrollbars have changed the viewport extent.
+                SwingUtilities.invokeLater(preserve);
+            }
+            repaint();
+        }
+        private int imageX(double factor) { return Math.max(12,(getWidth()-Math.max(1,(int)(image.getWidth()*factor)))/2); }
+        private int imageY(double factor) { return Math.max(12,(getHeight()-Math.max(1,(int)(image.getHeight()*factor)))/2); }
         @Override public Dimension getPreferredSize() {
             if (fit && getParent() instanceof JViewport) return ((JViewport)getParent()).getExtentSize();
             return new Dimension((int)Math.ceil(image.getWidth()*scale)+24, (int)Math.ceil(image.getHeight()*scale)+24);
@@ -154,7 +193,7 @@ final class ImageViewer {
             Graphics2D g = (Graphics2D)graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g.drawImage(image, Math.max(12,(getWidth()-width)/2), Math.max(12,(getHeight()-height)/2), width, height, null);
+                g.drawImage(image, imageX(factor), imageY(factor), width, height, null);
             } finally { g.dispose(); }
         }
         public Dimension getPreferredScrollableViewportSize() { return new Dimension(700, 500); }

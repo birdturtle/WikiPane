@@ -1,12 +1,28 @@
-Add WikiPane, a native OSRS Wiki reader with reconstructed article content, page history, source links, full-size images and Wiki map previews. Optional existing Wiki-action routing and contextual menus use the same ID-aware lookup pipeline. Users can pin selected reference text; supported character requirement comparisons stay local.
+Add **WikiPane 1.0.0-beta.2**, an initial public beta of a native OSRS Wiki reader for RuneLite. Complete server-parsed articles are normalized into source-backed semantic content and rebuilt for the narrow Swing sidebar. Search, internal links, page history, requirements, compact tables, full-size images and Wiki map previews use the same pipeline.
 
-The plugin uses Java 11 and `build=gradle` for jsoup 1.23.2, used solely for in-memory HTML parsing. The dependency patch includes its JAR/POM and imported Netty BOM metadata SHA-256 values independently checked against Maven Central. Netty binaries are not included. MIT, BSD and Wiki attribution are documented in the source and beta bundle.
+Optional integration routes existing minimap, quest-guide and supported skill Wiki actions into the reader. Informational entity menus can open the full article or temporary Quick Inspect. Users can highlight and pin reference text; supported skill/quest/quest-point comparisons stay local.
 
-Please review the opt-in core Wiki widget retention/restoration and DPS callback forwarding, informational quest/skill menu interception, static reference overlays, and explicit native map flags. There is no gameplay automation, external backend, telemetry, credentials or uploaded character-state data.
+### Dependencies and privacy
 
-Verification for source `636e60a67be8b7b92de2856b8288fc286979a9f7`: Java 11/RuneLite 1.13.2 build; 254 offline tests passing; 14 valid semantic composition audits; six complete map fixtures with geometry/pixel checks; developer distribution checks. Official v5 local PR-mode packager passed with this dependency patch, including API and archive checks. The source marker pins that tested commit. [Clean GitHub Java 11 verification](https://github.com/birdturtle/WikiPane/actions/runs/39189832826) passed; beta evidence still needs review before opening this PR. The project owner has tested the major interactions in gameplay. Broader friend-beta lifecycle/platform testing remains a gate before submitting; this draft does not claim that testing is complete or that the Hub has approved the plugin.
+`build=gradle` adds **jsoup 1.23.2**, solely for in-memory HTML parsing; networking uses RuneLite's injected OkHttp client and Gson. The dependency-verification changes include the jsoup JAR/POM and the Netty BOM metadata imported by its POM. Hashes were independently checked against Maven Central. No Netty binaries are included. Licenses and Wiki attribution are in the repository.
 
-Known limits: no website JavaScript/calculators, no automatic underground map-area switching, session-only pins, unsupported character requirements remain unknown. Source/browser fallbacks stay explicit.
+Requests are limited to the OSRS Wiki and its map-tile server. Selected entity lookups include identity/location as required by Special:Lookup; character levels, quest states, account identifiers, inventory snapshots and credentials are not uploaded. Optional integration features start disabled with third-party-server warnings. There is no telemetry, external backend, input injection or gameplay automation.
+
+### Verification and review areas
+
+Source: `113241b012ddd925b2af739dfe5d9a3822b65e0b`.
+
+- Java 11 / RuneLite 1.13.2 build; **259 tests passing**, zero failures/errors/skips.
+- 14 valid article composition audits; six complete map-data fixtures with geometry/pixel checks.
+- Official v5 local PR-mode packager and API/archive checks passed on this commit with this dependency patch.
+- The current verification-template's `verifyAll` task passed with the proposed dependency changes.
+- [WikiPane Java 11 CI](https://github.com/birdturtle/WikiPane/actions/runs/39191686320).
+
+The owner has manually tested the main reading, routing, pinning, character checks, skill guides, maps and latest dropdown/zoom refinements in RuneLite. Broader multi-user/platform/lifecycle testing remains incomplete and is disclosed as part of the public beta. Automated tests and local packaging are not claims of Plugin Hub approval.
+
+Please review the opt-in core Wiki widget retention/restoration and DPS callback forwarding, existing quest/skill Wiki-action routing, static reference overlays, and explicit user-selected map markers. Monster inspection uses static source information; restricted combat-strategy selections cannot be pinned. Other plugins' settings are not mutated and unrelated browser launches are not intercepted.
+
+Known limits: no website JavaScript/calculators; no automatic underground map-area switching; session-only pins; unsupported requirements remain unknown. Source/browser fallbacks remain available.
 
 Generated-by: Codex
 Generated-by: Claude Code

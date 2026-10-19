@@ -48,7 +48,7 @@ jsoup parses already-downloaded HTML in memory. Its fetching APIs are not used. 
 4. Review the prepared PR body in `docs/submission/PR_BODY.md`; update exact build/test evidence and user testing. Ask for widget/menu/map review. Do not call local checks Plugin Hub acceptance.
 5. Open one PR, inspect the Hub build/check feedback, and keep fixes in that PR by advancing the source commit marker. Wait for maintainer review. Source changes do not update Hub users until its marker is advanced and accepted.
 
-A source marker, dependency diff and PR body are prepared locally during release work. Creating an upstream PR is a separate final action after the user reviews the concrete submission.
+The public-beta submission is open as [runelite/plugin-hub#18901](https://github.com/runelite/plugin-hub/pull/18901). The source marker, dependency diff and submitted PR body are retained in `docs/submission/`. Updates should continue in that same PR.
 
 ## Official references
 
@@ -68,4 +68,12 @@ Source commit: `636e60a67be8b7b92de2856b8288fc286979a9f7`, Java 11 / RuneLite 1.
 - The local upstream rehearsal includes the proposed jsoup/BOM verification patch. A real upstream build needs that patch accepted or included in its PR; the unmodified upstream verification list is insufficient.
 - The clean GitHub runner identified a clipped RFD requirement introduction. The reader now reserves the final glyph bounds at the actual width. The indented requirement container now measures before reserving its height. The final [clean GitHub Java 11 run](https://github.com/birdturtle/WikiPane/actions/runs/39189832826) passed, including the prior failure.
 
-`docs/submission/wikipane` pins this exact technically tested source. `docs/submission/plugin-hub.patch` combines its marker and dependency verification changes, ready to review/apply in a fresh Hub fork. These are handoff artifacts, not an upstream PR. Before submitting, update the marker if further runtime code changes and rerun the official check.
+`docs/submission/wikipane` pins this exact technically tested source. `docs/submission/plugin-hub.patch` combines its marker and dependency verification changes, ready to review/apply in a fresh Hub fork. These artifacts are retained alongside the active PR linked above. Before submitting, update the marker if further runtime code changes and rerun the official check.
+
+## Public beta 2 submission checkpoint
+
+Version `1.0.0-beta.2`, source `113241b012ddd925b2af739dfe5d9a3822b65e0b`, is the current submission candidate. It includes the player-confirmed dropdown toggle, retained map-chooser state, focal-point image zoom, truthful map wording and window-aware popup sizing.
+
+The Java 11 build passed with 259 tests and no failures/errors/skips. The official v5 packager passed against this exact source and the refreshed upstream baseline `b458965`; the verification-template `verifyAll` check also passed. The owner authorized initial public-beta submission after confirming the latest changes in gameplay. Wider friend/platform/lifecycle coverage remains incomplete and is disclosed rather than claimed complete.
+
+The marker, combined patch and PR description under `docs/submission/` now target this checkpoint. Earlier recorded rehearsals above remain historical evidence. The active upstream submission is [runelite/plugin-hub#18901](https://github.com/runelite/plugin-hub/pull/18901). The official Hub CI and maintainers determine acceptance; opening the PR does not make the plugin installable yet.

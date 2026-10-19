@@ -137,4 +137,4 @@ Article images open in a resizable, non-modal Swing viewer when clicked. Press E
 
 See the [installation and tester guide](docs/BETA_TESTING.md). Build the distributable with `./gradlew betaBundle`; the handoff directory is `build/beta/1.0.0-beta.2/`. Send its developer-plugin JAR and START-HERE.md to testers. The JAR includes jsoup and its license, excludes RuneLite/tests, and records the compatible RuneLite version. Cabbage keeps beta profile settings across JAR updates; it does not synchronize them with the normal profile.
 
-Plugin Hub submission is being prepared, not approved. See [readiness and submission](docs/PLUGIN_HUB.md).
+The [Plugin Hub public-beta submission](https://github.com/runelite/plugin-hub/pull/18901) is open for review; it has not been approved. See [readiness and submission](docs/PLUGIN_HUB.md).

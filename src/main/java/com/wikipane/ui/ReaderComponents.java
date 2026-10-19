@@ -454,6 +454,13 @@ public final class ReaderComponents {
                     width = 200;
                 setSize(width, Short.MAX_VALUE);
                 Dimension size = super.getPreferredSize();
+                // HTML views can report a fractional final line height. Measure at the real
+                // inner width and round up, rather than relying on font-specific integer sizing.
+                Insets insets = getInsets();
+                View root = getUI().getRootView(this);
+                root.setSize(Math.max(1, width - insets.left - insets.right), Short.MAX_VALUE);
+                size.height = Math.max(size.height,
+                    (int) Math.ceil(root.getPreferredSpan(View.Y_AXIS)) + insets.top + insets.bottom);
                 Object floor = getClientProperty("reader.requiredHeight");
                 if (floor instanceof Dimension && ((Dimension) floor).width == width)
                     size.height = Math.max(size.height, ((Dimension) floor).height);

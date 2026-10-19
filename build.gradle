@@ -255,3 +255,9 @@ tasks.register('mapCoverageReport', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.wikipane.MapCoverageReport'
 }
+
+// Hub's v5 packager copies ZipEntry compressed sizes while rewriting the archive.
+// Stored entries avoid cross-JDK/zlib recompression mismatches; runtime content is identical.
+tasks.matching { it.name == 'runelitePluginHubPackage' }.configureEach {
+    entryCompression = ZipEntryCompression.STORED
+}

@@ -461,6 +461,20 @@ public final class ReaderComponents {
                 root.setSize(Math.max(1, width - insets.left - insets.right), Short.MAX_VALUE);
                 size.height = Math.max(size.height,
                     (int) Math.ceil(root.getPreferredSpan(View.Y_AXIS)) + insets.top + insets.bottom);
+                // Some Swing HTML/font combinations lay out one more line than their
+                // preferred span reports. Include the final rendered glyph, not a blank
+                // trailing document paragraph. This is a bounded tail lookup, not a scan.
+                try {
+                    int length = getDocument().getLength(), start = Math.max(0, length - 128);
+                    String tail = getDocument().getText(start, length - start);
+                    int last = tail.length() - 1;
+                    while (last >= 0 && Character.isWhitespace(tail.charAt(last))) last--;
+                    if (last >= 0) {
+                        java.awt.geom.Rectangle2D glyph = modelToView2D(start + last);
+                        if (glyph != null)
+                            size.height = Math.max(size.height, (int) Math.ceil(glyph.getMaxY()) + insets.bottom);
+                    }
+                } catch (BadLocationException ignored) { /* Document changed; its next layout remeasures. */ }
                 Object floor = getClientProperty("reader.requiredHeight");
                 if (floor instanceof Dimension && ((Dimension) floor).width == width)
                     size.height = Math.max(size.height, ((Dimension) floor).height);

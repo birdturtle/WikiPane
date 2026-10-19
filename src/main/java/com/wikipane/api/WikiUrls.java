@@ -13,6 +13,11 @@ public final class WikiUrls {
         return url != null && url.isHttps() && url.host().equals(BASE.host()) && url.port() == 443
             && url.username().isEmpty() && url.password().isEmpty();
     }
+    public static boolean mapTile(HttpUrl url) {
+        return url != null && url.isHttps() && url.host().equals("maps.runescape.wiki") && url.port()==443
+            && url.username().isEmpty() && url.password().isEmpty() && url.query()==null && url.fragment()==null
+            && url.encodedPath().matches("/osrs/versions/[A-Za-z0-9_-]+/tiles/rendered/-?[0-9]+/-?[0-9]+/[0-3]_-?[0-9]+_-?[0-9]+\\.png");
+    }
     public static boolean image(HttpUrl url) {
         return wiki(url) && url.encodedPath().startsWith("/images/");
     }

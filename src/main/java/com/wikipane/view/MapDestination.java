@@ -78,7 +78,7 @@ public final class MapDestination {
         if (key.contains("shop")) return count > 1 ? "Show shops" : "Show shop";
         return count > 1 ? "Show locations" : "Show on map";
     }
-    private static MapDestination create(List<Place> places, String action) {
+    public static MapDestination create(List<Place> places, String action) {
         Map<String, Place> unique = new LinkedHashMap<>();
         for (Place place : places) {
             Location location = place.location;

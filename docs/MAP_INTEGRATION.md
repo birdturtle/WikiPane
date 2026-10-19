@@ -10,7 +10,7 @@ Previously, coordinates were normalized into prose and rediscovered by a text re
 
 The native destination validator requires integral bounded coordinates, a known plane 0–3, and source map ID 0 or -1 (main/automatic map context). It rejects fractional coordinates, missing plane/map ID, malformed numbers, nonpositive/out-of-range coordinates and other map namespaces. Unknown locations remain readable but have no speculative map action. Hans is a negative fixture: its embedded map's viewport center is not promoted to a verified NPC spawn. Cook's Assistant's explicit quest-start link is the initial positive case (3208, 3216, plane 0).
 
-Source prose, links, table content and coordinates are retained. No hardcoded article coordinates select production behavior. No related pages are crawled and no remote map images/tiles are downloaded by WikiPane.
+Source prose, links, table content and coordinates are retained. No hardcoded article coordinates select production behavior. No related pages are crawled. Native marker selection needs no tiles; optional Wiki map previews fetch only their bounded viewport as described below.
 
 ## RuneLite interaction
 
@@ -62,3 +62,26 @@ Additional automated checks cover real Cook's Assistant labels/provenance, one c
 5. Rake's underground Wiki map ID remains unsupported: no guessed native marker should appear. Use the explicit browser fallback when necessary.
 
 References inspected: https://github.com/runelite/runelite/blob/master/runelite-api/src/main/java/net/runelite/api/worldmap/WorldMap.java , WorldMapData.java, and https://github.com/runelite/runelite/blob/master/runelite-client/src/main/java/net/runelite/client/ui/overlay/worldmap/WorldMapOverlay.java .
+
+
+## Article map chooser and Wiki map previews
+
+The API parse request now includes `jsconfigvars`. `WikiMapExtractor` preserves `.mw-kartographer-map` frames and actual `wgKartographerLiveData` feature collections, with article/revision provenance, captions, groups and original feature JSON. A frame center describes a viewport, never an entity spawn. Point features use continuous tile coordinates: native destinations select the containing tile by floor, and previews use the original coordinates. Explicit map links retain integral validation. Unsupported geometry/provider data is retained as raw metadata and produces an incomplete-map notice, rather than an invented pin.
+
+`ArticleMaps` indexes source maps, record destinations, facts and identifiable ordinary map images into article-scoped groups. It never crawls related articles or creates a global POI database. The persistent Map control opens a width-constrained chooser beside section navigation. Individual destinations open the game map; Show all replaces the current selection with the group's points (maximum 64). Large lists append 30 controls at a time. Existing inline map actions remain available. Different source coordinates remain distinct even if their labels look similar.
+
+`MapImageCache` requests allowlisted versioned PNG paths on maps.runescape.wiki: HTTPS, no credentials/query/fragment and no redirects. It composes the viewport using the Wiki's Simple projection (2^zoom pixels per tile, 256-pixel image tiles). Thumbnails use source zoom. The viewer requests a 2× detail crop at the next zoom for frames up to 512×512 when zoom is below 5; larger frames retain their source crop. Each composition is limited to 36 tiles and 1200×1200 pixels. Tile bytes and dimensions are checked before decode. Ten-minute caches hold at most 32 tiles and 4 compositions. No world-map download, disk cache, scripts or arbitrary CSS execution.
+
+The existing image viewer retains fit/zoom/pan, retry, explicit browser access and lifecycle cancellation. Numbered points match the source-derived legend. Unrecognized icon styles receive neutral coloring without invented meaning. Incomplete feature data is identified in the thumbnail and larger view. Inline previews request images only when visible. Closing the chooser cancels pending preview work; stale results cannot update it. Gold wrapping navigation buttons are shared with the article reader.
+
+Automated checks cover a saved live Cook's Assistant response, three ingredient points distinct from the viewport center, source captions, unsupported geometries, strict tile URLs, decode limits, failed-request cache behavior, higher-detail crops, marker placement, source-section previews and a 209-pixel chooser. An isolated Swing preview using real Wiki tiles confirmed readable controls and ingredient-map geometry. This does not verify game interactions.
+
+Manual checks:
+
+1. Cook's Assistant: Map remains beside the section selector while scrolling. Expand Ingredient locations and click its preview. Check matching numbered points/legend and fit/zoom/pan.
+2. Choose Chicken coop, Dairy cow field, Wheat field, then Show all on game map. Check centering, complete marker replacement, three group flags and unchanged sidebar position.
+3. Return through a marker's source menu; verify page history, search, pinning, section jumps and ordinary full-resolution images still work.
+4. Close during loading, reopen, change articles rapidly, logout and disable/re-enable. Check for stale updates, orphaned markers or leftover windows.
+5. Unsupported underground maps and missing feature data retain preview/browser access without invented native coordinates.
+
+`JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew mapPreview` captures /tmp/wikipane-map-chooser.png and /tmp/wikipane-map-detail.png using the saved fixture and its visible Wiki-controlled tiles. It never starts or interacts with RuneScape.

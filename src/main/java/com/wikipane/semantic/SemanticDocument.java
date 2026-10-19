@@ -317,6 +317,7 @@ public final class SemanticDocument {
             this.units = Set.copyOf(units);
         }
     }
+    public final WikiMaps maps;
     public final PageType type;
     public final String title, url;
     public final long revision;
@@ -328,6 +329,11 @@ public final class SemanticDocument {
     public final Set<String> contentUnits;
     public SemanticDocument(PageType type, String title, String url, long revision, List<Section> sections,
         List<Node> nodes, List<Relationship> relationships, Set<String> units) {
+        this(type,title,url,revision,sections,nodes,relationships,units,WikiMaps.EMPTY);
+    }
+    public SemanticDocument(PageType type,String title,String url,long revision,List<Section> sections,
+        List<Node> nodes,List<Relationship> relationships,Set<String> units,WikiMaps maps) {
+        this.maps=maps;
         this.type = type;
         this.title = title;
         this.url = url;

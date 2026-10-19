@@ -122,7 +122,7 @@ public final class SemanticExtractor {
         }
         sections.add(new Section(anchor, title, parent, level, inherited, current));
         return new SemanticDocument(
-            type, document.title, document.url, document.revision, sections, nodes, allLinks, allUnits);
+            type, document.title, document.url, document.revision, sections, nodes, allLinks, allUnits, document.maps);
     }
     private static Table table(WikiDocument document, WikiDocument.Table raw, Source source, Role role,
         Set<String> units, List<Fact> facts, List<RequirementSet> requirements, List<Relationship> links) {

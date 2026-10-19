@@ -37,6 +37,9 @@ public final class ContentRenderer {
         return renderArea(page,area,saved,variant);
     }
     public void closeImageViewer() { if (imageViewer != null) imageViewer.close(); }
+    private final List<MapPreview> mapPreviews=new ArrayList<>();
+    private final Set<String> shownMapFrames=new HashSet<>();
+    private com.wikipane.semantic.WikiMaps wikiMaps=com.wikipane.semantic.WikiMaps.EMPTY;
     private final List<Runnable> imageChecks = new ArrayList<>();
     private final Map<String, JComponent> anchors = new HashMap<>();
     private Map<String, Integer> tableState = new HashMap<>();
@@ -147,6 +150,7 @@ public final class ContentRenderer {
     public void clear() { clear(true); }
     private void clear(boolean notify) {
         generation++;
+        mapPreviews.forEach(MapPreview::stop);mapPreviews.clear();shownMapFrames.clear();
         cancelEvaluation(); badges.clear();
         levelRows.clear(); levelRevealers.clear(); progressionSkill = "";
         locationsByUnit.clear();mappedFactUnits.clear();
@@ -205,6 +209,7 @@ public final class ContentRenderer {
         audit = page.view.audit;
         components.audit(audit);
         pinDocument = article.semantic;
+        wikiMaps=article.maps;
         for(Node node:pinDocument.nodes) for(Location location:node.locations)
             locationsByUnit.computeIfAbsent(location.source.unit,ignored->new ArrayList<>()).add(location);
         progressionSkill = com.wikipane.context.SkillGuideProgress.skill(article.title);
@@ -427,6 +432,13 @@ public final class ContentRenderer {
             }
             if(component.node.table==null||!component.node.table.kind.isEmpty())
                 section.add(mapActions(com.wikipane.view.MapDestination.forNode(component.node).excludingUnits(mappedFactUnits)));
+            boolean lastInSection=pending.subList(revealed,pending.size()).stream().noneMatch(next->next.source.section.equals(component.source.section));
+            if(lastInSection)for(com.wikipane.semantic.WikiMaps.Frame frame:wikiMaps.frames)
+                if(frame.source.section.equals(component.source.section)&&shownMapFrames.add(frame.id)) {
+                    if(imageViewer==null)imageViewer=new ImageViewer(workers,images);
+                    MapPreview preview=new MapPreview(frame,wikiMaps,workers,images,imageViewer);
+                    mapPreviews.add(preview);imageChecks.add(preview::request);section.add(preview);
+                }
             flow.add(section);
             components.pinContext(null);
         }
@@ -692,25 +704,7 @@ public final class ContentRenderer {
         });
         return group;
     }
-    private JButton linkButton(String title) {
-        JButton button = new JButton(title) {
-            @Override public Dimension getPreferredSize() {
-                javax.swing.text.View html=(javax.swing.text.View)getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey);
-                if(html==null)return super.getPreferredSize();
-                int width=getWidth()>0?getWidth():200;Insets inset=getInsets();
-                html.setSize(Math.max(1,width-inset.left-inset.right),0);
-                return new Dimension(width,Math.max(28,(int)Math.ceil(html.getPreferredSpan(javax.swing.text.View.Y_AXIS))+inset.top+inset.bottom));
-            }
-            @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
-            @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
-        };
-        button.setForeground(ReaderComponents.ACCENT);
-        button.setMargin(new Insets(5, 6, 5, 6));
-        button.setHorizontalAlignment(SwingConstants.LEFT);
-        button.setAlignmentX(Component.LEFT_ALIGNMENT);
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
-        return button;
-    }
+    private JButton linkButton(String title) {return ReaderComponents.navigationButton(title);}
     private JComponent image(Image image) {
         return image(image, false);
     }

@@ -11,9 +11,11 @@ import javax.imageio.stream.ImageInputStream;
 /** Decode limits are checked before raster allocation; no ImageIO disk cache. */
 public final class ImageCache {
     private final WikiClient client;
+    public final MapImageCache maps;
     private final WikiCache<String, BufferedImage> cache = new WikiCache<>(48, 600_000);
     public ImageCache(WikiClient client) {
         this.client = client;
+        this.maps = new MapImageCache(client);
     }
     private final WikiCache<String, BufferedImage> previews = new WikiCache<>(2, 600_000);
     public BufferedImage load(String url) throws IOException {
@@ -78,5 +80,6 @@ public final class ImageCache {
     public void clear() {
         cache.clear();
         previews.clear();
+        maps.clear();
     }
 }

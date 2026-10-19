@@ -68,3 +68,8 @@ Shared table-layout regression fixture captured 2026-10-17: Farming/Level up tab
 Shared table-layout regression fixture captured 2026-10-17: Herblore/Level up table, revision 15369351, https://oldschool.runescape.wiki/w/Herblore/Level_up_table . Used under the Wiki attribution above.
 
 Map regression fixture captured 2026-10-17: Hans, revision 15373142, https://oldschool.runescape.wiki/w/Hans . Used under the Wiki attribution above.
+
+
+Map-data regression fixture captured 2026-10-18: Cook's Assistant, revision 15375073, https://oldschool.runescape.wiki/w/Cook%27s_Assistant . `Cooks_Assistant_maps.json` retains the API's rendered text and `jsconfigvars` map features. Attribution and content terms are as above. Wiki map imagery fetched at runtime is © Jagex Ltd.; served by the OSRS Wiki at https://maps.runescape.wiki/ . No map tiles are bundled.
+
+The map tile protocol and Simple projection were checked against the Wiki's published Kartographer extension: https://github.com/weirdgloop/mediawiki-extensions-Kartographer/tree/weirdgloop/REL1_45 . WikiPane independently implements bounded viewport composition and numbered markers; no extension code or JavaScript is loaded or distributed.

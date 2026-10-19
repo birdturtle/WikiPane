@@ -19,6 +19,7 @@ public final class WikiDocumentParser {
         String title = p.get("title").getAsString();
         Element root = Jsoup.parseBodyFragment(p.get("text").getAsString(), WikiUrls.article(title)).body();
         normalizeTranscludedHeadings(root, title);
+        com.wikipane.semantic.WikiMaps maps=com.wikipane.semantic.WikiMapExtractor.extract(root,p,title,p.has("revid")?p.get("revid").getAsLong():0);
         // Script-only chart placeholders contain no article data. Keep the separate real-time price link.
         root.select(".GEChartBox .GEdatachart,.GEChartBox .GEdataprices,.GEChartBox .GEChartItems").remove();
         Map<String, String> entityAnchors = variantIds(root);
@@ -67,7 +68,7 @@ public final class WikiDocumentParser {
             }
         return new WikiDocument(title, WikiUrls.article(title),
             p.has("revid") ? p.get("revid").getAsLong() : 0, blocks, sections, entityAnchors,
-            redirectAnchor(p), categories(p));
+            redirectAnchor(p), categories(p), maps);
     }
     /** Recover article-identity containers in transcluded guides using Wiki-provided edit-source titles. */
     private void normalizeTranscludedHeadings(Element root, String article) {

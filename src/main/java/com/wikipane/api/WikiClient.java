@@ -34,7 +34,7 @@ public final class WikiClient implements AutoCloseable {
     private byte[] get(HttpUrl url, int maximum) throws IOException {
         if (closed)
             throw new IOException("WikiPane is closed.");
-        if (!WikiUrls.wiki(url))
+        if (!WikiUrls.wiki(url) && !WikiUrls.mapTile(url))
             throw new IOException("The Wiki returned an unsupported destination.");
         Call call = http.newCall(new Request.Builder()
                 .url(url)
@@ -148,7 +148,7 @@ public final class WikiClient implements AutoCloseable {
         HttpUrl url = WikiUrls.API.newBuilder()
                           .addQueryParameter("action", "parse")
                           .addQueryParameter("page", title)
-                          .addQueryParameter("prop", "text|sections|revid|categories")
+                          .addQueryParameter("prop", "text|sections|revid|categories|jsconfigvars")
                           .addQueryParameter("redirects", "1")
                           .addQueryParameter("format", "json")
                           .addQueryParameter("formatversion", "2")
@@ -212,6 +212,11 @@ public final class WikiClient implements AutoCloseable {
             }
         }
         throw new IOException("Too many Wiki redirects. Open lookup in browser.");
+    }
+    public byte[] mapTile(String url) throws IOException {
+        HttpUrl tile=WikiUrls.resolve(url);
+        if(!WikiUrls.mapTile(tile))throw new IOException("Unsupported map tile.");
+        return get(tile,600_000);
     }
     public byte[] image(String url) throws IOException {
         HttpUrl u = WikiUrls.resolve(url);

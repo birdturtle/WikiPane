@@ -35,6 +35,8 @@ Source: https://github.com/runelite/runelite/blob/master/runelite-client/src/mai
 
 jsoup 1.23.2, Copyright Jonathan Hedley, MIT license. Used for in-memory HTML parsing only. https://jsoup.org/license
 
+The complete jsoup license is in `third-party/jsoup-LICENSE.txt` and is included in the developer JAR under `licenses/`.
+
 ## OSRS Wiki
 
 Article fixtures and displayed text: OSRS Wiki contributors, CC BY-NC-SA 3.0. Layout normalization is an adaptation. Images have separate terms, including Jagex copyright.

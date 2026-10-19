@@ -23,7 +23,7 @@ On this machine, where the default Java is newer than the Gradle wrapper support
 env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew run
 ```
 
-Enable **WikiPane** in RuneLite's plugin settings, then select its **W** sidebar tab.
+Enable **WikiPane** in RuneLite's plugin settings, then select its **WikiPane** sidebar tab.
 You can search while logged out. This development client is separate from the RuneLite launched by Cabbage; the plugin does not change Cabbage or handle login credentials.
 For logging into the development client with a Jagex Account, follow [RuneLite's instructions](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
 
@@ -37,7 +37,7 @@ env JAVA_HOME=/usr/lib/jvm/java-11-openjdk ./gradlew run -PdevHome="$PWD/.dev/ho
 
 Type a title or search term. Suggestions appear after a short pause. Press Enter for broader results; click a result to open it. Down Arrow moves from the search field to the results; Up/Down and Enter navigate the result buttons.
 
-While reading, the article title and navigation stay above the content. The **Overview** dropdown and the scrollable article show the same section hierarchy. Overview starts open; other sections start collapsed. Click a section header to expand/collapse it. In the dropdown, use the arrows to browse branches or click a label to open that section and jump to its header. Filtering finds nested sections directly. The selector follows your reading position; Back and Forward preserve both expansion state and position.
+While reading, the article title and navigation stay above the content. The **Overview** dropdown and the scrollable article show the same section hierarchy. Overview starts open; other sections start collapsed. Click a section header to expand/collapse it. In the dropdown, use the arrows to browse branches or click a label to open that section and jump to its header. Filtering finds nested sections directly. The selector follows your reading position. Back and Forward restore article expansion and position; same-page section jumps do not add history entries.
 
 Use the magnifying glass to open search. Back returns to your previous results or article; Forward restores where you were reading. The arrow-out icon opens the current article in your browser. All four controls have tooltips.
 
@@ -131,4 +131,8 @@ See [testing](docs/TESTING.md) for the player test checklist and [implementation
 
 Article images open in a resizable, non-modal Swing viewer when clicked. Press Escape or close the window to dismiss it. Use **Fit**, **100%**, or **−/+** to zoom; drag to pan, or Ctrl-scroll to zoom. Failed downloads offer Retry and Open in browser. Larger images load on demand with bounded decoding and caching; decorative table icons remain non-interactive.
 
-For private testing through Cabbage's developer-plugin mode, run `./gradlew verifyDeveloperPluginJar` and send testers `build/libs/wikipane-0.1.0-developer-plugin.jar`. This includes jsoup but excludes RuneLite and test code. The manifest records the RuneLite version used to compile it, so incompatible client updates require rebuilding the package. Testers select the JAR under Cabbage's **Settings → Advanced → Developer plugins**, enable the mode, then launch their character normally. This local package has not been reviewed by the Plugin Hub.
+## Friend beta
+
+See the [installation and tester guide](docs/BETA_TESTING.md). Build the distributable with `./gradlew betaBundle`; the handoff directory is `build/beta/0.1.0-beta.1/`. Send its developer-plugin JAR and START-HERE.md to testers. The JAR includes jsoup and its license, excludes RuneLite/tests, and records the compatible RuneLite version. Cabbage keeps beta profile settings across JAR updates; it does not synchronize them with the normal profile.
+
+Plugin Hub submission is being prepared, not approved. See [readiness and submission](docs/PLUGIN_HUB.md).

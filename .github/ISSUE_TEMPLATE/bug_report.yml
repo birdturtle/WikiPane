@@ -1,0 +1,25 @@
+name: Beta problem
+description: Report incorrect information, layout or gameplay integration.
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: WikiPane / RuneLite versions and OS
+    validations:
+      required: true
+  - type: input
+    id: article
+    attributes:
+      label: Article, variant and section (if relevant)
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps, expected behavior and actual behavior
+      description: Include layout/UI scale and relevant WikiPane settings.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshot or redacted log excerpt
+      description: Remove private chat, names and account details. Never upload credentials or session files.

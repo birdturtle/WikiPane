@@ -89,7 +89,7 @@ test {
     systemProperty 'java.awt.headless', 'true'
 }
 
-version = '0.1.0'
+version = '0.1.0-beta.1'
 
 tasks.register('liveCheck', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
@@ -142,26 +142,90 @@ tasks.register('developerPluginJar', Jar) {
     from('runelite-plugin.properties')
     from('LICENSE')
     from('THIRD_PARTY.md')
+    from('third-party/jsoup-LICENSE.txt') { into 'licenses' }
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/versions/**', '**/module-info.class'
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA',
+        'META-INF/versions/**', '**/module-info.class'
     doFirst {
         def client = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
             it.moduleVersion.id.group == 'net.runelite' && it.name == 'client'
         }
         manifest.attributes('WikiPane-Distribution': 'local-developer-plugin',
+            'Implementation-Title': 'WikiPane', 'Implementation-Version': project.version,
             'Cabbage-RuneLite-Version': client.moduleVersion.id.version)
     }
 }
 
+// Validate the actual distributable, including shaded dependency bytecode.
 tasks.register('verifyDeveloperPluginJar') {
     dependsOn developerPluginJar
     doLast {
-        def entries = zipTree(tasks.developerPluginJar.archiveFile.get().asFile)
-        assert !entries.matching { include 'com/wikipane/WikiPanePlugin.class' }.isEmpty()
-        assert !entries.matching { include 'org/jsoup/Jsoup.class' }.isEmpty()
-        assert !entries.matching { include 'runelite-plugin.properties' }.isEmpty()
-        assert entries.matching { include 'net/runelite/**', 'org/junit/**', 'org/mockito/**', '**/*Test.class' }.isEmpty()
+        def properties = new Properties()
+        file('runelite-plugin.properties').withInputStream { properties.load(it) }
+        assert properties.getProperty('version') == project.version.toString()
+        new java.util.jar.JarFile(tasks.developerPluginJar.archiveFile.get().asFile).withCloseable { jar ->
+            ['com/wikipane/WikiPanePlugin.class', 'org/jsoup/Jsoup.class',
+             'runelite-plugin.properties', 'LICENSE', 'THIRD_PARTY.md', 'licenses/jsoup-LICENSE.txt'].each {
+                assert jar.getJarEntry(it) != null : "Missing distribution entry: ${it}"
+            }
+            assert jar.manifest.mainAttributes.getValue('Implementation-Version') == project.version.toString()
+            assert jar.manifest.mainAttributes.getValue('Cabbage-RuneLite-Version')
+            jar.entries().each { entry ->
+                assert !(entry.name ==~ /(?:net\/runelite|org\/junit|org\/mockito)\/.*/)
+                assert !entry.name.endsWith('Test.class')
+                assert entry.name != 'META-INF/services/net.runelite.client.plugins.Plugin'
+                assert !(entry.name ==~ /(?i).*\.(?:dll|so|dylib|exe)/)
+                if (entry.name.endsWith('.class')) {
+                    jar.getInputStream(entry).withCloseable { stream ->
+                        def data = new DataInputStream(stream)
+                        assert data.readInt() == (int) 0xCAFEBABE
+                        data.readUnsignedShort()
+                        assert data.readUnsignedShort() <= 55 : "Requires newer than Java 11: ${entry.name}"
+                    }
+                }
+            }
+        }
     }
+}
+
+// The Hub checks display width, counting a tab as eight and non-ASCII as four columns.
+tasks.register('verifyHubMetadata') {
+    doLast {
+        fileTree(projectDir) { include '*.gradle', '*.gradle.kts' }.each { script ->
+            script.readLines('UTF-8').eachWithIndex { line, index ->
+                int width = line.codePoints().map { cp -> cp == 9 ? 8 : cp > 127 ? 4 : 1 }.sum()
+                assert width <= 120 : "${script.name}:${index + 1} exceeds the Hub's 120-column limit"
+            }
+        }
+        def image = javax.imageio.ImageIO.read(file('icon.png'))
+        assert image != null && image.width <= 48 && image.height <= 72
+    }
+}
+
+// Friend-test handoff: one versioned directory with JAR, guide, build identity and checksum.
+tasks.register('betaBundle', Sync) {
+    dependsOn verifyDeveloperPluginJar, verifyHubMetadata
+    into layout.buildDirectory.dir("beta/${project.version}")
+    from(tasks.developerPluginJar)
+    from('docs/BETA_TESTING.md') { rename { 'START-HERE.md' } }
+    from('LICENSE', 'THIRD_PARTY.md')
+    doLast {
+        def target = destinationDir
+        def jar = tasks.developerPluginJar.archiveFile.get().asFile
+        def digest = java.security.MessageDigest.getInstance('SHA-256').digest(jar.bytes).encodeHex()
+        new File(target, 'SHA256SUMS').text = "${digest}  ${jar.name}\n"
+        new java.util.jar.JarFile(jar).withCloseable { archive ->
+            def client = archive.manifest.mainAttributes.getValue('Cabbage-RuneLite-Version')
+            new File(target, 'BUILD.txt').text = "WikiPane ${project.version}\nRuneLite ${client}\n" +
+                "Java 11 compatible; local developer plugin; not Plugin Hub reviewed.\n"
+        }
+    }
+}
+
+tasks.named('check') { dependsOn verifyDeveloperPluginJar, verifyHubMetadata }
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
 }
 
 tasks.register('sectionReport', JavaExec) {

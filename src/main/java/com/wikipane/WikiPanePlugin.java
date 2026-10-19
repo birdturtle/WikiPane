@@ -76,7 +76,8 @@ public class WikiPanePlugin extends Plugin {
         long version = ++lifecycle;
         com.wikipane.integration.WikiMapIntegration currentMap = new com.wikipane.integration.WikiMapIntegration(client,mapPoints,sprites,
             task -> clientThread.invokeLater(task),
-            message -> SwingUtilities.invokeLater(() -> { if(active&&version==lifecycle&&panel!=null)panel.guidance(message); }));
+            message -> SwingUtilities.invokeLater(() -> { if(active&&version==lifecycle&&panel!=null)panel.mapGuidance(message); }));
+        currentMap.sourceRequests(url -> openReference(url, version));
         maps=currentMap;
         workers = new ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(48), r -> {
             Thread thread = new Thread(r, "WikiPane-worker");
@@ -262,6 +263,7 @@ public class WikiPanePlugin extends Plugin {
         if (!active) return;
         for (PinnedOverlay overlay : pinOverlays.values()) if (overlay.hovered()) return;
         if (inspectOverlay != null && inspectOverlay.opened()) return;
+        if (maps != null) maps.opened(event);
         if (skillMenus != null) skillMenus.opened(event);
         if (contextMenus != null) contextMenus.opened(event);
     }

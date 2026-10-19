@@ -12,6 +12,7 @@ public final class WikiDocument {
     public final Map<String, String> entityAnchors;
     public final String redirectAnchor;
     public final java.util.Set<String> categories;
+    public final com.wikipane.semantic.WikiMaps maps;
     public final com.wikipane.semantic.SemanticDocument semantic;
     public WikiDocument(String title, String url, long revision, List<Block> blocks, List<Section> sections) {
         this(title, url, revision, blocks, sections, Map.of(), "");
@@ -22,6 +23,11 @@ public final class WikiDocument {
     }
     public WikiDocument(String title, String url, long revision, List<Block> blocks, List<Section> sections,
         Map<String, String> entityAnchors, String redirectAnchor, java.util.Set<String> categories) {
+        this(title,url,revision,blocks,sections,entityAnchors,redirectAnchor,categories,com.wikipane.semantic.WikiMaps.EMPTY);
+    }
+    public WikiDocument(String title,String url,long revision,List<Block> blocks,List<Section> sections,
+        Map<String,String> entityAnchors,String redirectAnchor,java.util.Set<String> categories,com.wikipane.semantic.WikiMaps maps) {
+        this.maps=maps;
         this.categories = java.util.Set.copyOf(categories);
         this.entityAnchors = Map.copyOf(entityAnchors);
         this.redirectAnchor = redirectAnchor;
@@ -77,7 +83,12 @@ public final class WikiDocument {
     public static final class Image implements Block {
         public final String url, alt, link;
         public final int width, height;
+        public final boolean map;
         public Image(String url, String alt, String link, int width, int height) {
+            this(url,alt,link,width,height,false);
+        }
+        public Image(String url,String alt,String link,int width,int height,boolean map) {
+            this.map=map;
             this.url = url;
             this.alt = alt;
             this.link = link;

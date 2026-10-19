@@ -19,17 +19,28 @@ final class ImageViewer {
     private Future<?> task;
     ImageViewer(ExecutorService workers, ImageCache images) { this.workers = workers; this.images = images; }
     void open(Component owner, Image image) {
+        String url = WikiUrls.browser(WikiUrls.resolve(image.link)) ? image.link : image.url;
+        open(owner,image.alt.isBlank()?"Image":image.alt,url,()->images.preview(image.url),"Loading full-size image…","");
+    }
+    void open(Component owner, com.wikipane.semantic.WikiMaps.Frame frame,com.wikipane.semantic.WikiMaps maps) {
+        open(owner,frame,maps,frame.title);
+    }
+    void open(Component owner,com.wikipane.semantic.WikiMaps.Frame frame,com.wikipane.semantic.WikiMaps maps,String title) {
+        open(owner,frame.source.article+" · "+title,frame.source.link(),()->images.maps.load(frame,maps,true),"Loading Wiki map…",MapPreview.legend(frame,maps,title));
+    }
+    private void open(Component owner,String title,String browserUrl,Callable<BufferedImage> load,String loading,String details) {
         Window parent = dialog == null ? SwingUtilities.getWindowAncestor(owner) : dialog.getOwner();
+        // A heavyweight popup is transient; its disposal must not dispose the image window.
+        while(parent instanceof JWindow && parent.getOwner()!=null)parent=parent.getOwner();
         close();
         long version = request;
-        String title = image.alt.isBlank() ? "Image" : image.alt;
         dialog = new JDialog(parent, "WikiPane — " + title, Dialog.ModalityType.MODELESS);
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         dialog.addWindowListener(new WindowAdapter() {
             @Override public void windowClosed(WindowEvent event) { if (event.getWindow() == dialog) close(); }
         });
         JPanel content = new JPanel(new BorderLayout(0, 4)); content.setBackground(new Color(30, 30, 30));
-        JLabel status = new JLabel("Loading full-size image…", SwingConstants.CENTER);
+        JLabel status = new JLabel(loading, SwingConstants.CENTER);
         status.putClientProperty("html.disable", true); status.setForeground(ReaderComponents.MUTED);
         JPanel tools = new JPanel(new BorderLayout());
         JPanel zoomTools = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
@@ -46,10 +57,14 @@ final class ImageViewer {
         content.add(tools, BorderLayout.NORTH); content.add(status, BorderLayout.CENTER);
         dialog.setContentPane(content);
         browser.addActionListener(event -> {
-            String url = WikiUrls.browser(WikiUrls.resolve(image.link)) ? image.link : image.url;
-            if (WikiUrls.browser(WikiUrls.resolve(url))) LinkBrowser.browse(url);
+            if (WikiUrls.browser(WikiUrls.resolve(browserUrl))) LinkBrowser.browse(browserUrl);
         });
-        retry.addActionListener(event -> open(owner, image));
+        retry.addActionListener(event -> open(owner,title,browserUrl,load,loading,details));
+        if(!details.isBlank()) {
+            JScrollPane legend=new JScrollPane(new ReaderComponents(url->{}).text(details));
+            legend.setPreferredSize(new Dimension(300,100));legend.setBorder(BorderFactory.createEmptyBorder(5,8,5,8));
+            legend.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);content.add(legend,BorderLayout.SOUTH);
+        }
         for (JButton control : new JButton[]{fit, actual, minus, plus}) control.setEnabled(false);
         dialog.getRootPane().registerKeyboardAction(e -> close(), KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
         GraphicsConfiguration display = parent == null ? owner.getGraphicsConfiguration() : parent.getGraphicsConfiguration();
@@ -61,7 +76,7 @@ final class ImageViewer {
         try {
             task = workers.submit(() -> {
                 try {
-                    BufferedImage decoded = images.preview(image.url);
+                    BufferedImage decoded = load.call();
                     SwingUtilities.invokeLater(() -> {
                         if (version != request || dialog == null) return;
                         Canvas canvas = new Canvas(decoded);

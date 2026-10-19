@@ -177,3 +177,17 @@ tasks.register('sectionPreview', JavaExec) {
     args providers.gradleProperty('anchor').getOrElse('Weapons_and_armour')
     args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-unified-sections.png')
 }
+
+// Source fixture + live Wiki-controlled tiles; no RuneScape canvas or game interaction.
+tasks.register('mapPreview', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.ui.MapPresentationPreview'
+    args providers.gradleProperty('capture').getOrElse('/tmp/wikipane-map-chooser.png')
+    args providers.gradleProperty('article').getOrElse('Cooks_Assistant_maps')
+    args providers.gradleProperty('mapFrame').getOrElse('0')
+}
+
+tasks.register('mapCoverageReport', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.wikipane.MapCoverageReport'
+}

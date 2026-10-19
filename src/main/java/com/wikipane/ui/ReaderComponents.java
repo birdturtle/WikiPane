@@ -69,6 +69,21 @@ public final class ReaderComponents {
             BorderFactory.createEmptyBorder(7, 8, 7, 8)));
         return card;
     }
+    public static JButton navigationButton(String title) {
+        JButton button=new JButton(title) {
+            @Override public Dimension getPreferredSize() {
+                javax.swing.text.View html=(javax.swing.text.View)getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey);
+                if(html==null)return super.getPreferredSize();
+                int width=getWidth()>0?getWidth():200;Insets inset=getInsets();
+                html.setSize(Math.max(1,width-inset.left-inset.right),0);
+                return new Dimension(width,Math.max(28,(int)Math.ceil(html.getPreferredSpan(javax.swing.text.View.Y_AXIS))+inset.top+inset.bottom));
+            }
+            @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
+            @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
+        };
+        button.setForeground(ACCENT);button.setMargin(new Insets(5,6,5,6));
+        button.setHorizontalAlignment(SwingConstants.LEFT);button.setAlignmentX(Component.LEFT_ALIGNMENT);return button;
+    }
     public JComponent disclosure(String title, JComponent body) {
         JPanel group = column();
         JButton toggle = new JButton();

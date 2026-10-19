@@ -25,6 +25,11 @@ public final class WikiPanePanel extends PluginPanel {
     private final WikiClient wiki;
     private final ExecutorService workers;
     private final ArticleReader renderer;
+    private final ImageCache images;
+    private final JButton mapButton=button("Map ▾","Article maps and locations");
+    private final JPopupMenu mapPopup=new JPopupMenu();
+    private MapChooser mapChooser;
+    private java.util.function.Consumer<com.wikipane.view.MapDestination> mapRequests=ignored->{};
     private java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> contextRequests = requirements -> {};
     private java.util.List<com.wikipane.semantic.SemanticDocument.Requirement> contextRequirements = java.util.List.of();
     private boolean contextVisible;
@@ -32,7 +37,7 @@ public final class WikiPanePanel extends PluginPanel {
     private java.util.function.Consumer<String> skillRequests = skill -> {};
     private NavigationHistory.Entry pendingSkillPosition;
     public void skillRequests(java.util.function.Consumer<String> requests) { skillRequests = requests; }
-    public void mapRequests(java.util.function.Consumer<com.wikipane.semantic.SemanticDocument.Location> show) { renderer.mapRequests(show); }
+    public void mapRequests(java.util.function.Consumer<com.wikipane.view.MapDestination> show) { mapRequests=show;renderer.mapRequests(show); }
     public void contextRequests(java.util.function.Consumer<java.util.List<com.wikipane.semantic.SemanticDocument.Requirement>> requests) { contextRequests = requests; }
     public void playerContext(com.wikipane.context.PlayerContextSnapshot snapshot) {
         if (active) { renderer.playerContext(snapshot); positionSkillGuide(); }
@@ -97,7 +102,13 @@ public final class WikiPanePanel extends PluginPanel {
         super(false);
         this.wiki = wiki;
         this.workers = workers;
-        renderer = new ArticleReader(this::openLink, workers, new ImageCache(wiki), pin, this::guidance);
+        mapPopup.addPopupMenuListener(new PopupMenuListener() {
+            public void popupMenuWillBecomeVisible(PopupMenuEvent event) {}
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent event) {if(mapChooser!=null)mapChooser.stop();}
+            public void popupMenuCanceled(PopupMenuEvent event) {if(mapChooser!=null)mapChooser.stop();}
+        });
+        images=new ImageCache(wiki);
+        renderer = new ArticleReader(this::openLink, workers, images, pin, this::guidance);
         renderer.changed(this::scheduleSectionLabel);
         renderer.contextRequests(requirements -> {
             contextRequirements = requirements;
@@ -176,7 +187,12 @@ public final class WikiPanePanel extends PluginPanel {
         sectionsButton.setMaximumSize(new Dimension(Integer.MAX_VALUE,28));
         sectionsButton.setPreferredSize(new Dimension(180,28));
         sectionsButton.setComponentPopupMenu(sectionPopup);
-        contextual.add(sectionsButton);
+        JPanel destinations=new JPanel(new BorderLayout(4,0));destinations.setOpaque(false);
+        destinations.add(sectionsButton,BorderLayout.CENTER);
+        mapButton.setName("wiki.articleMap");mapButton.setForeground(ReaderComponents.ACCENT);
+        mapButton.setMargin(new Insets(4,6,4,6));mapButton.setVisible(false);
+        mapButton.addActionListener(event->openMaps());destinations.add(mapButton,BorderLayout.EAST);
+        contextual.add(destinations);
         readingTools.add(contextual, BorderLayout.CENTER);
         statePanel.setOpaque(false);
         statePanel.add(searchTools, "search");
@@ -314,8 +330,14 @@ public final class WikiPanePanel extends PluginPanel {
             ? "No article loaded."
             : history.current().page.view.audit.summary();
     }
+    private boolean mapGuidance;
+    public void mapGuidance(String value) {
+        if(value.isEmpty()&&!mapGuidance)return;
+        status(value);mapGuidance=!value.isEmpty();
+    }
     public void guidance(String value) { status(value); }
     private void status(String value) {
+        mapGuidance=false;
         recovery.setVisible(false); retryAction = null; failedUrl = null;
         message.setVisible(!value.isEmpty());
         progress.setVisible(value.endsWith("…"));
@@ -396,6 +418,7 @@ public final class WikiPanePanel extends PluginPanel {
         showSearchEntry(history.current(), true);
     }
     private void showSearchEntry(NavigationHistory.Entry entry, boolean restore) {
+        closeMaps();
         renderer.clear();
         viewingArticle = false;
         sectionPopup.setVisible(false);
@@ -612,6 +635,7 @@ public final class WikiPanePanel extends PluginPanel {
             return;
         }
         viewingArticle = true;
+        closeMaps();mapButton.setVisible(!entry.page.maps.groups.isEmpty());
         if (restore || !entry.section.isEmpty()) entry.skillPositioned = true;
         else if (autoPositionSkills && !entry.skillPositioned && !com.wikipane.context.SkillGuideProgress.skill(entry.document.title).isEmpty())
             pendingSkillPosition = entry;
@@ -742,6 +766,20 @@ public final class WikiPanePanel extends PluginPanel {
             });
         }
     }
+    private void closeMaps() {
+        mapPopup.setVisible(false);mapPopup.removeAll();
+        if(mapChooser!=null)mapChooser.stop();mapChooser=null;
+    }
+    private void openMaps() {
+        NavigationHistory.Entry entry=history.current();
+        if(!active||entry==null||entry.isSearch())return;
+        closeMaps();
+        mapChooser=new MapChooser(entry.page,workers,images,renderer.mapViewer(),destination->{
+            if(active&&history.current()==entry)mapRequests.accept(destination);
+        },()->mapPopup.setVisible(false));
+        mapChooser.setPreferredSize(new Dimension(Math.max(160,readingTools.getWidth()-6),400));
+        mapPopup.add(mapChooser);mapPopup.show(readingTools,0,readingTools.getHeight());
+    }
     public void navigateSection(ArticleNavigation.Destination destination) {
         NavigationHistory.Entry entry = history.current();
         if (entry == null || entry.isSearch())
@@ -806,6 +844,7 @@ public final class WikiPanePanel extends PluginPanel {
         }
     }
     public void stop() {
+        closeMaps();
         renderer.closeImageViewer();
         sectionPopup.setVisible(false);
         sectionPopup.removeAll();

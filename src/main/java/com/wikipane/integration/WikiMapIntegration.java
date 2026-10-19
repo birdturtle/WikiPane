@@ -1,6 +1,11 @@
 package com.wikipane.integration;
 
 import com.wikipane.semantic.SemanticDocument.Location;
+import com.wikipane.view.MapDestination;
+import java.util.*;
+import net.runelite.api.MenuEntry;
+import net.runelite.api.events.MenuOpened;
+import net.runelite.client.util.Text;
 import java.math.BigDecimal;
 import java.util.function.Consumer;
 import net.runelite.api.Client;
@@ -19,7 +24,7 @@ import net.runelite.api.worldmap.WorldMap;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 
-/** One user-selected local marker; no movement, input injection, or other plugins' marker changes. */
+/** One user-selected local destination group; no movement, input injection, or other plugins' marker changes. */
 public final class WikiMapIntegration {
     private final Client client;
     private final WorldMapPointManager points;
@@ -29,8 +34,18 @@ public final class WikiMapIntegration {
     private long request;
     private WidgetNode ownedMap;
     private int ownedParent;
-    private WorldMapPoint marker;
+    private static final int MAX_MARKERS = 64;
+    private static final class SelectedMarker {
+        final WorldMapPoint marker;
+        final MapDestination.Place place;
+        SelectedMarker(WorldMapPoint marker, MapDestination.Place place) { this.marker=marker;this.place=place; }
+    }
+    private final List<SelectedMarker> markers = new ArrayList<>();
+    private Consumer<String> sourceRequests = ignored -> {};
+    public void sourceRequests(Consumer<String> open) { sourceRequests = open; }
     private WorldPoint pending;
+    private MapDestination pendingSelection;
+    private java.awt.image.BufferedImage pendingIcon;
     private boolean stopped;
     public WikiMapIntegration(Client client, WorldMapPointManager points, SpriteManager sprites,
         Consumer<Runnable> later, Consumer<String> feedback) {
@@ -46,19 +61,56 @@ public final class WikiMapIntegration {
         } catch (ArithmeticException|NumberFormatException ex) { return null; }
     }
     private void checkThread() { if (!client.isClientThread()) throw new IllegalStateException("Map actions require client thread"); }
-    public void show(Location location) {
+    public void show(Location location) { show(MapDestination.single(location)); }
+    public void show(MapDestination destination) {
         checkThread(); if(stopped) return;
-        WorldPoint point=destination(location);
-        if(point==null) {feedback.accept("This Wiki location has no verified map tile and plane.");return;}
+        if(destination.places.isEmpty() || !destination.unavailable.isEmpty() || destination.places.size()>MAX_MARKERS) {
+            feedback.accept("These locations cannot be shown together. Choose a specific location in the article.");return;
+        }
+        // Validate the complete group before replacing an existing selection.
+        for(MapDestination.Place place:destination.places) if(destination(place.location)==null) {
+            feedback.accept("This Wiki location has no verified map tile and plane.");return;
+        }
         if(client.getGameState()!=GameState.LOGGED_IN) {feedback.accept("Log in to show this location on the world map.");return;}
-        clear();long version=request;pending=point;
+        long version=++request;pending=destination(destination.places.get(0).location);
+        pendingSelection=destination;pendingIcon=null;
         sprites.getSpriteAsync(SpriteID.MAPMARKER,0,image -> later.accept(() -> {
-            if(stopped||version!=request||client.getGameState()!=GameState.LOGGED_IN||image==null)return;
-            marker=new WorldMapPoint(point,destinationIcon(image));marker.setName("WikiPane: "+location.source.article);
-            marker.setTooltip("WikiPane: "+location.source.article);marker.setJumpOnClick(true);marker.setSnapToEdge(true);points.add(marker);
+            if(stopped||version!=request||client.getGameState()!=GameState.LOGGED_IN)return;
+            if(image==null) {
+                pending=null;pendingSelection=null;
+                feedback.accept("The map marker could not be loaded. Try showing the location again.");return;
+            }
+            pendingIcon=destinationIcon(image);center();
         }));
         if(!mapOpen()) openMap();
         center();
+    }
+    private static String tooltip(String text) {
+        // RuneLite draws these rows as plain text; HTML entities would be shown literally.
+        StringBuilder rows=new StringBuilder();int width=0;
+        for(String word:text.replace('<','‹').replace('>','›').split("\\s+")) {
+            if(width>0) {
+                if(width+1+word.length()>42) {rows.append("<br>");width=0;}
+                else {rows.append(' ');width++;}
+            }
+            rows.append(word);width+=word.length();
+        }
+        return rows.toString();
+    }
+    /** Add an informational source action beside RuneLite's existing Focus on action. */
+    public void opened(MenuOpened event) {
+        checkThread();if(stopped||markers.isEmpty()||!mapOpen())return;
+        for(MenuEntry entry:event.getMenuEntries()) {
+            if(entry.getType()!=MenuAction.RUNELITE||!"Focus on".equals(entry.getOption()))continue;
+            for(SelectedMarker selected:markers) if(selected.marker.getName().equals(Text.removeTags(entry.getTarget()))) {
+                long version=request;
+                client.createMenuEntry(-1).setOption("Read in WikiPane").setTarget(entry.getTarget())
+                    .setType(MenuAction.RUNELITE).onClick(clicked -> {
+                        if(!stopped&&version==request)sourceRequests.accept(selected.place.location.source.link());
+                    });
+                return;
+            }
+        }
     }
     /** Integer scaling keeps the native flag's pixel art crisp and legible among map symbols. */
     private static java.awt.image.BufferedImage destinationIcon(java.awt.image.BufferedImage image) {
@@ -94,7 +146,7 @@ public final class WikiMapIntegration {
         if(ownedMap!=null&&client.getComponentTable()!=null&&client.getComponentTable().get(ownedParent)==ownedMap)
             client.closeInterface(ownedMap,false);
         ownedMap=null;
-        pending=null;
+        pending=null;pendingSelection=null;pendingIcon=null;request++;
     }
     public boolean clicked(MenuOptionClicked event) {
         checkThread();
@@ -108,12 +160,27 @@ public final class WikiMapIntegration {
         if(!mapOpen()) return false;
         WorldMap map=client.getWorldMap();
         if(map==null||map.getWorldMapData()==null) return false;
-        if(!map.getWorldMapData().surfaceContainsPosition(pending.getX(),pending.getY())) {
-            pending=null;feedback.accept("Marker added. Select the matching map area to view this location.");return true;
+        for(MapDestination.Place place:pendingSelection.places) {
+            WorldPoint point=destination(place.location);
+            if(!map.getWorldMapData().surfaceContainsPosition(point.getX(),point.getY())) {
+                pending=null;pendingSelection=null;pendingIcon=null;request++;
+                feedback.accept("This location is not available on the displayed game map. Use its Wiki map preview or source instead.");return true;
+            }
         }
-        map.setWorldMapPositionTarget(pending); pending=null;return true;
+        if(pendingIcon==null)return false;
+        removeMarkers();
+        for(MapDestination.Place place:pendingSelection.places) {
+            WorldMapPoint marker=new WorldMapPoint(destination(place.location),pendingIcon);
+            marker.setName("WikiPane: "+place.label);
+            String source=place.location.source.article;
+            if(!place.location.source.sectionTitle.isBlank()&&!place.location.source.sectionTitle.equals(source))source+=" · "+place.location.source.sectionTitle;
+            marker.setTooltip(tooltip(place.label)+"<br>"+tooltip(source));marker.setJumpOnClick(true);
+            marker.setSnapToEdge(pendingSelection.places.size()==1);markers.add(new SelectedMarker(marker,place));points.add(marker);
+        }
+        map.setWorldMapPositionTarget(pending);pending=null;pendingSelection=null;pendingIcon=null;feedback.accept("");return true;
     }
-    public void clear() {checkThread();request++;if(marker!=null)points.remove(marker);marker=null;pending=null;
+    private void removeMarkers(){for(SelectedMarker selected:markers)points.remove(selected.marker);markers.clear();}
+    public void clear() {checkThread();request++;removeMarkers();pending=null;pendingSelection=null;pendingIcon=null;
         if(client.getGameState()!=GameState.LOGGED_IN)closeOwnedMap();}
     public void stop() {checkThread();clear();closeOwnedMap();stopped=true;}
 }

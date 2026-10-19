@@ -37,6 +37,9 @@ public final class ContentRenderer {
         return renderArea(page,area,saved,variant);
     }
     public void closeImageViewer() { if (imageViewer != null) imageViewer.close(); }
+    private final List<MapPreview> mapPreviews=new ArrayList<>();
+    private final Set<String> shownMapFrames=new HashSet<>();
+    private com.wikipane.semantic.WikiMaps wikiMaps=com.wikipane.semantic.WikiMaps.EMPTY;
     private final List<Runnable> imageChecks = new ArrayList<>();
     private final Map<String, JComponent> anchors = new HashMap<>();
     private Map<String, Integer> tableState = new HashMap<>();
@@ -44,25 +47,21 @@ public final class ContentRenderer {
     private JPanel flow;
     private Map<String, String> anchorAliases = Map.of();
     private JPanel rendered;
-    private Consumer<Location> mapRequests = location -> {};
+    private final Set<String> mappedFactUnits=new HashSet<>();
+    private Consumer<com.wikipane.view.MapDestination> mapRequests = destination -> {};
     private final Map<String, java.util.List<Location>> locationsByUnit = new HashMap<>();
-    public void mapRequests(Consumer<Location> show) { mapRequests=show; }
-    private JComponent mapActions(java.util.List<Location> locations) {
-        JPanel actions=column(); Set<String> seen=new HashSet<>();
-        for(Location location:locations) {
-            if(com.wikipane.integration.WikiMapIntegration.destination(location)==null) continue;
-            String key=location.x+","+location.y+","+location.plane;
-            if(!seen.add(key)) continue;
-            String label = location.source.sectionTitle;
-            if (locations.size() > 1 && !label.isBlank() && !label.equals(location.source.article))
-                label = "Show " + label + " on map";
-            else label = "Show on map";
-            JButton show=linkButton(label.equals("Show on map") ? label : "<html>" + escape(label) + "</html>");
-            show.setName("wiki.showOnMap"); show.putClientProperty("wiki.location",location);
-            show.setToolTipText("From "+location.source.article+" · "+location.source.sectionTitle);
-            show.addActionListener(event->mapRequests.accept(location));
-            actions.add(show);
-        }
+    public void mapRequests(Consumer<com.wikipane.view.MapDestination> show) { mapRequests=show; }
+    private JComponent mapActions(com.wikipane.view.MapDestination destination) {
+        JPanel actions=column();
+        if(destination.places.isEmpty())return actions;
+        JButton show=linkButton(destination.action);
+        show.setName("wiki.showOnMap"); show.putClientProperty("wiki.destination",destination);
+        show.putClientProperty("wiki.location",destination.places.get(0).location);
+        String label=destination.places.get(0).label;
+        show.setToolTipText("<html>"+escape(label)+(destination.places.size()>1
+            ? " · "+destination.places.size()+" locations" : "")+"</html>");
+        show.addActionListener(event->mapRequests.accept(destination));
+        actions.add(show);
         return actions;
     }
     private String progressionSkill = "";
@@ -151,9 +150,10 @@ public final class ContentRenderer {
     public void clear() { clear(true); }
     private void clear(boolean notify) {
         generation++;
+        mapPreviews.forEach(MapPreview::stop);mapPreviews.clear();shownMapFrames.clear();
         cancelEvaluation(); badges.clear();
         levelRows.clear(); levelRevealers.clear(); progressionSkill = "";
-        locationsByUnit.clear();
+        locationsByUnit.clear();mappedFactUnits.clear();
         if (notify) contextRequests.accept(java.util.List.of());
         if (notify) skillRequests.accept("");
         if (selection != null) selection.clear();
@@ -209,6 +209,7 @@ public final class ContentRenderer {
         audit = page.view.audit;
         components.audit(audit);
         pinDocument = article.semantic;
+        wikiMaps=article.maps;
         for(Node node:pinDocument.nodes) for(Location location:node.locations)
             locationsByUnit.computeIfAbsent(location.source.unit,ignored->new ArrayList<>()).add(location);
         progressionSkill = com.wikipane.context.SkillGuideProgress.skill(article.title);
@@ -430,7 +431,14 @@ public final class ContentRenderer {
                     break;
             }
             if(component.node.table==null||!component.node.table.kind.isEmpty())
-                section.add(mapActions(component.node.locations));
+                section.add(mapActions(com.wikipane.view.MapDestination.forNode(component.node).excludingUnits(mappedFactUnits)));
+            boolean lastInSection=pending.subList(revealed,pending.size()).stream().noneMatch(next->next.source.section.equals(component.source.section));
+            if(lastInSection)for(com.wikipane.semantic.WikiMaps.Frame frame:wikiMaps.frames)
+                if(frame.source.section.equals(component.source.section)&&shownMapFrames.add(frame.id)) {
+                    if(imageViewer==null)imageViewer=new ImageViewer(workers,images);
+                    MapPreview preview=new MapPreview(frame,wikiMaps,workers,images,imageViewer);
+                    mapPreviews.add(preview);imageChecks.add(preview::request);section.add(preview);
+                }
             flow.add(section);
             components.pinContext(null);
         }
@@ -534,6 +542,12 @@ public final class ContentRenderer {
                     && f.label.equals(field.label)).findFirst().orElse(null);
                 String key = fact == null ? field.identity() : com.wikipane.view.FactPolicy.duplicateKey(fact);
                 factViews.put(key, row); row.putClientProperty("wiki.fact.sources", List.copyOf(factSources.get(key)));
+                if(fact!=null) {
+                    com.wikipane.view.MapDestination destination=com.wikipane.view.MapDestination.forFact(fact,component.node.locations);
+                    if(!destination.places.isEmpty()) {
+                        card.add(mapActions(destination));mappedFactUnits.add(fact.source.unit);
+                    }
+                }
             }
             target.add(card);
             target.add(components.gap(8));
@@ -643,7 +657,7 @@ public final class ContentRenderer {
                     records.add(card);
                     java.util.List<Location> locations=new ArrayList<>();
                     for(String unit:record.units) locations.addAll(locationsByUnit.getOrDefault(unit,java.util.List.of()));
-                    records.add(mapActions(locations));
+                    records.add(mapActions(com.wikipane.view.MapDestination.forRecord(locations,record)));
                     records.add(components.gap(3));
                 }
                 for (int n = 0; n < record.nested.size(); n++)
@@ -690,25 +704,7 @@ public final class ContentRenderer {
         });
         return group;
     }
-    private JButton linkButton(String title) {
-        JButton button = new JButton(title) {
-            @Override public Dimension getPreferredSize() {
-                javax.swing.text.View html=(javax.swing.text.View)getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey);
-                if(html==null)return super.getPreferredSize();
-                int width=getWidth()>0?getWidth():200;Insets inset=getInsets();
-                html.setSize(Math.max(1,width-inset.left-inset.right),0);
-                return new Dimension(width,Math.max(28,(int)Math.ceil(html.getPreferredSpan(javax.swing.text.View.Y_AXIS))+inset.top+inset.bottom));
-            }
-            @Override public Dimension getMinimumSize(){return new Dimension(0,getPreferredSize().height);}
-            @Override public Dimension getMaximumSize(){return new Dimension(Integer.MAX_VALUE,getPreferredSize().height);}
-        };
-        button.setForeground(ReaderComponents.ACCENT);
-        button.setMargin(new Insets(5, 6, 5, 6));
-        button.setHorizontalAlignment(SwingConstants.LEFT);
-        button.setAlignmentX(Component.LEFT_ALIGNMENT);
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
-        return button;
-    }
+    private JButton linkButton(String title) {return ReaderComponents.navigationButton(title);}
     private JComponent image(Image image) {
         return image(image, false);
     }

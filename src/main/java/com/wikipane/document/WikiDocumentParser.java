@@ -19,6 +19,7 @@ public final class WikiDocumentParser {
         String title = p.get("title").getAsString();
         Element root = Jsoup.parseBodyFragment(p.get("text").getAsString(), WikiUrls.article(title)).body();
         normalizeTranscludedHeadings(root, title);
+        com.wikipane.semantic.WikiMaps maps=com.wikipane.semantic.WikiMapExtractor.extract(root,p,title,p.has("revid")?p.get("revid").getAsLong():0);
         // Script-only chart placeholders contain no article data. Keep the separate real-time price link.
         root.select(".GEChartBox .GEdatachart,.GEChartBox .GEdataprices,.GEChartBox .GEChartItems").remove();
         Map<String, String> entityAnchors = variantIds(root);
@@ -67,7 +68,7 @@ public final class WikiDocumentParser {
             }
         return new WikiDocument(title, WikiUrls.article(title),
             p.has("revid") ? p.get("revid").getAsLong() : 0, blocks, sections, entityAnchors,
-            redirectAnchor(p), categories(p));
+            redirectAnchor(p), categories(p), maps);
     }
     /** Recover article-identity containers in transcluded guides using Wiki-provided edit-source titles. */
     private void normalizeTranscludedHeadings(Element root, String article) {
@@ -283,7 +284,18 @@ public final class WikiDocumentParser {
             return;
         Element link = e.closest("a[href]");
         String href = link == null ? "" : safeLink(link.attr("href"));
-        out.add(new Image(url.toString(), imageText(e), href, size(e, "width"), size(e, "height")));
+        out.add(new Image(url.toString(), imageText(e), href, size(e, "width"), size(e, "height"), mapImage(e,href)));
+    }
+    private static boolean mapImage(Element image,String link) {
+        if(size(image,"width")<100||size(image,"height")<80)return false;
+        if((image.attr("alt")+" "+link.replace('_',' ')).matches("(?is).*\\bmap\\b.*"))return true;
+        Element row=image.closest("tr");
+        if(row!=null)for(Element previous=row.previousElementSibling();previous!=null;previous=previous.previousElementSibling()) {
+            if(previous.text().isBlank())continue;
+            return previous.selectFirst("th")!=null&&Set.of("map","location map").contains(previous.text().strip().toLowerCase(Locale.ROOT));
+        }
+        Element figure=image.closest("figure");Element caption=figure==null?null:figure.selectFirst("figcaption");
+        return caption!=null&&caption.text().matches("(?is).*\\bmap\\b.*");
     }
     private Table table(Element table) {
         List<Row> rows = new ArrayList<>();
@@ -358,6 +370,10 @@ public final class WikiDocumentParser {
                 List<Block> cellImages = new ArrayList<>();
                 if (own.text().isBlank() && own.selectFirst("img") != null)
                     addImage(own.selectFirst("img"), cellImages);
+                if(!cellImages.isEmpty()&&Arrays.stream(label.split(" / ")).anyMatch(value->value.equalsIgnoreCase("Map"))) {
+                    Image image=(Image)cellImages.get(0);
+                    if(image.width>=100&&image.height>=80)cellImages.set(0,new Image(image.url,image.alt,image.link,image.width,image.height,true));
+                }
                 cells.add(new Cell(html, label, header, column, cs, rs, nested, td.attr("data-attr-param"),
                     com.wikipane.semantic.RequirementExtractor.extract(td, header ? "" : label),
                     own.text().isBlank() && own.selectFirst("img") != null
@@ -421,6 +437,7 @@ public final class WikiDocumentParser {
         String tag = e.normalName();
         if (Arrays.asList("script", "style", "iframe", "input", "form", "button").contains(tag))
             return "";
+        if(e.hasAttr("data-wikipane-frame"))return "<span data-wikipane-frame=\""+escape(e.attr("data-wikipane-frame"))+"\"></span>";
         if (e.hasAttr("data-wikipane-map")) {
             StringBuilder body = new StringBuilder();
             for (Node child : e.childNodes()) body.append(inline(child));

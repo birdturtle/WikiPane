@@ -7,7 +7,7 @@ import com.wikipane.semantic.SemanticDocument.*;
 import com.wikipane.semantic.SemanticExtractor;
 import com.google.gson.JsonObject;
 import java.util.*;
-import org.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.Jsoup;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -59,8 +59,8 @@ public class SemanticStylingTest {
         for (ReaderLayout.ConditionGroup group : groups) {
             assertEquals(group.lines.size(), group.styledLines.size());
             for (int i = 0; i < group.lines.size(); i++) {
-                org.jsoup.nodes.Element original = Jsoup.parseBodyFragment(group.lines.get(i)).body();
-                org.jsoup.nodes.Element styled = Jsoup.parseBodyFragment(group.styledLines.get(i)).body();
+                com.wikipane.vendor.jsoup.nodes.Element original = Jsoup.parseBodyFragment(group.lines.get(i)).body();
+                com.wikipane.vendor.jsoup.nodes.Element styled = Jsoup.parseBodyFragment(group.styledLines.get(i)).body();
                 assertEquals(original.text(), styled.text());
                 assertEquals(original.select("a").eachAttr("href"), styled.select("a").eachAttr("href"));
                 assertEquals(original.select("ul,ol,li").size(), styled.select("ul,ol,li").size());
@@ -69,7 +69,7 @@ public class SemanticStylingTest {
         }
         assertTrue(qualifiers);
         String choice = "<ul><li>Either 70 Magic or 75 Ranged (not boostable)<ul><li>2 ropes or a ladder</li></ul></li></ul>";
-        org.jsoup.nodes.Element styled = Jsoup.parseBodyFragment(RequirementPresentation.html(choice));
+        com.wikipane.vendor.jsoup.nodes.Element styled = Jsoup.parseBodyFragment(RequirementPresentation.html(choice));
         assertEquals(Jsoup.parseBodyFragment(choice).text(), styled.text());
         assertEquals(1, styled.select(".boost-forbidden").size()); assertEquals(0, styled.select(".boost-allowed").size());
         assertEquals(2, styled.select(".alternative").size()); assertEquals(2, styled.select("li").size());

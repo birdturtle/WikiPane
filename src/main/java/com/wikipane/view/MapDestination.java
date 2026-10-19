@@ -3,7 +3,7 @@ package com.wikipane.view;
 import com.wikipane.integration.WikiMapIntegration;
 import com.wikipane.semantic.SemanticDocument.*;
 import java.util.*;
-import org.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.Jsoup;
 
 /** A deliberate, source-backed map selection. Coordinates never become user-facing captions. */
 public final class MapDestination {

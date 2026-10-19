@@ -64,10 +64,10 @@ public class RecipeTest {
     @Test public void unsupportedConditionsAndAlternativeIngredientsKeepGenericSource() throws Exception {
         for(boolean alternative:new boolean[]{false,true}) {
             JsonObject fixture=DocumentTest.fixture("Prayer_potion");
-            org.jsoup.nodes.Element root=org.jsoup.Jsoup.parseBodyFragment(fixture.getAsJsonObject("parse").get("text").getAsString()).body();
-            org.jsoup.nodes.Element wrapper=root.selectFirst(".recipe-table");
+            com.wikipane.vendor.jsoup.nodes.Element root=com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(fixture.getAsJsonObject("parse").get("text").getAsString()).body();
+            com.wikipane.vendor.jsoup.nodes.Element wrapper=root.selectFirst(".recipe-table");
             if(alternative) {
-                org.jsoup.nodes.Element item=wrapper.select("table").get(1).select("tr").get(2).select("td").get(1);
+                com.wikipane.vendor.jsoup.nodes.Element item=wrapper.select("table").get(1).select("tr").get(2).select("td").get(1);
                 item.append(" or <a href='/w/Another_ingredient'>another ingredient</a>");
             } else wrapper.selectFirst("table tbody").append("<tr><th>Other requirements</th><td colspan='3'>A quest stage must be reached</td></tr>");
             fixture.getAsJsonObject("parse").addProperty("text",root.html());
@@ -79,8 +79,8 @@ public class RecipeTest {
     }
     @Test public void separateMethodsAndSourceQuantitiesAreNotMerged() throws Exception {
         JsonObject fixture=DocumentTest.fixture("Prayer_potion");
-        org.jsoup.nodes.Element root=org.jsoup.Jsoup.parseBodyFragment(fixture.getAsJsonObject("parse").get("text").getAsString()).body();
-        org.jsoup.nodes.Element original=root.selectFirst(".recipe-table"),copy=original.clone();
+        com.wikipane.vendor.jsoup.nodes.Element root=com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(fixture.getAsJsonObject("parse").get("text").getAsString()).body();
+        com.wikipane.vendor.jsoup.nodes.Element original=root.selectFirst(".recipe-table"),copy=original.clone();
         copy.select("table").get(1).select("tr").get(1).select("td").get(2).text("2");
         original.after(copy);fixture.getAsJsonObject("parse").addProperty("text",root.html());
         WikiDocument document=new WikiDocumentParser().parse(fixture);

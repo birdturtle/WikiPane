@@ -85,21 +85,21 @@ public final class InspectionLayout {
     }
     /** Preserve list boundaries and AND/OR prose from the semantic source instead of flattening it. */
     static List<String> structuredText(String html) {
-        org.jsoup.nodes.Element root = org.jsoup.Jsoup.parseBodyFragment(html).body();
-        for (org.jsoup.nodes.Element list : root.select("ol,ul")) {
+        com.wikipane.vendor.jsoup.nodes.Element root = com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(html).body();
+        for (com.wikipane.vendor.jsoup.nodes.Element list : root.select("ol,ul")) {
             int index = 1;
             try { if (list.hasAttr("start")) index = Integer.parseInt(list.attr("start")); } catch (NumberFormatException ignored) {}
-            for (org.jsoup.nodes.Element item : list.children()) if (item.tagName().equals("li")) {
+            for (com.wikipane.vendor.jsoup.nodes.Element item : list.children()) if (item.tagName().equals("li")) {
                 try { if (item.hasAttr("value")) index = Integer.parseInt(item.attr("value")); } catch (NumberFormatException ignored) {}
                 int depth=0;
-                for (org.jsoup.nodes.Element ancestor=list.parent(); ancestor!=null; ancestor=ancestor.parent())
+                for (com.wikipane.vendor.jsoup.nodes.Element ancestor=list.parent(); ancestor!=null; ancestor=ancestor.parent())
                     if (ancestor.tagName().equals("ol") || ancestor.tagName().equals("ul")) depth++;
                 item.prependText("\t".repeat(depth) + (list.tagName().equals("ol") ? index++ + ". " : "• "));
             }
         }
-        for (org.jsoup.nodes.Element block : root.select("li,p,dt,dd,br")) {
-            block.before(new org.jsoup.nodes.TextNode("\n"));
-            if (!block.tagName().equals("br")) block.after(new org.jsoup.nodes.TextNode("\n"));
+        for (com.wikipane.vendor.jsoup.nodes.Element block : root.select("li,p,dt,dd,br")) {
+            block.before(new com.wikipane.vendor.jsoup.nodes.TextNode("\n"));
+            if (!block.tagName().equals("br")) block.after(new com.wikipane.vendor.jsoup.nodes.TextNode("\n"));
         }
         List<String> result = new ArrayList<>();
         for (String line : root.wholeText().split("\n")) if (!line.isBlank()) {

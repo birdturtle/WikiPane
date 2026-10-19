@@ -1,4 +1,8 @@
-# jsoup scan findings — Plugin Hub PR #18901
+# Resolution: parser-only artifact
+
+The scan findings below were real bundled-code references. They are removed by the private in-memory source subset described in [the parser build notes](../third-party/jsoup-parser/README.md). No exception is requested. Both developer and Hub archives now undergo an all-classes bytecode check, including the parser. A new scan of the updated PR is required before claiming that the Hub feedback is cleared.
+
+## Original diagnosis (historical)
 
 The automated scan reported three prohibited API categories in the submitted artifact. Source search and `javap --multi-release 11 -p -c` on the exact Maven Central jsoup 1.23.2 JAR locate them as follows:
 
@@ -15,7 +19,7 @@ WikiPane production code calls `Jsoup.parse(String)` and `Jsoup.parseBodyFragmen
 
 The automated report nevertheless describes real references in the shipped dependency. The earlier green packaging/dependency checks do not establish security-review approval. Network transport methods are unused by WikiPane; the diagnostic methods belong to jsoup. No exception or acceptance is assumed.
 
-The PR requests maintainer assessment of the declared dependency and its unused transport APIs. Removing scattered library classes, replacing parser versions, or changing scan permissions without maintainer agreement would be a separate compatibility/security decision. The distributed jsoup JAR is unchanged and the findings remain pending that review.
+The initial PR response requested maintainer assessment instead of conforming the artifact; that request has been superseded by the parser-only build. Removing scattered library classes, replacing parser versions, or changing scan permissions without maintainer agreement would be a separate compatibility/security decision. This describes the original artifact only; the current restricted artifact is verified separately.
 
 Sources:
 

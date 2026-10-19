@@ -1,9 +1,9 @@
-# WikiPane friend beta — 1.0.0-beta.2
+# WikiPane friend beta — 1.0.0-beta.3
 
 ## Install
 
 1. Install [Cabbage beta v1.2.0-beta.2 or newer](https://github.com/birdturtle/Cabbage/releases/tag/v1.2.0-beta.2).
-2. Save `wikipane-1.0.0-beta.2-developer-plugin.jar` somewhere permanent. You do not run this JAR directly.
+2. Save `wikipane-1.0.0-beta.3-developer-plugin.jar` somewhere permanent. You do not run this JAR directly.
 3. Close any RuneLite client you will replace. In Cabbage, open **Settings → Advanced → Developer plugins**, enable developer plugins, and **Add plugin JAR…**. Select the JAR and leave its checkbox checked.
 4. Launch your character normally. Enable **WikiPane** in RuneLite's plugin list and select its sidebar icon.
 
@@ -11,7 +11,11 @@ On first use Cabbage copies your normal RuneLite profiles, plugin choices and su
 
 Local plugins have not undergone Plugin Hub review. Install only a JAR from someone you trust. The included `BUILD.txt` identifies its required RuneLite version. Cabbage checks compatibility; a RuneLite update may require a new JAR. Do not bypass that check.
 
-## Beta 2 changes
+## Beta 3 changes
+
+This build replaces the bundled unrestricted jsoup binary with a private parser-only source subset. No jsoup HTTP/file loading, authentication, reflective optional-library loading or console output is shipped. Wiki requests still use the injected RuneLite OkHttp client. Please recheck the three acceptance articles, exact table values, requirements, internal links, pins and map/image viewing against beta 2. The intended reading behavior is unchanged.
+
+## Earlier beta 2 changes
 
 Section/Map buttons toggle closed on a second click. The map chooser remembers expanded groups and scroll until you leave the article. Hidden preview work is paused. Dropdowns fit the available window/screen space; map tooltips and failure messages describe their real actions. Ctrl-wheel zoom keeps the image under your cursor; toolbar zoom keeps the viewport center.
 

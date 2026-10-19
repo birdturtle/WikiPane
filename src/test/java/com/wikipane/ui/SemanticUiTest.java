@@ -32,7 +32,7 @@ public class SemanticUiTest {
         return all(root)
             .stream()
             .filter(c -> c instanceof JEditorPane)
-            .map(c -> org.jsoup.Jsoup.parseBodyFragment(((JEditorPane) c).getText()).text())
+            .map(c -> com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(((JEditorPane) c).getText()).text())
             .reduce("", (a, b) -> a + " " + b);
     }
     private void await(Callable<Boolean> condition) throws Exception {

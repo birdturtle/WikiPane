@@ -2,8 +2,8 @@ package com.wikipane.view;
 
 import com.wikipane.semantic.SemanticDocument.Requirement;
 import java.util.*;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Element;
+import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.nodes.Element;
 
 /** Source-preserving rows for conjunctions and nested prerequisites; alternatives stay together. */
 public final class RequirementRows {
@@ -46,10 +46,10 @@ public final class RequirementRows {
     }
     private static boolean noTrailingProse(Element root) {
         boolean list = false;
-        for (org.jsoup.nodes.Node node : root.childNodes()) {
+        for (com.wikipane.vendor.jsoup.nodes.Node node : root.childNodes()) {
             if (node instanceof Element && ((Element)node).tagName().equals("ul")) list = true;
-            else if (list && (node instanceof org.jsoup.nodes.TextNode
-                ? !((org.jsoup.nodes.TextNode)node).text().isBlank() : !(node instanceof Element) || !((Element)node).text().isBlank())) return false;
+            else if (list && (node instanceof com.wikipane.vendor.jsoup.nodes.TextNode
+                ? !((com.wikipane.vendor.jsoup.nodes.TextNode)node).text().isBlank() : !(node instanceof Element) || !((Element)node).text().isBlank())) return false;
         }
         return true;
     }

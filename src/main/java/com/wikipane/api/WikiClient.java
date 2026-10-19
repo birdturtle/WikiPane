@@ -7,8 +7,8 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import okhttp3.*;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Element;
+import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.nodes.Element;
 
 /** All entry points run on WikiPane's worker pool, never the game or Swing thread. */
 public final class WikiClient implements AutoCloseable {
@@ -38,7 +38,7 @@ public final class WikiClient implements AutoCloseable {
             throw new IOException("The Wiki returned an unsupported destination.");
         Call call = http.newCall(new Request.Builder()
                 .url(url)
-                .header("User-Agent", "WikiPane/1.0.0-beta.2 (RuneLite; https://github.com/birdturtle/WikiPane)")
+                .header("User-Agent", "WikiPane/1.0.0-beta.3 (RuneLite; https://github.com/birdturtle/WikiPane)")
                 .header("Accept", "application/json,text/html;q=0.9,image/*;q=0.8")
                 .build());
         calls.add(call);
@@ -172,7 +172,7 @@ public final class WikiClient implements AutoCloseable {
                 throw new IOException("Unsupported entity lookup destination.");
             Call call = http.newCall(new Request.Builder()
                     .url(current)
-                    .header("User-Agent", "WikiPane/1.0.0-beta.2 (RuneLite; https://github.com/birdturtle/WikiPane)")
+                    .header("User-Agent", "WikiPane/1.0.0-beta.3 (RuneLite; https://github.com/birdturtle/WikiPane)")
                     .build());
             calls.add(call);
             if (closed) {

@@ -47,8 +47,8 @@ public class UxRecoveryTest {
                 assertEquals(WikiUrls.article("Present"),button(panel[0],"Open in browser").getActionCommand());
                 JButton fallback=button(panel[0],"Open the failed request in browser");
                 assertTrue(fallback.isVisible()); assertEquals(WikiUrls.article("Missing")+"#Requirements",fallback.getActionCommand());
-                assertTrue(all(panel[0]).stream().anyMatch(c -> c instanceof JEditorPane && org.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().contains("Check your connection")));
-                assertFalse(all(panel[0]).stream().anyMatch(c -> c instanceof JEditorPane && org.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().contains("private-internal")));
+                assertTrue(all(panel[0]).stream().anyMatch(c -> c instanceof JEditorPane && com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().contains("Check your connection")));
+                assertFalse(all(panel[0]).stream().anyMatch(c -> c instanceof JEditorPane && com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().contains("private-internal")));
                 button(panel[0],"Retry this request").doClick();
             }); assertEquals(1,workers.tasks.size()); workers.next();
         } finally { SwingUtilities.invokeAndWait(() -> { if(panel[0]!=null)panel[0].stop(); }); wiki.close(); workers.shutdownNow(); }

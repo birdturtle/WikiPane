@@ -16,7 +16,7 @@ public class PresentationValidationTest {
             WikiDocument doc = DocumentTest.document(fixture);
             WikiPage page = new WikiPage(doc);
             String source = DocumentTest.fixture(fixture).getAsJsonObject("parse").get("text").getAsString();
-            int expected = org.jsoup.Jsoup.parseBodyFragment(source).select("ol.references > li").size();
+            int expected = com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(source).select("ol.references > li").size();
             assertTrue(fixture, expected > 0);
             assertEquals(fixture, expected, doc.semantic.references.size());
             assertEquals(expected, page.layout.references.size());

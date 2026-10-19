@@ -126,7 +126,7 @@ public class ContextualNavigationUiTest {
         boolean article(String title) {
             return all(panel).stream().anyMatch(c
                 -> c instanceof JEditorPane && "wiki.articleTitle".equals(c.getName()) && visible(c, panel)
-                    && org.jsoup.Jsoup.parseBodyFragment(((JEditorPane) c).getText()).text().equals(title));
+                    && com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(((JEditorPane) c).getText()).text().equals(title));
         }
         void open(String title) throws Exception {
             opened = new WikiPage(DocumentTest.document(title.replace("/", "__").replace(' ', '_')));
@@ -380,7 +380,7 @@ public class ContextualNavigationUiTest {
                     Object context = pane.getClientProperty("wiki.pin.context");
                     return context instanceof com.wikipane.pin.PinContext
                         && ((com.wikipane.pin.PinContext)context).condition != null
-                        && org.jsoup.Jsoup.parseBodyFragment(pane.getText()).text().contains("Cooking");
+                        && com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(pane.getText()).text().contains("Cooking");
                 }).findFirst().orElseThrow();
                 passage.select(0, passage.getDocument().getLength());
                 JPopupMenu menu = passage.getComponentPopupMenu();

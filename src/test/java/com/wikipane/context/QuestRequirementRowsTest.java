@@ -7,7 +7,7 @@ import com.wikipane.view.*;
 import java.util.*;
 import java.util.stream.*;
 import net.runelite.api.Quest;
-import org.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.Jsoup;
 import org.junit.Test;
 import static org.junit.Assert.*;
 

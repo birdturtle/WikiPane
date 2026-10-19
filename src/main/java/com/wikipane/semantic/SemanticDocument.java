@@ -48,12 +48,12 @@ public final class SemanticDocument {
             this.text = text;
             this.links = List.copyOf(links);
             List<Citation> uses = new ArrayList<>();
-            org.jsoup.nodes.Element root = org.jsoup.Jsoup.parseBodyFragment(html).body();
-            for (org.jsoup.nodes.Element a : root.select("a[href]")) {
+            com.wikipane.vendor.jsoup.nodes.Element root = com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(html).body();
+            for (com.wikipane.vendor.jsoup.nodes.Element a : root.select("a[href]")) {
                 okhttp3.HttpUrl target = com.wikipane.api.WikiUrls.resolve(a.attr("href"));
                 if (target != null && com.wikipane.api.WikiUrls.wiki(target) && target.fragment() != null
                     && target.fragment().startsWith("cite_note")) {
-                    org.jsoup.nodes.Element marker = a.closest("sup[id]");
+                    com.wikipane.vendor.jsoup.nodes.Element marker = a.closest("sup[id]");
                     uses.add(new Citation(
                         marker == null ? "" : marker.id(), target.fragment(), a.text(), target.toString()));
                 }

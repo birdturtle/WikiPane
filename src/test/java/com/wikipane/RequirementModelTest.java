@@ -2,7 +2,7 @@ package com.wikipane;
 import com.wikipane.semantic.*;
 import com.wikipane.semantic.SemanticDocument.*;
 import java.util.*;
-import org.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.Jsoup;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class RequirementModelTest {

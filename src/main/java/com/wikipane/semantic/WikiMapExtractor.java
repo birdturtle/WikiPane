@@ -6,8 +6,8 @@ import com.wikipane.semantic.SemanticDocument.Source;
 import java.util.*;
 import java.util.regex.*;
 import okhttp3.HttpUrl;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Element;
+import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.nodes.Element;
 
 /** Consumes server-rendered frames and action=parse jsconfigvars. Never executes Wiki JavaScript. */
 public final class WikiMapExtractor {

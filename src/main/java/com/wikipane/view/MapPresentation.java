@@ -3,8 +3,8 @@ package com.wikipane.view;
 import com.wikipane.semantic.SemanticDocument.Location;
 import com.wikipane.semantic.SemanticDocument.Source;
 import com.wikipane.integration.WikiMapIntegration;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Element;
+import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.nodes.Element;
 
 /** Coordinates remain in the semantic model; a supported map action replaces their display text. */
 public final class MapPresentation {

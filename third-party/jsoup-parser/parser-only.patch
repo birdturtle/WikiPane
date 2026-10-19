@@ -1,0 +1,220 @@
+--- a/org/jsoup/nodes/Document.java
++++ b/org/jsoup/nodes/Document.java
+@@ -1,8 +1,5 @@
+ package org.jsoup.nodes;
+ 
+-import org.jsoup.Connection;
+-import org.jsoup.Jsoup;
+-import org.jsoup.helper.DataUtil;
+ import org.jsoup.helper.Validate;
+ import org.jsoup.internal.QuietAppendable;
+ import org.jsoup.internal.StringUtil;
+@@ -24,7 +21,6 @@
+ 
+  @author Jonathan Hedley, jonathan@hedley.net */
+ public class Document extends Element {
+-    private @Nullable Connection connection; // the connection this doc was fetched from, if any
+     private OutputSettings outputSettings = new OutputSettings();
+     private Parser parser; // the parser used to parse this document
+     private QuirksMode quirksMode = QuirksMode.noQuirks;
+@@ -83,18 +79,7 @@
+         return location;
+     }
+ 
+-    /**
+-     Returns the Connection (Request/Response) object that was used to fetch this document, if any; otherwise, a new
+-     default Connection object. This can be used to continue a session, preserving settings and cookies, etc.
+-     @return the Connection (session) associated with this Document, or an empty one otherwise.
+-     @see Connection#newRequest()
+-     */
+-    public Connection connection() {
+-        if (connection == null)
+-            return Jsoup.newSession();
+-        else
+-            return connection;
+-    }
++
+ 
+     /**
+      * Returns this Document's doctype.
+@@ -339,7 +324,7 @@
+          */
+         public enum Syntax {html, xml}
+         private Entities.EscapeMode escapeMode = Entities.EscapeMode.base;
+-        private Charset charset = DataUtil.UTF_8;
++        private Charset charset = java.nio.charset.StandardCharsets.UTF_8;
+         private boolean prettyPrint = true;
+         private boolean outline = false;
+         private int indentAmount = 1;
+@@ -579,18 +564,5 @@
+         return this;
+     }
+ 
+-    /**
+-     Set the Connection used to fetch this document. This Connection is used as a session object when further requests are
+-     made (e.g. when a form is submitted).
+-
+-     @param connection to set
+-     @return this document, for chaining
+-     @see Connection#newRequest()
+-     @since 1.14.1
+-     */
+-    public Document connection(Connection connection) {
+-        Validate.notNull(connection);
+-        this.connection = connection;
+-        return this;
+-    }
++
+ }
+--- a/org/jsoup/nodes/FormElement.java
++++ b/org/jsoup/nodes/FormElement.java
+@@ -1,8 +1,5 @@
+ package org.jsoup.nodes;
+ 
+-import org.jsoup.Connection;
+-import org.jsoup.Jsoup;
+-import org.jsoup.helper.HttpConnection;
+ import org.jsoup.helper.Validate;
+ import org.jsoup.internal.SharedConstants;
+ import org.jsoup.internal.StringUtil;
+@@ -67,72 +64,9 @@
+         linkedEls.remove(out);
+     }
+ 
+-    /**
+-     Prepare to submit this form. A Connection object is created with the request set up from the form values. This
+-     Connection will inherit the settings and the cookies (etc) of the connection/session used to request this Document
+-     (if any), as available in {@link Document#connection()}
+-     <p>You can then set up other options (like user-agent, timeout, cookies), then execute it.</p>
+ 
+-     @return a connection prepared from the values of this form, in the same session as the one used to request it
+-     @throws IllegalArgumentException if the form's absolute action URL cannot be determined. Make sure you pass the
+-     document's base URI when parsing.
+-     */
+-    public Connection submit() {
+-        String action = hasAttr("action") ? absUrl("action") : baseUri();
+-        Validate.notEmpty(action, "Could not determine a form action URL for submit. Ensure you set a base URI when parsing.");
+-        Connection.Method method = attr("method").equalsIgnoreCase("POST") ?
+-                Connection.Method.POST : Connection.Method.GET;
+ 
+-        Document owner = ownerDocument();
+-        Connection connection = owner != null? owner.connection().newRequest() : Jsoup.newSession();
+-        return connection.url(action)
+-                .data(formData())
+-                .method(method);
+-    }
+ 
+-    /**
+-     * Get the data that this form submits. The returned list is a copy of the data, and changes to the contents of the
+-     * list will not be reflected in the DOM.
+-     * @return a list of key vals
+-     */
+-    public List<Connection.KeyVal> formData() {
+-        ArrayList<Connection.KeyVal> data = new ArrayList<>();
+-
+-        // iterate the form control elements and accumulate their values
+-        Elements formEls = elements();
+-        for (Element el: formEls) {
+-            if (!el.tag().isFormSubmittable()) continue; // contents are form listable, superset of submitable
+-            if (el.hasAttr("disabled")) continue; // skip disabled form inputs
+-            String name = el.attr("name");
+-            if (name.length() == 0) continue;
+-            String type = el.attr("type");
+-
+-            if (type.equalsIgnoreCase("button") || type.equalsIgnoreCase("image")) continue; // browsers don't submit these
+-
+-            if (el.nameIs("select")) {
+-                Elements options = el.select("option[selected]");
+-                boolean set = false;
+-                for (Element option: options) {
+-                    data.add(HttpConnection.KeyVal.create(name, option.val()));
+-                    set = true;
+-                }
+-                if (!set) {
+-                    Element option = el.selectFirst("option");
+-                    if (option != null)
+-                        data.add(HttpConnection.KeyVal.create(name, option.val()));
+-                }
+-            } else if ("checkbox".equalsIgnoreCase(type) || "radio".equalsIgnoreCase(type)) {
+-                // only add checkbox or radio if they have the checked attribute
+-                if (el.hasAttr("checked")) {
+-                    final String val = el.val().length() >  0 ? el.val() : "on";
+-                    data.add(HttpConnection.KeyVal.create(name, val));
+-                }
+-            } else {
+-                data.add(HttpConnection.KeyVal.create(name, el.val()));
+-            }
+-        }
+-        return data;
+-    }
+ 
+     @Override
+     public FormElement clone() {
+--- a/org/jsoup/nodes/Entities.java
++++ b/org/jsoup/nodes/Entities.java
+@@ -1,6 +1,5 @@
+ package org.jsoup.nodes;
+ 
+-import org.jsoup.helper.DataUtil;
+ import org.jsoup.internal.QuietAppendable;
+ import org.jsoup.internal.StringUtil;
+ import org.jsoup.helper.Validate;
+@@ -178,7 +177,7 @@
+      @see #escape(String, OutputSettings)
+      */
+     public static String escape(String data) {
+-        return escapeString(data, base, DataUtil.UTF_8);
++        return escapeString(data, base, java.nio.charset.StandardCharsets.UTF_8);
+     }
+ 
+     private static String escapeString(String data, EscapeMode escapeMode, Charset charset) {
+--- a/org/jsoup/nodes/NodeUtils.java
++++ b/org/jsoup/nodes/NodeUtils.java
+@@ -1,10 +1,8 @@
+ package org.jsoup.nodes;
+ 
+ import org.jsoup.helper.Validate;
+-import org.jsoup.helper.W3CDom;
+ import org.jsoup.parser.HtmlTreeBuilder;
+ import org.jsoup.parser.Parser;
+-import org.w3c.dom.NodeList;
+ 
+ import java.util.Iterator;
+ import java.util.List;
+@@ -42,15 +40,7 @@
+      expression to a jsoup Evaluator when there's 1:1 support, thus saving the W3C document conversion stage.
+      */
+     static <T extends Node> List<T> selectXpath(String xpath, Element el, Class<T> nodeType) {
+-        Validate.notEmpty(xpath);
+-        Validate.notNull(el);
+-        Validate.notNull(nodeType);
+-
+-        W3CDom w3c = new W3CDom().namespaceAware(false);
+-        org.w3c.dom.Document wDoc = w3c.fromJsoup(el);
+-        org.w3c.dom.Node contextNode = w3c.contextNode(wDoc);
+-        NodeList nodeList = w3c.selectXpath(xpath, contextNode);
+-        return w3c.sourceNodes(nodeList, nodeType);
++        throw new UnsupportedOperationException("XPath is not included in WikiPane; use CSS selectors.");
+     }
+ 
+     /** Creates a Stream, starting with the supplied node. */
+--- a/org/jsoup/parser/StreamParser.java
++++ b/org/jsoup/parser/StreamParser.java
+@@ -1,6 +1,5 @@
+ package org.jsoup.parser;
+ 
+-import org.jsoup.Connection;
+ import org.jsoup.helper.Validate;
+ import org.jsoup.nodes.Document;
+ import org.jsoup.nodes.Element;
+--- a/org/jsoup/select/Evaluator.java
++++ b/org/jsoup/select/Evaluator.java
+@@ -1056,7 +1056,7 @@
+             // log a deprecated error on first use; users typically won't directly construct this Evaluator and so won't otherwise get deprecation warnings
+             if (!loggedError) {
+                 loggedError = true;
+-                System.err.println("WARNING: :matchText selector is deprecated and will be removed in jsoup 1.24.1. Use Element#selectNodes(String, Class) with selector ::textnode and class TextNode instead.");
++                org.slf4j.LoggerFactory.getLogger(Evaluator.class).debug("WARNING: :matchText selector is deprecated and will be removed in jsoup 1.24.1. Use Element#selectNodes(String, Class) with selector ::textnode and class TextNode instead.");
+             }
+         }
+ 

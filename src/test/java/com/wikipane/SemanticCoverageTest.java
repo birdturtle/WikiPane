@@ -35,7 +35,7 @@ public class SemanticCoverageTest {
                     assertCells(source, node.table);
                 } else if (node.text != null && node.fallback instanceof WikiDocument.Text)
                     assertEquals(
-                        org.jsoup.Jsoup.parseBodyFragment(((WikiDocument.Text) node.fallback).html).text(),
+                        com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(((WikiDocument.Text) node.fallback).html).text(),
                         node.text.text);
             }
             // Verify actual values, not only matching bookkeeping counts.

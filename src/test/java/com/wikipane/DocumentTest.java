@@ -8,7 +8,7 @@ import com.wikipane.document.WikiDocument.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import org.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.Jsoup;
 import org.junit.Test;
 
 public class DocumentTest {
@@ -130,12 +130,12 @@ public class DocumentTest {
         assertTrue(text.contains("Vorkath"));
         assertTrue(text.contains("750"));
         assertTrue(text.contains("732"));
-        org.jsoup.nodes.Document raw = Jsoup.parse(source.getAsJsonObject("parse").get("text").getAsString());
+        com.wikipane.vendor.jsoup.nodes.Document raw = Jsoup.parse(source.getAsJsonObject("parse").get("text").getAsString());
         raw.select(".navbox,.metadata,.toc,.infobox-switch-buttons-caption,.infobox-switch-resources")
             .remove();
         int expected = 0;
-        for (org.jsoup.nodes.Element tr : raw.select("tr"))
-            for (org.jsoup.nodes.Element e : tr.children())
+        for (com.wikipane.vendor.jsoup.nodes.Element tr : raw.select("tr"))
+            for (com.wikipane.vendor.jsoup.nodes.Element e : tr.children())
                 if (e.tagName().equals("th") || e.tagName().equals("td"))
                     if (e.closest("table").parents().stream().noneMatch(
                             parent -> parent.tagName().equals("table")))

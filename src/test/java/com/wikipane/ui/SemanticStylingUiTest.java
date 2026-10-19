@@ -29,7 +29,7 @@ public class SemanticStylingUiTest {
     private static void layout(Container root) {
         root.doLayout(); for (Component child : root.getComponents()) if (child instanceof Container) layout((Container)child);
     }
-    private static String plain(JEditorPane pane) { return org.jsoup.Jsoup.parseBodyFragment(pane.getText()).text(); }
+    private static String plain(JEditorPane pane) { return com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(pane.getText()).text(); }
     @Test public void rakeDisplayRetainsOneVolumeLabelAndAWorkingRealTimePriceLink() throws Exception {
         WikiPage page = new WikiPage(DocumentTest.document("Rake"));
         ExecutorService worker = Executors.newSingleThreadExecutor(); WikiClient wiki = new WikiClient(new OkHttpClient(), new Gson());
@@ -41,7 +41,7 @@ public class SemanticStylingUiTest {
                 List<Component> children = all(body);
                 assertEquals(1, children.stream().filter(c -> c instanceof JEditorPane && plain((JEditorPane)c).equals("Daily volume")).count());
                 JEditorPane prices = (JEditorPane)children.stream().filter(c -> c instanceof JEditorPane && plain((JEditorPane)c).equals("View real-time prices")).findFirst().orElseThrow();
-                String url = org.jsoup.Jsoup.parseBodyFragment(prices.getText()).selectFirst("a").attr("href");
+                String url = com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(prices.getText()).selectFirst("a").attr("href");
                 for (javax.swing.event.HyperlinkListener listener : prices.getHyperlinkListeners())
                     listener.hyperlinkUpdate(new javax.swing.event.HyperlinkEvent(prices, javax.swing.event.HyperlinkEvent.EventType.ACTIVATED, null, url));
                 assertEquals(List.of("https://prices.runescape.wiki/osrs/item/5341"), opened);

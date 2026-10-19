@@ -33,7 +33,7 @@ Source: https://github.com/runelite/runelite/blob/master/runelite-client/src/mai
 
 ## jsoup
 
-jsoup 1.23.2, Copyright Jonathan Hedley, MIT license. Used for in-memory HTML parsing only. https://jsoup.org/license
+jsoup 1.23.2, Copyright Jonathan Hedley, MIT license. WikiPane compiles a private, in-memory subset from its pinned source artifact; the original unrestricted binary is not distributed. Source selection, exact changes and hash are documented in [parser subset](third-party/jsoup-parser/README.md). https://jsoup.org/license
 
 The complete jsoup license is in `third-party/jsoup-LICENSE.txt` and is included in the developer JAR under `licenses/`.
 

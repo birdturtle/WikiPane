@@ -6,8 +6,8 @@ import com.wikipane.api.WikiUrls;
 import com.wikipane.document.WikiDocument;
 import com.wikipane.document.WikiDocumentParser;
 import java.util.*;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Element;
+import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.nodes.Element;
 
 /** Extracts domain structure from all normalized blocks. No UI priorities or truncation. */
 public final class SemanticExtractor {

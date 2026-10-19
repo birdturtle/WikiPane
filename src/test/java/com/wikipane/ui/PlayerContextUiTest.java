@@ -32,7 +32,7 @@ public class PlayerContextUiTest {
             ContentRenderer renderer=edt(()->new ContentRenderer(url->{},worker,new ImageCache(wiki),pin->{},error->fail(error)));
             JPanel body=edt(()->{renderer.playerContext(snapshot(42));return renderer.renderArea(page,page.view.area("requirements"),Map.of(),"");});drain(worker);
             List<JEditorPane> text=edt(()->{List<JEditorPane> panes=new ArrayList<>();for(Component c:all(body))if(c instanceof JEditorPane)panes.add((JEditorPane)c);return panes;});
-            JEditorPane cooking=text.stream().filter(p->org.jsoup.Jsoup.parseBodyFragment(p.getText()).text().contains("10 Cooking")).findFirst().orElseThrow();
+            JEditorPane cooking=text.stream().filter(p->com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(p.getText()).text().contains("10 Cooking")).findFirst().orElseThrow();
             JScrollPane scroll=edt(()->{JScrollPane pane=new JScrollPane(body);pane.setSize(225,450);for(int i=0;i<5;i++)layout(pane);pane.getVerticalScrollBar().setValue(100);return pane;});
             int before=edt(()->scroll.getVerticalScrollBar().getValue());
             edt(()->{assertTrue(all(body).stream().filter(c->c instanceof JLabel).anyMatch(c->((JLabel)c).getText()!=null&&((JLabel)c).getText().contains("Level 42")));renderer.playerContext(snapshot(8));return null;});drain(worker);

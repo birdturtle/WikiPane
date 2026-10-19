@@ -2,8 +2,8 @@ package com.wikipane.view;
 
 import java.util.*;
 import java.util.regex.*;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.*;
+import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.nodes.*;
 
 /** Worker-side styling of existing requirement text. No condition rewriting or new facts. */
 public final class RequirementPresentation {

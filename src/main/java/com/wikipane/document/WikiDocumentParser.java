@@ -5,8 +5,8 @@ import static com.wikipane.document.WikiDocument.*;
 import com.google.gson.*;
 import com.wikipane.api.WikiUrls;
 import java.util.*;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.*;
+import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.vendor.jsoup.nodes.*;
 
 /** Server HTML is parsed, then reduced to explicit semantic blocks and safe inline tags. */
 public final class WikiDocumentParser {

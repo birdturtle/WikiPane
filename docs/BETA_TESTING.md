@@ -1,9 +1,9 @@
-# WikiPane friend beta — 1.0.0-beta.3
+# WikiPane friend beta — 1.0.0-beta.4
 
 ## Install
 
 1. Install [Cabbage beta v1.2.0-beta.2 or newer](https://github.com/birdturtle/Cabbage/releases/tag/v1.2.0-beta.2).
-2. Save `wikipane-1.0.0-beta.3-developer-plugin.jar` somewhere permanent. You do not run this JAR directly.
+2. Save `wikipane-1.0.0-beta.4-developer-plugin.jar` somewhere permanent. You do not run this JAR directly.
 3. Close any RuneLite client you will replace. In Cabbage, open **Settings → Advanced → Developer plugins**, enable developer plugins, and **Add plugin JAR…**. Select the JAR and leave its checkbox checked.
 4. Launch your character normally. Enable **WikiPane** in RuneLite's plugin list and select its sidebar icon.
 
@@ -11,9 +11,11 @@ On first use Cabbage copies your normal RuneLite profiles, plugin choices and su
 
 Local plugins have not undergone Plugin Hub review. Install only a JAR from someone you trust. The included `BUILD.txt` identifies its required RuneLite version. Cabbage checks compatibility; a RuneLite update may require a new JAR. Do not bypass that check.
 
-## Beta 3 changes
+## Beta 4 changes
 
-This build replaces the bundled unrestricted jsoup binary with a private parser-only source subset. No jsoup HTTP/file loading, authentication, reflective optional-library loading or console output is shipped. Wiki requests still use the injected RuneLite OkHttp client. Please recheck the three acceptance articles, exact table values, requirements, internal links, pins and map/image viewing against beta 2. The intended reading behavior is unchanged.
+The parser dependency and custom source-subset build have been removed entirely. The Hub now uses `build=standard`; the local beta uses the same Java source. Wiki requests still use injected OkHttp and the Wiki's server-rendered HTML. The semantic reader and established UX remain in place.
+
+Please recheck Bronze dagger (stab +4), Recipe for Disaster (starting vs completion requirements), Vorkath variants/drops, skill tables, internal links, pinning, maps and full-size images. This parser replacement has automated coverage but still needs your in-client confirmation.
 
 ## Earlier beta 2 changes
 

@@ -3,7 +3,7 @@ package com.wikipane.view;
 import com.wikipane.integration.WikiMapIntegration;
 import com.wikipane.semantic.SemanticDocument.*;
 import java.util.*;
-import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.html.WikiHtml;
 
 /** A deliberate, source-backed map selection. Coordinates never become user-facing captions. */
 public final class MapDestination {
@@ -69,7 +69,7 @@ public final class MapDestination {
     public static MapDestination forRecord(List<Location> locations, ReaderLayout.Record record) {
         List<Place> places = new ArrayList<>();
         for (Location location : locations) {
-            String label = record.identity == null ? "" : Jsoup.parseBodyFragment(
+            String label = record.identity == null ? "" : WikiHtml.parseBodyFragment(
                 MapPresentation.html(record.identity.value.html, record.identity.source)).text();
             if (label.isBlank()) label = single(location).places.get(0).label;
             places.add(new Place(location, label));

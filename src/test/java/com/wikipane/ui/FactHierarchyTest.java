@@ -35,7 +35,7 @@ public class FactHierarchyTest {
                 JPanel body = renderer.renderArea(page, page.navigation.area("overview"), Map.of(), ""); renderer.revealAll();
                 List<Component> children = all(body);
                 JEditorPane moid = (JEditorPane) children.stream().filter(c -> c instanceof JEditorPane
-                    && com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().equals("MOID")).findFirst().orElseThrow();
+                    && com.wikipane.html.WikiHtml.parse(((JEditorPane)c).getText()).text().equals("MOID")).findFirst().orElseThrow();
                 assertFalse(shown(moid, body));
                 JButton details = (JButton) children.stream().filter(c -> c instanceof JButton && ((JButton)c).getText().contains("Technical details")).findFirst().orElseThrow();
                 details.doClick(); assertTrue(shown(moid, body));
@@ -59,7 +59,7 @@ public class FactHierarchyTest {
         try {SwingUtilities.invokeAndWait(() -> {
             WikiPage page=new WikiPage(doc);ContentRenderer renderer=new ContentRenderer(url -> {},workers,new ImageCache(wiki));
             JPanel body=renderer.renderArea(page,page.navigation.area("overview"),Map.of(),"");renderer.revealAll();
-            assertEquals(1,all(body).stream().filter(c -> c instanceof JEditorPane && com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().equals("Daily volume")).count());
+            assertEquals(1,all(body).stream().filter(c -> c instanceof JEditorPane && com.wikipane.html.WikiHtml.parse(((JEditorPane)c).getText()).text().equals("Daily volume")).count());
             assertTrue(all(body).stream().filter(c -> c instanceof JComponent)
                 .map(c -> ((JComponent)c).getClientProperty("wiki.fact.sources"))
                 .anyMatch(sources -> sources instanceof List && ((List<?>)sources).size()==2));

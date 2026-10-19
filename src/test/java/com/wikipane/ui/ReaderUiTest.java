@@ -108,7 +108,7 @@ public class ReaderUiTest {
             });
             await(()
                       -> all(panel).stream().anyMatch(
-                          c -> c instanceof JEditorPane && com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text().contains("Please try again")));
+                          c -> c instanceof JEditorPane && com.wikipane.html.WikiHtml.parse(((JEditorPane)c).getText()).text().contains("Please try again")));
             assertTrue(edt(() -> text(panel, "New marker")));
             edt(() -> {
                 panel.stop();

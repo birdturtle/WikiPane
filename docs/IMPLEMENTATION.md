@@ -1,6 +1,6 @@
 # Current implementation
 
-WikiPane is a Java 11 RuneLite plugin with native Swing reading and RuneLite overlays. It uses RuneLite's injected OkHttp client and Gson, and a private parser-only source subset of jsoup 1.23.2 for in-memory HTML parsing. The unrestricted binary is not shipped; see [the subset build](../third-party/jsoup-parser/README.md). There is no external service, script execution, telemetry, account handling or gameplay automation.
+WikiPane is a Java 11 RuneLite plugin with native Swing reading and RuneLite overlays. It uses RuneLite's injected OkHttp client and Gson, and the dependency-free `com.wikipane.html` markup reader for in-memory normalization of server-rendered Wiki HTML. Plugin Hub builds use `build=standard`. There is no external service, script execution, telemetry, account handling or gameplay automation.
 
 ## Content pipeline
 

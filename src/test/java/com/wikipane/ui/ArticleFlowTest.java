@@ -35,7 +35,7 @@ public class ArticleFlowTest {
                 if (edt(()
                             -> all(panel).stream().anyMatch(
                                 c -> c instanceof JEditorPane && "wiki.articleTitle".equals(c.getName())
-                                    && title.equals(com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text()))))
+                                    && title.equals(com.wikipane.html.WikiHtml.parse(((JEditorPane)c).getText()).text()))))
                     done.complete(null);
             } catch (Exception e) {
                 done.completeExceptionally(e);
@@ -89,7 +89,7 @@ public class ArticleFlowTest {
                                           .flatMap(r -> r.cells.stream())
                                           .filter(c -> c.html.contains("Cook's Assistant"))
                                           .map(c
-                                              -> com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(c.html)
+                                              -> com.wikipane.html.WikiHtml.parseBodyFragment(c.html)
                                                   .select("a[href]")
                                                   .stream()
                                                   .filter(a -> a.text().equals("Cook's Assistant"))

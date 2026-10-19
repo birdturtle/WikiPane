@@ -109,7 +109,7 @@ public class SkillProgressUiTest {
                 scroll.getVerticalScrollBar().setValue(150);int value=scroll.getVerticalScrollBar().getValue();panel.openTitle("Cook's Assistant","");return value;
             });
             try {
-                await(()->all(panel).stream().anyMatch(c->c instanceof JEditorPane&&"wiki.articleTitle".equals(c.getName())&&"Cook's Assistant".equals(com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)c).getText()).text())));
+                await(()->all(panel).stream().anyMatch(c->c instanceof JEditorPane&&"wiki.articleTitle".equals(c.getName())&&"Cook's Assistant".equals(com.wikipane.html.WikiHtml.parse(((JEditorPane)c).getText()).text())));
             } catch (TimeoutException ex) {
                 fail(edt(()->all(panel).stream().filter(c->c instanceof JLabel).map(c->((JLabel)c).getText())
                     .collect(java.util.stream.Collectors.toList()).toString()));

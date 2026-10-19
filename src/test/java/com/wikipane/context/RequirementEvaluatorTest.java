@@ -4,7 +4,7 @@ import com.wikipane.DocumentTest;
 import com.wikipane.semantic.*;
 import com.wikipane.semantic.SemanticDocument.*;
 import java.util.*;
-import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.html.WikiHtml;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -46,10 +46,10 @@ public class RequirementEvaluatorTest {
         assertEquals(2,evaluator.evaluate(nested,player(42,42)).children.get(1).children.size());
     }
     private Requirement extract(String html) {
-        return RequirementExtractor.extract(Jsoup.parseBodyFragment(html,"https://oldschool.runescape.wiki/w/Test").body(),"Requirements").get(0).expression;
+        return RequirementExtractor.extract(WikiHtml.parseBodyFragment(html,"https://oldschool.runescape.wiki/w/Test").body(),"Requirements").get(0).expression;
     }
     @Test public void parsedAlternativesWorkButAdditionalConditionsNeverBecomeMet() {
-        Requirement direct = RequirementExtractor.extract(Jsoup.parseBodyFragment("<span data-skill='Cooking' data-level='10'>10 Cooking</span>").selectFirst("span"), "Level required").get(0).expression;
+        Requirement direct = RequirementExtractor.extract(WikiHtml.parseBodyFragment("<span data-skill='Cooking' data-level='10'>10 Cooking</span>").selectFirst("span"), "Level required").get(0).expression;
         assertEquals(RequirementEvaluator.Status.MET, evaluator.evaluate(direct, player(42,42)).status);
         Requirement alternative=extract("<ul><li>Either <span data-skill='Cooking' data-level='10'>10 Cooking</span> or <span data-skill='Agility' data-level='99'>99 Agility</span> (not boostable)</li></ul>");
         assertEquals(RequirementEvaluator.Status.MET,evaluator.evaluate(alternative,player(42,42)).status);

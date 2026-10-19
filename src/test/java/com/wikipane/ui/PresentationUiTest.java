@@ -46,7 +46,7 @@ public class PresentationUiTest {
                 assertTrue(html.contains("To start the quest"));
                 assertTrue(html.contains("10"));
                 assertTrue(html.contains("Cooking"));
-                assertTrue(com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(html).text().contains("Cook's Assistant"));
+                assertTrue(com.wikipane.html.WikiHtml.parseBodyFragment(html).text().contains("Cook's Assistant"));
                 assertFalse(html.contains("Show on map"));
                 assertFalse(html.contains("surprisingly small number"));
             });

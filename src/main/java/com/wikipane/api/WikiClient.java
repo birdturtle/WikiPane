@@ -7,8 +7,8 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import okhttp3.*;
-import com.wikipane.vendor.jsoup.Jsoup;
-import com.wikipane.vendor.jsoup.nodes.Element;
+import com.wikipane.html.WikiHtml;
+import com.wikipane.html.Element;
 
 /** All entry points run on WikiPane's worker pool, never the game or Swing thread. */
 public final class WikiClient implements AutoCloseable {
@@ -38,7 +38,7 @@ public final class WikiClient implements AutoCloseable {
             throw new IOException("The Wiki returned an unsupported destination.");
         Call call = http.newCall(new Request.Builder()
                 .url(url)
-                .header("User-Agent", "WikiPane/1.0.0-beta.3 (RuneLite; https://github.com/birdturtle/WikiPane)")
+                .header("User-Agent", "WikiPane/1.0.0-beta.4 (RuneLite; https://github.com/birdturtle/WikiPane)")
                 .header("Accept", "application/json,text/html;q=0.9,image/*;q=0.8")
                 .build());
         calls.add(call);
@@ -172,7 +172,7 @@ public final class WikiClient implements AutoCloseable {
                 throw new IOException("Unsupported entity lookup destination.");
             Call call = http.newCall(new Request.Builder()
                     .url(current)
-                    .header("User-Agent", "WikiPane/1.0.0-beta.3 (RuneLite; https://github.com/birdturtle/WikiPane)")
+                    .header("User-Agent", "WikiPane/1.0.0-beta.4 (RuneLite; https://github.com/birdturtle/WikiPane)")
                     .build());
             calls.add(call);
             if (closed) {
@@ -198,7 +198,7 @@ public final class WikiClient implements AutoCloseable {
                 }
                 String html = new String(limited(response.body().byteStream(), 2_000_000),
                     java.nio.charset.StandardCharsets.UTF_8);
-                Element canonical = Jsoup.parse(html).selectFirst("link[rel=canonical][href]");
+                Element canonical = WikiHtml.parse(html).selectFirst("link[rel=canonical][href]");
                 HttpUrl target = canonical == null ? null : current.resolve(canonical.attr("href"));
                 String title = WikiUrls.title(target);
                 if (title != null && !title.startsWith("Special:")) {

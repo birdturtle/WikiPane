@@ -173,7 +173,7 @@ public final class WikiDocument {
             this.semanticKey = semanticKey;
             this.requirements = List.copyOf(requirements);
             this.html = html;
-            this.text = com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(html).text().strip();
+            this.text = com.wikipane.html.WikiHtml.parseBodyFragment(html).text().strip();
             this.label = label;
             this.header = header;
             this.column = column;

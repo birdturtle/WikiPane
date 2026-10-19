@@ -6,8 +6,8 @@ import com.wikipane.semantic.SemanticDocument.Source;
 import java.util.*;
 import java.util.regex.*;
 import okhttp3.HttpUrl;
-import com.wikipane.vendor.jsoup.Jsoup;
-import com.wikipane.vendor.jsoup.nodes.Element;
+import com.wikipane.html.WikiHtml;
+import com.wikipane.html.Element;
 
 /** Consumes server-rendered frames and action=parse jsconfigvars. Never executes Wiki JavaScript. */
 public final class WikiMapExtractor {
@@ -63,7 +63,7 @@ public final class WikiMapExtractor {
                             boolean point="Point".equals(string(geometry,"type"))&&(!properties.has("providerID")||"0".equals(string(properties,"providerID")));
                             double x=Double.NaN,y=Double.NaN;
                             if(point) {JsonArray coords=geometry.getAsJsonArray("coordinates");x=coords.get(0).getAsDouble();y=coords.get(1).getAsDouble();point=Double.isFinite(x)&&Double.isFinite(y);}
-                            Element description=Jsoup.parseBodyFragment(string(properties,"description")).body();
+                            Element description=WikiHtml.parseBodyFragment(string(properties,"description")).body();
                             description.select("p").stream().filter(p->p.text().matches("(?is)X/Y:.*")).forEach(Element::remove);
                             String label=string(properties,"title");if(label.isBlank())label=description.text();if(label.isBlank())label="Map location";
                             Source source=new Source(article,WikiUrls.article(article),revision,"","Map locations","map-feature-"+(index++));

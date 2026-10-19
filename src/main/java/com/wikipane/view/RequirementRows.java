@@ -2,8 +2,8 @@ package com.wikipane.view;
 
 import com.wikipane.semantic.SemanticDocument.Requirement;
 import java.util.*;
-import com.wikipane.vendor.jsoup.Jsoup;
-import com.wikipane.vendor.jsoup.nodes.Element;
+import com.wikipane.html.WikiHtml;
+import com.wikipane.html.Element;
 
 /** Source-preserving rows for conjunctions and nested prerequisites; alternatives stay together. */
 public final class RequirementRows {
@@ -22,7 +22,7 @@ public final class RequirementRows {
     }
     private static void append(Requirement condition, int depth, String parent, List<Row> rows) {
         String html = condition.original.html.strip();
-        Element root = Jsoup.parseBodyFragment(html).body();
+        Element root = WikiHtml.parseBodyFragment(html).body();
         Element first = root.childrenSize() == 1 ? root.child(0) : null;
         if (condition.kind == Requirement.Kind.ALL && first != null && first.tagName().equals("ul")
             && !condition.children.isEmpty()) {
@@ -46,10 +46,10 @@ public final class RequirementRows {
     }
     private static boolean noTrailingProse(Element root) {
         boolean list = false;
-        for (com.wikipane.vendor.jsoup.nodes.Node node : root.childNodes()) {
+        for (com.wikipane.html.Node node : root.childNodes()) {
             if (node instanceof Element && ((Element)node).tagName().equals("ul")) list = true;
-            else if (list && (node instanceof com.wikipane.vendor.jsoup.nodes.TextNode
-                ? !((com.wikipane.vendor.jsoup.nodes.TextNode)node).text().isBlank() : !(node instanceof Element) || !((Element)node).text().isBlank())) return false;
+            else if (list && (node instanceof com.wikipane.html.TextNode
+                ? !((com.wikipane.html.TextNode)node).text().isBlank() : !(node instanceof Element) || !((Element)node).text().isBlank())) return false;
         }
         return true;
     }

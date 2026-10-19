@@ -5,7 +5,7 @@ import static com.wikipane.semantic.SemanticDocument.*;
 import com.wikipane.api.WikiUrls;
 import com.wikipane.document.WikiDocumentParser;
 import java.util.*;
-import com.wikipane.vendor.jsoup.nodes.Element;
+import com.wikipane.html.Element;
 
 /** Reads explicit Wiki skill/level markup and list scopes. Ambiguous prose remains OTHER. */
 public final class RequirementExtractor {
@@ -114,7 +114,7 @@ public final class RequirementExtractor {
     private static boolean simpleSkills(Element own) {
         if (own.select("[data-skill][data-level]").isEmpty()) return false;
         Element rest = new Element("div").appendChild(own.clone());
-        for (Element skill : rest.select("[data-skill][data-level]")) skill.replaceWith(new com.wikipane.vendor.jsoup.nodes.TextNode(" condition "));
+        for (Element skill : rest.select("[data-skill][data-level]")) skill.replaceWith(new com.wikipane.html.TextNode(" condition "));
         String text = rest.text().toLowerCase(Locale.ROOT);
         // Reward-accounting notes explain where points come from, not an alternative threshold.
         // Keep the note verbatim and never add those future rewards to the player's current points.

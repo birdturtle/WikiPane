@@ -2,16 +2,15 @@ package com.wikipane.view;
 
 import java.util.*;
 import java.util.regex.*;
-import com.wikipane.vendor.jsoup.Jsoup;
-import com.wikipane.vendor.jsoup.nodes.*;
+import com.wikipane.html.WikiHtml;
+import com.wikipane.html.*;
 
 /** Worker-side styling of existing requirement text. No condition rewriting or new facts. */
 public final class RequirementPresentation {
     private RequirementPresentation() {}
     private static final Pattern TOKENS = Pattern.compile("(?i)\\b(not boostable|boostable|or|[0-9]+(?:,[0-9]{3})*(?:\\.[0-9]+)?)\\b");
     public static String html(String original) {
-        Element root = Jsoup.parseBodyFragment(original).body();
-        root.ownerDocument().outputSettings().prettyPrint(false);
+        Element root = WikiHtml.parseBodyFragment(original).body();
         List<TextNode> texts = new ArrayList<>(); collect(root, texts);
         for (TextNode text : texts) {
             if (text.parent() instanceof Element) {

@@ -5,7 +5,8 @@ ext.auditJarApis = { File artifact ->
     new java.util.jar.JarFile(artifact).withCloseable { jar ->
         jar.entries().each { entry ->
             if (!entry.name.endsWith('.class')) return
-            assert !entry.name.startsWith('org/jsoup/') : "Unrestricted jsoup leaked into ${artifact.name}"
+            assert !(entry.name.startsWith('org/jsoup/') || entry.name.startsWith('com/wikipane/vendor/')) :
+                "Unexpected bundled dependency in ${artifact.name}"
             jar.getInputStream(entry).withCloseable { stream ->
                 def data = new DataInputStream(stream)
                 assert data.readInt() == (int) 0xCAFEBABE

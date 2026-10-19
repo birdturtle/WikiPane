@@ -7,7 +7,7 @@ import com.wikipane.view.*;
 import java.util.*;
 import java.util.stream.*;
 import net.runelite.api.Quest;
-import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.html.WikiHtml;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -18,13 +18,13 @@ public class QuestRequirementRowsTest {
         int quests = 0;
         for (ArticleViewModel.Component component : page.view.area("requirements").components) {
             for (ReaderLayout.ConditionGroup group : page.layout.section(component.id).requirements) {
-                String original = Jsoup.parse(group.condition.original.html).text();
-                String rows = group.rows.stream().map(r -> Jsoup.parse(r.html).text()).collect(Collectors.joining(" "));
+                String original = WikiHtml.parse(group.condition.original.html).text();
+                String rows = group.rows.stream().map(r -> WikiHtml.parse(r.html).text()).collect(Collectors.joining(" "));
                 assertEquals(original, rows);
-                List<String> before = Jsoup.parse(group.condition.original.html).select("a[href]").eachAttr("href");
+                List<String> before = WikiHtml.parse(group.condition.original.html).select("a[href]").eachAttr("href");
                 List<String> after = new ArrayList<>();
                 for (RequirementRows.Row row : group.rows) {
-                    after.addAll(Jsoup.parse(row.html).select("a[href]").eachAttr("href"));
+                    after.addAll(WikiHtml.parse(row.html).select("a[href]").eachAttr("href"));
                     if (row.condition == null) continue;
                     String title = RequirementEvaluator.questTitle(row.condition);
                     if (title == null || title.isEmpty()) continue;
@@ -50,9 +50,9 @@ public class QuestRequirementRowsTest {
         assertEquals(RequirementEvaluator.Status.MET,evaluator.evaluate(stage,complete).status);
         Requirement alternative=extract("<ul><li>Either <span data-skill='Cooking' data-level='10'>10 Cooking</span> or <span data-skill='Agility' data-level='20'>20 Agility</span></li></ul>");
         assertEquals(1,RequirementRows.of(alternative).size());
-        assertTrue(Jsoup.parse(RequirementRows.of(alternative).get(0).html).text().contains(" or "));
+        assertTrue(WikiHtml.parse(RequirementRows.of(alternative).get(0).html).text().contains(" or "));
     }
     private Requirement extract(String html) {
-        return RequirementExtractor.extract(Jsoup.parseBodyFragment(html,"https://oldschool.runescape.wiki/w/Test").body(),"Requirements").get(0).expression;
+        return RequirementExtractor.extract(WikiHtml.parseBodyFragment(html,"https://oldschool.runescape.wiki/w/Test").body(),"Requirements").get(0).expression;
     }
 }

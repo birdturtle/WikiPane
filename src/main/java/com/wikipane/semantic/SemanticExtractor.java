@@ -6,8 +6,8 @@ import com.wikipane.api.WikiUrls;
 import com.wikipane.document.WikiDocument;
 import com.wikipane.document.WikiDocumentParser;
 import java.util.*;
-import com.wikipane.vendor.jsoup.Jsoup;
-import com.wikipane.vendor.jsoup.nodes.Element;
+import com.wikipane.html.WikiHtml;
+import com.wikipane.html.Element;
 
 /** Extracts domain structure from all normalized blocks. No UI priorities or truncation. */
 public final class SemanticExtractor {
@@ -16,7 +16,7 @@ public final class SemanticExtractor {
         return rich(WikiDocumentParser.inline(element));
     }
     public static RichText rich(String html) {
-        Element root = Jsoup.parseBodyFragment(html, WikiUrls.BASE.toString()).body();
+        Element root = WikiHtml.parseBodyFragment(html, WikiUrls.BASE.toString()).body();
         List<Link> links = new ArrayList<>();
         for (Element a : root.select("a[href]")) {
             okhttp3.HttpUrl url = WikiUrls.resolve(a.attr("href"));
@@ -85,10 +85,10 @@ public final class SemanticExtractor {
                 List<RequirementGroup> groups = raw.requirements;
                 if (groups.isEmpty() && inherited == Role.REQUIREMENTS && nodeType != NodeType.REFERENCES)
                     groups = RequirementExtractor.extract(
-                        Jsoup.parseBodyFragment(raw.html, document.url).body(), "Requirements");
+                        WikiHtml.parseBodyFragment(raw.html, document.url).body(), "Requirements");
                 if (!groups.isEmpty())
                     requirements.add(new RequirementSet(groups, source));
-                Element content = Jsoup.parseBodyFragment(raw.html, document.url).body();
+                Element content = WikiHtml.parseBodyFragment(raw.html, document.url).body();
                 if (nodeType == NodeType.REFERENCES)
                     semanticRole = Role.REFERENCES;
                 for (Element ol : content.select("ol"))
@@ -199,7 +199,7 @@ public final class SemanticExtractor {
     }
     private static List<Location> locations(RichText text, Source source) {
         List<Location> values = new ArrayList<>();
-        for (Element map : Jsoup.parseBodyFragment(text.html).select("span[data-wikipane-map]"))
+        for (Element map : WikiHtml.parseBodyFragment(text.html).select("span[data-wikipane-map]"))
             values.add(new Location(map.attr("data-x"),map.attr("data-y"),map.attr("data-plane"),source,true,map.attr("data-mapid")));
         boolean explicit = !values.isEmpty();
         java.util.regex.Matcher m = java.util.regex.Pattern

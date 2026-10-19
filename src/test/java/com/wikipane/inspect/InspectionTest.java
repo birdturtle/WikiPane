@@ -51,8 +51,8 @@ public class InspectionTest {
             else {
                 com.google.gson.JsonObject fixture=DocumentTest.fixture(url.queryParameter("page").replace(' ', '_'));
                 if(multipleRecipes) {
-                    com.wikipane.vendor.jsoup.nodes.Element root=com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(fixture.getAsJsonObject("parse").get("text").getAsString()).body();
-                    com.wikipane.vendor.jsoup.nodes.Element original=root.selectFirst(".recipe-table"),copy=original.clone();
+                    com.wikipane.html.Element root=com.wikipane.html.WikiHtml.parseBodyFragment(fixture.getAsJsonObject("parse").get("text").getAsString()).body();
+                    com.wikipane.html.Element original=root.selectFirst(".recipe-table"),copy=original.clone();
                     copy.select("table").get(1).select("tr").get(1).select("td").get(2).text("2");
                     original.after(copy);fixture.getAsJsonObject("parse").addProperty("text",root.html());
                 }

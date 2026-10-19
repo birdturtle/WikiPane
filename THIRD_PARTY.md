@@ -31,12 +31,6 @@ Source: https://github.com/runelite/runelite/blob/master/runelite-client/src/mai
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-## jsoup
-
-jsoup 1.23.2, Copyright Jonathan Hedley, MIT license. WikiPane compiles a private, in-memory subset from its pinned source artifact; the original unrestricted binary is not distributed. Source selection, exact changes and hash are documented in [parser subset](third-party/jsoup-parser/README.md). https://jsoup.org/license
-
-The complete jsoup license is in `third-party/jsoup-LICENSE.txt` and is included in the developer JAR under `licenses/`.
-
 ## OSRS Wiki
 
 Article fixtures and displayed text: OSRS Wiki contributors, CC BY-NC-SA 3.0. Layout normalization is an adaptation. Images have separate terms, including Jagex copyright.

@@ -5,8 +5,8 @@ import static com.wikipane.document.WikiDocument.*;
 import com.google.gson.*;
 import com.wikipane.api.WikiUrls;
 import java.util.*;
-import com.wikipane.vendor.jsoup.Jsoup;
-import com.wikipane.vendor.jsoup.nodes.*;
+import com.wikipane.html.WikiHtml;
+import com.wikipane.html.*;
 
 /** Server HTML is parsed, then reduced to explicit semantic blocks and safe inline tags. */
 public final class WikiDocumentParser {
@@ -17,7 +17,7 @@ public final class WikiDocumentParser {
         if (p == null || !p.has("text"))
             throw new IllegalArgumentException("The Wiki returned an incomplete article.");
         String title = p.get("title").getAsString();
-        Element root = Jsoup.parseBodyFragment(p.get("text").getAsString(), WikiUrls.article(title)).body();
+        Element root = WikiHtml.parseBodyFragment(p.get("text").getAsString(), WikiUrls.article(title)).body();
         normalizeTranscludedHeadings(root, title);
         com.wikipane.semantic.WikiMaps maps=com.wikipane.semantic.WikiMapExtractor.extract(root,p,title,p.has("revid")?p.get("revid").getAsLong():0);
         // Script-only chart placeholders contain no article data. Keep the separate real-time price link.
@@ -267,7 +267,7 @@ public final class WikiDocumentParser {
         flush(loose, out);
     }
     private static void flush(StringBuilder text, List<Block> out) {
-        if (!Jsoup.parseBodyFragment(text.toString()).text().isBlank())
+        if (!WikiHtml.parseBodyFragment(text.toString()).text().isBlank())
             out.add(new Text(text.toString()));
         text.setLength(0);
     }
@@ -351,7 +351,7 @@ public final class WikiDocumentParser {
                             && span.text().matches("[01]"))
                         .forEach(Element::remove);
                 String html = inline(own);
-                String text = Jsoup.parseBodyFragment(html).text();
+                String text = WikiHtml.parseBodyFragment(html).text();
                 StringJoiner join = new StringJoiner(" / ");
                 Set<String> unique = new LinkedHashSet<>();
                 for (int c = column; c < column + cs; c++) {

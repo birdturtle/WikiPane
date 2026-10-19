@@ -64,7 +64,7 @@ public class ReaderFrameworkTest {
                         all(body)
                             .stream()
                             .filter(c -> c instanceof JEditorPane)
-                            .map(c -> com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(((JEditorPane) c).getText()).text())
+                            .map(c -> com.wikipane.html.WikiHtml.parseBodyFragment(((JEditorPane) c).getText()).text())
                             .reduce("", (a, b) -> a + " " + b);
                     assertTrue(text.contains("Attack bonuses"));
                     assertTrue(text.contains("Defence bonuses"));
@@ -104,13 +104,13 @@ public class ReaderFrameworkTest {
                         .stream()
                         .filter(c
                             -> c instanceof JEditorPane
-                                && com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(((JEditorPane) c).getText())
+                                && com.wikipane.html.WikiHtml.parseBodyFragment(((JEditorPane) c).getText())
                                     .text()
                                     .contains("Superior dragon bones"))
                         .findFirst()
                         .orElseThrow();
                 String href =
-                    com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(name.getText()).selectFirst("a[href]").attr("href");
+                    com.wikipane.html.WikiHtml.parseBodyFragment(name.getText()).selectFirst("a[href]").attr("href");
                 javax.swing.event.HyperlinkEvent click = new javax.swing.event.HyperlinkEvent(
                     name, javax.swing.event.HyperlinkEvent.EventType.ACTIVATED, null, href);
                 for (javax.swing.event.HyperlinkListener listener : name.getHyperlinkListeners())

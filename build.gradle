@@ -31,7 +31,6 @@ dependencies {
 
 group = 'com.wikipane'
 
-apply from: 'gradle/parser-only.gradle'
 apply from: 'gradle/artifact-api-check.gradle'
 
 tasks.withType(JavaCompile).configureEach {
@@ -91,7 +90,7 @@ test {
     systemProperty 'java.awt.headless', 'true'
 }
 
-version = '1.0.0-beta.3'
+version = '1.0.0-beta.4'
 
 tasks.register('liveCheck', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
@@ -144,7 +143,6 @@ tasks.register('developerPluginJar', Jar) {
     from('runelite-plugin.properties')
     from('LICENSE')
     from('THIRD_PARTY.md')
-    from('third-party/jsoup-LICENSE.txt') { into 'licenses' }
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA',
         'META-INF/versions/**', '**/module-info.class'
@@ -166,9 +164,8 @@ tasks.register('verifyDeveloperPluginJar') {
         file('runelite-plugin.properties').withInputStream { properties.load(it) }
         assert properties.getProperty('version') == project.version.toString()
         new java.util.jar.JarFile(tasks.developerPluginJar.archiveFile.get().asFile).withCloseable { jar ->
-            ['com/wikipane/WikiPanePlugin.class', 'com/wikipane/vendor/jsoup/Jsoup.class',
-             'runelite-plugin.properties', 'LICENSE', 'THIRD_PARTY.md', 'licenses/jsoup-LICENSE.txt',
-             'META-INF/licenses/jsoup-LICENSE.txt', 'META-INF/WikiPane-parser-NOTICE.md'].each {
+            ['com/wikipane/WikiPanePlugin.class', 'com/wikipane/html/WikiHtml.class',
+             'runelite-plugin.properties', 'LICENSE', 'THIRD_PARTY.md'].each {
                 assert jar.getJarEntry(it) != null : "Missing distribution entry: ${it}"
             }
             assert jar.manifest.mainAttributes.getValue('Implementation-Version') == project.version.toString()
@@ -257,10 +254,4 @@ tasks.register('mapPreview', JavaExec) {
 tasks.register('mapCoverageReport', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.wikipane.MapCoverageReport'
-}
-
-// Hub's v5 packager copies ZipEntry compressed sizes while rewriting the archive.
-// Stored entries avoid cross-JDK/zlib recompression mismatches; runtime content is identical.
-tasks.matching { it.name == 'runelitePluginHubPackage' }.configureEach {
-    entryCompression = ZipEntryCompression.STORED
 }

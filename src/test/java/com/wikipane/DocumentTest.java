@@ -8,7 +8,7 @@ import com.wikipane.document.WikiDocument.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import com.wikipane.vendor.jsoup.Jsoup;
+import com.wikipane.html.WikiHtml;
 import org.junit.Test;
 
 public class DocumentTest {
@@ -23,7 +23,7 @@ public class DocumentTest {
         return new WikiDocumentParser().parse(fixture(name));
     }
     private static String plain(String html) {
-        return Jsoup.parseBodyFragment(html).text();
+        return WikiHtml.parseBodyFragment(html).text();
     }
     public static String flatten(WikiDocument article) {
         StringBuilder s = new StringBuilder(article.title);
@@ -130,12 +130,12 @@ public class DocumentTest {
         assertTrue(text.contains("Vorkath"));
         assertTrue(text.contains("750"));
         assertTrue(text.contains("732"));
-        com.wikipane.vendor.jsoup.nodes.Document raw = Jsoup.parse(source.getAsJsonObject("parse").get("text").getAsString());
+        com.wikipane.html.Document raw = WikiHtml.parse(source.getAsJsonObject("parse").get("text").getAsString());
         raw.select(".navbox,.metadata,.toc,.infobox-switch-buttons-caption,.infobox-switch-resources")
             .remove();
         int expected = 0;
-        for (com.wikipane.vendor.jsoup.nodes.Element tr : raw.select("tr"))
-            for (com.wikipane.vendor.jsoup.nodes.Element e : tr.children())
+        for (com.wikipane.html.Element tr : raw.select("tr"))
+            for (com.wikipane.html.Element e : tr.children())
                 if (e.tagName().equals("th") || e.tagName().equals("td"))
                     if (e.closest("table").parents().stream().noneMatch(
                             parent -> parent.tagName().equals("table")))
@@ -190,7 +190,7 @@ public class DocumentTest {
     }
     @Test
     public void linksFormattingAndOrderedListsSurvive() {
-        String html = WikiDocumentParser.inline(Jsoup
+        String html = WikiDocumentParser.inline(WikiHtml
                 .parseBodyFragment(
                     "<ol><li>First <a href='/w/Cooking'>Cooking</a></li><li><b>Second</b></li></ol>")
                 .body());

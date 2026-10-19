@@ -37,7 +37,7 @@ public final class PinPreview {
             List<PinSelection.Fragment> fragments = new ArrayList<>();
             for (JEditorPane pane : panes(body)) {
                 Object context = pane.getClientProperty("wiki.pin.context");
-                String text = com.wikipane.vendor.jsoup.Jsoup.parseBodyFragment(pane.getText()).text();
+                String text = com.wikipane.html.WikiHtml.parseBodyFragment(pane.getText()).text();
                 if (context instanceof PinContext && ((PinContext)context).condition != null
                     && (text.contains("Cooking") && text.contains("10") || text.contains("Cook's Assistant"))) {
                     fragments.add(SelectionCapture.capture(pane, 0, pane.getDocument().getLength()));

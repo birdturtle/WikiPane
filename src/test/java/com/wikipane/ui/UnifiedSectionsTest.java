@@ -29,7 +29,7 @@ public class UnifiedSectionsTest {
             .filter(c -> {ArticleNavigation.Destination d=(ArticleNavigation.Destination)((JComponent)c).getClientProperty("wiki.destination");return d!=null&&d.area.equals(area)&&d.anchor.equals(anchor);})
             .findFirst().orElseThrow();
     }
-    private static String text(Container root){StringBuilder s=new StringBuilder();for(Component child:all(root))if(child instanceof JEditorPane)s.append(com.wikipane.vendor.jsoup.Jsoup.parse(((JEditorPane)child).getText()).text()).append('\n');return s.toString();}
+    private static String text(Container root){StringBuilder s=new StringBuilder();for(Component child:all(root))if(child instanceof JEditorPane)s.append(com.wikipane.html.WikiHtml.parse(((JEditorPane)child).getText()).text()).append('\n');return s.toString();}
     @Test public void treeAndDropdownHaveIdenticalDestinationsAndEveryComponentHasOneOwner() throws Exception {
         for(String fixture:List.of("Vorkath","Cooking","Recipe_for_Disaster__Full_guide","Bronze_dagger","Prayer_potion")) {
             WikiPage page=new WikiPage(DocumentTest.document(fixture));

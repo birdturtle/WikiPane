@@ -247,8 +247,35 @@ public final class ReaderComponents {
         return text;
     }
     public JComponent condition(String html) {
-        JPanel row = column();
-        row.add(text(html));
+        JEditorPane prose = text(html);
+        prose.putClientProperty("reader.column", Boolean.TRUE);
+        // BoxLayout caches child heights before assigning the indented width. A wrapped
+        // condition must measure its text at that width before reserving the row height.
+        JPanel row = new JPanel(null) {
+            private int heightAt(int width) {
+                Insets inset = getInsets();
+                prose.setSize(Math.max(1, width - inset.left - inset.right), Short.MAX_VALUE);
+                return prose.getPreferredSize().height + inset.top + inset.bottom;
+            }
+            @Override public Dimension getPreferredSize() {
+                Container parent = getParent();
+                int width = parent != null && parent.getWidth() > 0
+                    ? parent.getWidth() - parent.getInsets().left - parent.getInsets().right
+                    : getWidth() > 0 ? getWidth() : 190;
+                return new Dimension(width, heightAt(width));
+            }
+            @Override public Dimension getMaximumSize() {
+                return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+            }
+            @Override public Dimension getMinimumSize() { return new Dimension(0, getPreferredSize().height); }
+            @Override public void doLayout() {
+                Insets inset = getInsets();
+                int height = heightAt(getWidth());
+                prose.setBounds(inset.left, inset.top, Math.max(1, getWidth() - inset.left - inset.right),
+                    height - inset.top - inset.bottom);
+            }
+        };
+        row.setOpaque(false); row.setAlignmentX(Component.LEFT_ALIGNMENT); row.add(prose);
         row.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 2, 0, 0, BORDER),
             BorderFactory.createEmptyBorder(3, 7, 3, 0)));
         return row;

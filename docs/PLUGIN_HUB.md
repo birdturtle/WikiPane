@@ -14,11 +14,11 @@ The original tokenizer/tree builder, DOM, entities and CSS selectors are retaine
 
 ## Source dependency verification
 
-Only `jsoup-1.23.2-sources.jar` is needed. Its independently Maven-Central-checked SHA-256 is:
+Only `jsoup-1.23.2-sources.jar` supplies code. Gradle also resolves its POM and imported Netty BOM metadata, so those existing independently checked hashes remain verified; no Netty or unrestricted jsoup binaries are fetched as runtime dependencies or shipped. Its independently Maven-Central-checked SHA-256 is:
 
 `f0ed21735857df93c3e461d1aecf89d28c3eda552f2e043d68959d341376aa17`
 
-The build itself checks that hash before preparing sources. The Hub patch also registers it for Gradle dependency verification. An independent `thirdPartySources` configuration avoids upgrading the existing binary jsoup dependency used by other plugins during `verifyAll`. The previous binary/POM/Netty-BOM additions are removed from the proposed patch; Netty is not needed or shipped.
+The build itself checks that hash before preparing sources. The Hub patch also registers it for Gradle dependency verification. An independent `thirdPartySources` configuration avoids upgrading the existing binary jsoup dependency used by other plugins during `verifyAll`. The unrestricted binary verification entry is removed. POM/BOM entries are retained solely for Gradle build metadata; Netty is not shipped.
 
 BSD-2-Clause code licensing, original RuneLite adaptation notices, full jsoup MIT license, Wiki contributor/source/revision attribution and separate Jagex imagery terms remain available. The license and parser adaptation notice are embedded in developer and Hub artifacts.
 
@@ -44,3 +44,5 @@ The parser-only clean build passes 261 tests with no failures/errors/skips. All 
 - [Official packaging tooling](https://github.com/runelite/plugin-hub-tooling)
 - [Plugin Hub security/rule review](https://github.com/runelite/runelite/wiki/Plugin-Hub-Review)
 - [Rejected or rolled-back features](https://github.com/runelite/runelite/wiki/Rejected-or-Rolled-Back-Features)
+
+Current parser-only source: `2f6b7b62594b99ab11ddc62deeef8f461d3ca371`. The official v5 packager passed on that exact commit, including the all-classes artifact API guard. The source-verification `verifyAll` check also passed with the necessary POM/BOM build metadata. The beta-3 JAR was provided for user regression testing; the Hub rescan remains a separate result.
